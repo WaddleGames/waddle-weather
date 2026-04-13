@@ -194,10 +194,11 @@ async function fetchWeather() {
 function render(data) {
     const minutely = data.minutely;
 
-    if (!minutely) {
-        document.getElementById("summary").innerText =
-            "No minute data available.";
-        return;
+    if (!minutely || !minutely.data || minutely.data.length === 0) {
+    document.getElementById("summary").innerText =
+        "No minute-by-minute precipitation data available.";
+    document.getElementById("timeline").innerHTML = "";
+    return;
     }
 
     document.getElementById("summary").innerText = minutely.summary;
