@@ -45,6 +45,36 @@ h1 {
     margin: 0 1px;
     background: #4fc3f7;
 }
+
+#controls {
+    margin-bottom: 20px;
+}
+
+#controls input {
+    padding: 10px;
+    margin: 5px;
+    border-radius: 5px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 1em;
+}
+
+#controls button {
+    padding: 10px 15px;
+    border-radius: 5px;
+    border: none;
+    background: #4fc3f7;
+    color: #0b1e2d;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#controls button:hover {
+    background: #29b6f6;
+}
+    
 </style>
 
 </head>
@@ -52,7 +82,13 @@ h1 {
 <body>
 
 <h1>Minute-by-Minute Forecast</h1>
-
+    
+<div id="controls">
+    <input type="number" id="latInput" value="41.8781" step="0.0001" placeholder="Latitude">
+    <input type="number" id="lonInput" value="-87.6298" step="0.0001" placeholder="Longitude">
+    <button onclick="updateLocation()">Update Location</button>
+</div>
+    
 <div id="summary">Loading...</div>
 
 <div id="current">
@@ -67,66 +103,82 @@ h1 {
 
 const API_KEY = "p1eTDIbrnfGjCJlwMahUzarQNqzNPyxI";
 
-// Chicago
-const lat = 41.8781;
-const lon = -87.6298;
+// Make these variables let so we can update them
+let lat = 41.8781;
+let lon = -87.6298;
 
 let cachedData = null;
 let lastFetchTime = 0;
 const CACHE_TIME = 120000;
 
+// Global intervals so we can reset them if needed
+let nwsInterval;
+let pirateInterval;
+
 // ---------------------------
-// CURRENT CONDITIONS (Simplified)
+// HANDLE LOCATION UPDATE
+// ---------------------------
+function updateLocation() {
+    const newLat = parseFloat(document.getElementById("latInput").value);
+    const newLon = parseFloat(document.getElementById("lonInput").value);
+
+    if (isNaN(newLat) || isNaN(newLon)) {
+        alert("Please enter valid numbers for latitude and longitude.");
+        return;
+    }
+
+    lat = newLat;
+    lon = newLon;
+
+    // Invalidate cache so it forces a fresh download
+    cachedData = null;
+    lastFetchTime = 0;
+
+    document.getElementById("summary").innerText = "Loading new location...";
+    document.getElementById("conditionText").innerText = "Loading current conditions...";
+    document.getElementById("weatherIcon").src = "";
+
+    // Run fetches immediately
+    loadCurrentConditions();
+    fetchWeather();
+}
+
+// ---------------------------
+// CURRENT CONDITIONS (3-Step NWS Hop)
 // ---------------------------
 async function loadCurrentConditions() {
     try {
-        const res = await fetch(
-            "https://api.weather.gov/stations/KORD/observations/latest"
-        );
-        const data = await res.json();
-        const props = data.properties;
+        // Step 1: Get the gridpoint data from coordinates
+        const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+        if (!pointRes.ok) throw new Error("Location likely outside US NWS coverage.");
+        const pointData = await pointRes.json();
+        const stationsUrl = pointData.properties.observationStations;
 
-        // 1. Set the text (e.g., "Slight Chance Rain Showers")
+        // Step 2: Get the list of observation stations for this grid
+        const stationsRes = await fetch(stationsUrl);
+        const stationsData = await stationsRes.json();
+        
+        // Grab the closest station ID (e.g., KORD)
+        if (!stationsData.features || stationsData.features.length === 0) {
+            throw new Error("No observation stations found near this location.");
+        }
+        const stationId = stationsData.features[0].properties.stationIdentifier;
+
+        // Step 3: Get the latest observation from that specific station
+        const obsRes = await fetch(`https://api.weather.gov/stations/${stationId}/observations/latest`);
+        const obsData = await obsRes.json();
+        const props = obsData.properties;
+
         document.getElementById("conditionText").innerText = props.textDescription || "Unknown";
 
-        // 2. Direct hit! Use the API's icon URL directly.
-        // It already handles day/night and the specific weather type.
         if (props.icon) {
             document.getElementById("weatherIcon").src = props.icon;
         }
 
     } catch (err) {
         console.error("Current conditions error:", err);
-    }
-}
-
-// ---------------------------
-// PIRATE WEATHER FETCH & RENDER
-// ---------------------------
-// Keep your Pirate Weather functions here as they handle the "Minute-by-Minute" bars
-// that the NWS API doesn't provide!
-
-// ---------------------------
-// PRECIP GATE (simple)
-// ---------------------------
-async function checkPrecipGate() {
-    try {
-        const res = await fetch(
-            "https://api.weather.gov/stations/KORD/observations/latest"
-        );
-        const data = await res.json();
-
-        const text = (data.properties.textDescription || "").toLowerCase();
-
-        return (
-            text.includes("rain") ||
-            text.includes("snow") ||
-            text.includes("drizzle") ||
-            text.includes("shower")
-        );
-
-    } catch (err) {
-        return true;
+        document.getElementById("conditionText").innerText = "Current conditions unavailable (NWS only supports US coordinates).";
+        document.getElementById("weatherIcon").src = ""; // Clear broken image
     }
 }
 
@@ -154,8 +206,8 @@ async function fetchWeather() {
         render(data);
 
     } catch (err) {
-        document.getElementById("summary").innerText =
-            "Error loading forecast.";
+        console.error("Fetch error:", err);
+        document.getElementById("summary").innerText = "Error loading forecast.";
     }
 }
 
@@ -163,13 +215,19 @@ async function fetchWeather() {
 // RENDER MINUTECast
 // ---------------------------
 function render(data) {
+    if (data.error || data.message) {
+        console.error("API Error:", data.error || data.message);
+        document.getElementById("summary").innerText = "API Error: " + (data.error || data.message);
+        document.getElementById("timeline").innerHTML = "";
+        return;
+    }
+
     const minutely = data.minutely;
 
     if (!minutely || !minutely.data || minutely.data.length === 0) {
-    document.getElementById("summary").innerText =
-        "No minute-by-minute precipitation data available.";
-    document.getElementById("timeline").innerHTML = "";
-    return;
+        document.getElementById("summary").innerText = "No precipitation expected for the next 60 minutes.";
+        document.getElementById("timeline").innerHTML = "";
+        return;
     }
 
     document.getElementById("summary").innerText = minutely.summary;
@@ -197,24 +255,14 @@ function render(data) {
 }
 
 // ---------------------------
-// STARTUP (Fixed Logic)
+// STARTUP
 // ---------------------------
-async function start() {
-    // 1. Load general conditions (Icons/Text) from NWS
+function start() {
     loadCurrentConditions();
-    setInterval(loadCurrentConditions, 300000); // Refresh every 5 mins
+    nwsInterval = setInterval(loadCurrentConditions, 300000); 
 
-    // 2. Fetch the MinuteCast immediately
-    // We removed the 'hasPrecip' gate so it loads even if it's currently dry
     fetchWeather();
-    
-    // 3. Refresh MinuteCast every 3 minutes
-    setInterval(fetchWeather, 180000);
+    pirateInterval = setInterval(fetchWeather, 180000);
 }
 
 start();
-
-</script>
-
-</body>
-</html>
