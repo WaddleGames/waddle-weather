@@ -3,100 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minute Forecast - Precision View</title>
+    <title>Ultimate Weather Hub</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0b1e2d;
+            background: linear-gradient(180deg, #0b1e2d 0%, #1a2a3a 100%);
+            background-attachment: fixed;
             color: white;
             text-align: center;
             margin: 0;
             padding: 20px;
         }
 
-        h1 { margin-bottom: 5px; font-weight: 300; font-size: 1.8em; }
+        h1 { margin-bottom: 5px; font-weight: 300; font-size: 2em; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         h5 { margin-top: 0; opacity: 0.6; font-weight: 400; margin-bottom: 20px; }
 
-        /* Updated Coordinates Panel with Find Me button */
+        /* NWS Alerts Banner */
+        #alerts-banner {
+            background: #ff5252;
+            color: white;
+            padding: 15px;
+            margin: 0 auto 20px auto;
+            border-radius: 10px;
+            font-weight: bold;
+            max-width: 700px;
+            display: none;
+            box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); } 
+            70% { box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); } 
+        }
+
         #coords-panel {
             margin-bottom: 25px;
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.05);
             display: inline-block;
             padding: 10px 20px;
             border-radius: 50px;
             border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
         }
 
         #coords-panel input {
-            background: none;
-            border: none;
-            border-bottom: 1px solid #4fc3f7;
-            color: white;
-            padding: 5px;
-            width: 80px;
-            margin: 0 5px;
-            text-align: center;
-            outline: none;
+            background: none; border: none; border-bottom: 1px solid #4fc3f7;
+            color: white; padding: 5px; width: 80px; margin: 0 5px; text-align: center; outline: none;
         }
 
         .btn {
-            border: none;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-left: 5px;
+            border: none; padding: 6px 16px; border-radius: 20px; font-weight: bold;
+            cursor: pointer; transition: 0.2s; margin-left: 5px;
         }
-
         .btn-update { background: #4fc3f7; color: #0b1e2d; }
-        .btn-update:hover { background: white; }
-        
+        .btn-update:hover { background: white; transform: translateY(-2px); }
         .btn-locate { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
-        .btn-locate:hover { background: rgba(255,255,255,0.2); }
+        .btn-locate:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
 
         #dashboard {
-            max-width: 700px;
+            max-width: 750px;
             margin: auto;
             background: rgba(255, 255, 255, 0.05);
             padding: 25px;
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
 
+        .section-divider { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 30px 0; }
+
+        /* Stats & Minute Chart */
         .stats-row { display: flex; justify-content: space-around; margin: 20px 0; }
         .stat-box { flex: 1; }
         .stat-label { font-size: 0.75em; opacity: 0.7; margin-bottom: 5px; text-transform: uppercase; }
         .stat-number { font-size: 1.8em; color: #4fc3f7; font-weight: bold; }
-
-        .chart-frame { display: flex; height: 250px; margin-top: 20px; position: relative; }
-        .y-axis {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding-right: 10px;
-            font-size: 0.7em;
-            color: #888;
-            text-align: right;
-            width: 45px;
-        }
-
+        .chart-frame { display: flex; height: 200px; margin-top: 20px; position: relative; }
+        .y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 10px; font-size: 0.7em; color: #888; text-align: right; width: 45px; }
         #timeline { flex-grow: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 2px solid #444; border-left: 2px solid #444; }
         .bar { flex: 1; border-radius: 1px 1px 0 0; transition: height 0.5s ease; }
-
         .x-axis { display: flex; margin-left: 57px; justify-content: space-between; margin-top: 10px; font-size: 0.8em; color: #4fc3f7; opacity: 0.8; }
-        .legend { display: flex; justify-content: center; gap: 20px; margin-top: 30px; font-size: 0.8em; }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .box { width: 12px; height: 12px; border-radius: 2px; }
 
-        #weatherIcon { width: 70px; height: 70px; border-radius: 8px; margin-bottom: 10px; }
-        #stationName { color: #888; font-size: 0.7em; letter-spacing: 1.5px; margin-bottom: 15px; }
+        /* 5-Day OpenWeather Carousel */
+        #forecast-5day { text-align: left; }
+        .section-title { font-size: 1.2em; font-weight: 300; margin-bottom: 15px; color: #4fc3f7; }
+        .forecast-scroll {
+            display: flex; overflow-x: auto; gap: 15px; padding-bottom: 15px;
+            scrollbar-width: thin; scrollbar-color: #4fc3f7 transparent;
+        }
+        .forecast-scroll::-webkit-scrollbar { height: 6px; }
+        .forecast-scroll::-webkit-scrollbar-thumb { background: #4fc3f7; border-radius: 10px; }
+        .forecast-card {
+            background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px;
+            min-width: 90px; text-align: center; flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .ow-icon { width: 50px; height: 50px; margin: 5px 0; }
+        .ow-temp { font-size: 1.4em; color: white; font-weight: bold; }
+        .ow-time { font-size: 0.9em; font-weight: bold; color: #ffd54f; }
+        .ow-day { font-size: 0.75em; opacity: 0.7; text-transform: uppercase; }
+        .ow-desc { font-size: 0.75em; opacity: 0.8; text-transform: capitalize; }
+
+        #weatherIcon { width: 80px; height: 80px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        #stationName { color: #888; font-size: 0.75em; letter-spacing: 1.5px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-    <h1>Local Minute-by-Minute Precipitation Forecast</h1>
-    <h5>Powered by Dark Sky data.</h5>
+    <div id="alerts-banner">⚠️ LOADING ALERTS...</div>
+
+    <h1>The Weather Hub</h1>
+    <h5>Live Radar, Minute-Cast & 5-Day Outlook</h5>
 
     <div id="coords-panel">
         Lat: <input type="number" id="latInput" value="41.8781" step="0.0001">
@@ -108,10 +126,11 @@
 <div id="dashboard">
     <div id="stationName">STATION SEARCHING...</div>
     <img id="weatherIcon" src="" style="display:none;">
-    <div id="conditionText">Updating Sky...</div>
+    <div id="conditionText" style="font-size: 1.4em; font-weight: 300;">Updating Sky...</div>
 
-    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 25px 0;">
+    <hr class="section-divider">
 
+    <div class="section-title">Hyper-Local Precip (Next 60 Min)</div>
     <div class="stats-row">
         <div class="stat-box">
             <div class="stat-label">Next 60 Min Total</div>
@@ -122,57 +141,48 @@
             <div id="twentyFourHourTotal" class="stat-number">0.00"</div>
         </div>
     </div>
-
     <div id="summary" style="font-weight: 300; margin-bottom: 10px; font-size: 0.9em;">Calculating...</div>
-
     <div class="chart-frame">
-        <div class="y-axis">
-            <div>Heavy</div>
-            <div>Mod</div>
-            <div>Light</div>
-            <div>Trace</div>
-        </div>
+        <div class="y-axis"><div>Heavy</div><div>Mod</div><div>Light</div><div>Trace</div></div>
         <div id="timeline"></div>
     </div>
-    
-    <div class="x-axis">
-        <span>NOW</span>
-        <span>15m</span>
-        <span>30m</span>
-        <span>45m</span>
-        <span>60m</span>
+    <div class="x-axis"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
+
+    <hr class="section-divider">
+
+    <div id="forecast-5day">
+        <div class="section-title">5-Day Outlook (3-Hour Steps)</div>
+        <div class="forecast-scroll" id="forecast-container">
+            <div style="opacity: 0.6; padding: 20px;">Loading OpenWeather data...</div>
+        </div>
     </div>
 
-    <div class="legend">
-        <div class="legend-item"><div class="box" style="background:#4fc3f7"></div> Light</div>
-        <div class="legend-item"><div class="box" style="background:#ffd54f"></div> Moderate</div>
-        <div class="legend-item"><div class="box" style="background:#ff5252"></div> Heavy</div>
+    <hr class="section-divider">
+
+    <div style="text-align: left;">
+        <div class="section-title">Live Doppler Radar</div>
+        <iframe id="radar-frame" width="100%" height="350" frameborder="0" style="border-radius:15px; background: #000;"></iframe>
     </div>
+
 </div>
 
 <script>
-    const API_KEY = "p1eTDIbrnfGjCJlwMahUzarQNqzNPyxI";
+    const PIRATE_API_KEY = "p1eTDIbrnfGjCJlwMahUzarQNqzNPyxI";
+    const OW_API_KEY = "065942b97acab61c4f876f77d1e71cfb";
     let lat = 41.8781;
     let lon = -87.6298;
 
-    // --- GEOLOCATION LOGIC ---
     function getLocation() {
         if (navigator.geolocation) {
-            document.getElementById('summary').innerText = "Requesting GPS access...";
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     document.getElementById('latInput').value = position.coords.latitude.toFixed(4);
                     document.getElementById('lonInput').value = position.coords.longitude.toFixed(4);
                     updateLocation();
                 },
-                (error) => {
-                    alert("Unable to retrieve your location. Check your browser permissions.");
-                    document.getElementById('summary').innerText = "Location access denied.";
-                }
+                (error) => alert("Location access denied or unavailable.")
             );
-        } else {
-            alert("Geolocation is not supported by your browser.");
-        }
+        } else { alert("Geolocation not supported."); }
     }
 
     async function updateLocation() {
@@ -182,6 +192,32 @@
     }
 
     async function loadAll() {
+        // Run all API calls concurrently for blazing fast load times
+        fetchNWSData();
+        fetchPirateData();
+        fetchOpenWeatherData();
+        fetchNWSAlerts();
+        updateRadar();
+    }
+
+    async function fetchNWSAlerts() {
+        try {
+            const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
+            const data = await res.json();
+            const banner = document.getElementById('alerts-banner');
+            
+            if (data.features && data.features.length > 0) {
+                // Get the most severe alert
+                const alertName = data.features[0].properties.event;
+                banner.innerText = "⚠️ ACTIVE WARNING: " + alertName.toUpperCase();
+                banner.style.display = "block";
+            } else {
+                banner.style.display = "none";
+            }
+        } catch (e) { console.error("Alerts error:", e); }
+    }
+
+    async function fetchNWSData() {
         try {
             const p = await (await fetch(`https://api.weather.gov/points/${lat},${lon}`)).json();
             const s = await (await fetch(p.properties.observationStations)).json();
@@ -189,11 +225,17 @@
             document.getElementById('stationName').innerText = "AT " + station.properties.name.toUpperCase();
             
             const o = await (await fetch(`https://api.weather.gov/stations/${station.properties.stationIdentifier}/observations/latest`)).json();
-            document.getElementById('conditionText').innerText = o.properties.textDescription;
-            document.getElementById('weatherIcon').src = o.properties.icon;
-            document.getElementById('weatherIcon').style.display = 'inline-block';
+            document.getElementById('conditionText').innerText = o.properties.textDescription || "Fair";
+            if (o.properties.icon) {
+                document.getElementById('weatherIcon').src = o.properties.icon;
+                document.getElementById('weatherIcon').style.display = 'inline-block';
+            }
+        } catch (e) { document.getElementById('stationName').innerText = "NWS STATION OFFLINE"; }
+    }
 
-            const res = await fetch(`https://api.pirateweather.net/forecast/${API_KEY}/${lat},${lon}?units=us`);
+    async function fetchPirateData() {
+        try {
+            const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const data = await res.json();
             
             let total24 = 0;
@@ -203,23 +245,68 @@
             let total1 = 0;
             const container = document.getElementById('timeline');
             container.innerHTML = "";
-            document.getElementById('summary').innerText = data.minutely.summary;
+            document.getElementById('summary').innerText = data.minutely ? data.minutely.summary : "Minute forecast unavailable.";
 
-            data.minutely.data.forEach(m => {
-                const intensity = m.precipIntensity || 0;
-                total1 += (intensity / 60);
-                const bar = document.createElement('div');
-                bar.className = 'bar';
-                const h = Math.min(intensity * 600, 240); 
-                bar.style.height = Math.max(h, 2) + "px";
-                if (intensity > 0.3) bar.style.background = "#ff5252";
-                else if (intensity > 0.1) bar.style.background = "#ffd54f";
-                else if (intensity > 0) bar.style.background = "#4fc3f7";
-                else bar.style.background = "rgba(255,255,255,0.1)";
-                container.appendChild(bar);
-            });
+            if (data.minutely) {
+                data.minutely.data.forEach(m => {
+                    const intensity = m.precipIntensity || 0;
+                    total1 += (intensity / 60);
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+                    const h = Math.min(intensity * 600, 200); 
+                    bar.style.height = Math.max(h, 2) + "px";
+                    
+                    if (intensity > 0.3) bar.style.background = "#ff5252";
+                    else if (intensity > 0.1) bar.style.background = "#ffd54f";
+                    else if (intensity > 0) bar.style.background = "#4fc3f7";
+                    else bar.style.background = "rgba(255,255,255,0.1)";
+                    
+                    container.appendChild(bar);
+                });
+            }
             document.getElementById('oneHourTotal').innerText = total1.toFixed(2) + '"';
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Pirate API error", e); }
+    }
+
+    async function fetchOpenWeatherData() {
+        try {
+            const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
+            const data = await res.json();
+            const container = document.getElementById('forecast-container');
+            container.innerHTML = ""; // Clear loading text
+
+            data.list.forEach(item => {
+                const date = new Date(item.dt * 1000);
+                // Format the time (e.g., "3 PM") and day (e.g., "Mon")
+                let hours = date.getHours();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; // the hour '0' should be '12'
+                const timeStr = hours + " " + ampm;
+                const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
+
+                const card = document.createElement('div');
+                card.className = 'forecast-card';
+                card.innerHTML = `
+                    <div class="ow-day">${dayStr}</div>
+                    <div class="ow-time">${timeStr}</div>
+                    <img class="ow-icon" src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png" alt="icon">
+                    <div class="ow-temp">${Math.round(item.main.temp)}&deg;</div>
+                    <div class="ow-desc">${item.weather[0].description}</div>
+                `;
+                container.appendChild(card);
+            });
+        } catch (e) { 
+            console.error("OpenWeather error", e);
+            document.getElementById('forecast-container').innerHTML = "<div style='color: #ff5252;'>Failed to load OpenWeather data.</div>";
+        }
+    }
+
+    function updateRadar() {
+        // Using RainViewer for a clean, embedded radar that updates based on Lat/Lon
+        const radarIframe = document.getElementById('radar-frame');
+        // Zoom level 8, color scheme 2, smooth animations
+        radarIframe.src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
     }
 
     window.onload = loadAll;
