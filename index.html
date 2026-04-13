@@ -148,37 +148,35 @@ function updateLocation() {
 // ---------------------------
 async function loadCurrentConditions() {
     try {
-        // Step 1: Get the gridpoint data from coordinates
-        const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+        console.log("Step 1: Fetching NWS Grid Points...");
+        const pointRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+            headers: { 'Accept': 'application/geo+json' }
+        });
+        
         if (!pointRes.ok) throw new Error("Location likely outside US NWS coverage.");
         const pointData = await pointRes.json();
         const stationsUrl = pointData.properties.observationStations;
 
-        // Step 2: Get the list of observation stations for this grid
+        console.log("Step 2: Fetching Stations List...");
         const stationsRes = await fetch(stationsUrl);
         const stationsData = await stationsRes.json();
         
-        // Grab the closest station ID (e.g., KORD)
         if (!stationsData.features || stationsData.features.length === 0) {
             throw new Error("No observation stations found near this location.");
         }
         const stationId = stationsData.features[0].properties.stationIdentifier;
 
-        // Step 3: Get the latest observation from that specific station
+        console.log(`Step 3: Fetching Latest Obs for ${stationId}...`);
         const obsRes = await fetch(`https://api.weather.gov/stations/${stationId}/observations/latest`);
         const obsData = await obsRes.json();
         const props = obsData.properties;
 
         document.getElementById("conditionText").innerText = props.textDescription || "Unknown";
-
-        if (props.icon) {
-            document.getElementById("weatherIcon").src = props.icon;
-        }
+        if (props.icon) document.getElementById("weatherIcon").src = props.icon;
 
     } catch (err) {
-        console.error("Current conditions error:", err);
-        document.getElementById("conditionText").innerText = "Current conditions unavailable (NWS only supports US coordinates).";
-        document.getElementById("weatherIcon").src = ""; // Clear broken image
+        console.error("NWS Error:", err);
+        document.getElementById("conditionText").innerText = "Current conditions unavailable.";
     }
 }
 
@@ -187,6 +185,7 @@ async function loadCurrentConditions() {
 // ---------------------------
 async function fetchWeather() {
     try {
+        console.log("Fetching Pirate Weather Minute-Cast...");
         const now = Date.now();
 
         if (cachedData && (now - lastFetchTime < CACHE_TIME)) {
@@ -198,16 +197,19 @@ async function fetchWeather() {
             `https://api.pirateweather.net/forecast/${API_KEY}/${lat},${lon}?units=us`
         );
 
-        const data = await response.json();
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Pirate Weather API Error");
+        }
 
+        const data = await response.json();
         cachedData = data;
         lastFetchTime = now;
-
         render(data);
 
     } catch (err) {
-        console.error("Fetch error:", err);
-        document.getElementById("summary").innerText = "Error loading forecast.";
+        console.error("Pirate Weather Error:", err);
+        document.getElementById("summary").innerText = "Forecast Error: " + err.message;
     }
 }
 
@@ -215,13 +217,8 @@ async function fetchWeather() {
 // RENDER MINUTECast
 // ---------------------------
 function render(data) {
-    if (data.error || data.message) {
-        console.error("API Error:", data.error || data.message);
-        document.getElementById("summary").innerText = "API Error: " + (data.error || data.message);
-        document.getElementById("timeline").innerHTML = "";
-        return;
-    }
-
+    console.log("Rendering Timeline...");
+    // Check if minutely block exists
     const minutely = data.minutely;
 
     if (!minutely || !minutely.data || minutely.data.length === 0) {
@@ -231,7 +228,6 @@ function render(data) {
     }
 
     document.getElementById("summary").innerText = minutely.summary;
-
     const container = document.getElementById("timeline");
     container.innerHTML = "";
 
@@ -239,7 +235,9 @@ function render(data) {
         const bar = document.createElement("div");
         bar.className = "bar";
 
-        const height = Math.max(min.precipIntensity * 200, 2);
+        // Added fallback to 0 if intensity is missing to prevent NaN
+        const intensity = min.precipIntensity || 0;
+        const height = Math.max(intensity * 200, 2);
         bar.style.height = height + "px";
 
         if (min.precipProbability > 0.7) {
