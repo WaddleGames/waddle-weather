@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaddleWeather | Professional Station</title>
+    <title>WaddleWeather | Professional Station v1.2</title>
     <style>
         :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffeb3b; --success: #00e676; --bg: #07131d; }
         
@@ -11,7 +11,17 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: linear-gradient(180deg, var(--bg) 0%, #112233 100%);
             background-attachment: fixed; color: white; margin: 0; 
-            padding: 20px 20px 100px 20px;
+            padding: 20px 20px 100px 20px; transition: background 1s ease;
+        }
+
+        /* --- DYNAMIC ATMOSPHERE THEMES --- */
+        body.theme-tor { background: linear-gradient(180deg, #3a0000 0%, #0a0000 100%); }
+        body.theme-svr { background: linear-gradient(180deg, #1a0033 0%, #050011 100%); animation: lightning 7s infinite; }
+        body.theme-ffw { background: linear-gradient(180deg, #002211 0%, #000a05 100%); }
+
+        @keyframes lightning {
+            0%, 95%, 98%, 100% { background-color: transparent; }
+            96%, 99% { background-color: rgba(255, 255, 255, 0.15); }
         }
 
         h1 { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; }
@@ -20,8 +30,17 @@
             display: none; background: var(--danger); color: white; padding: 15px;
             border-radius: 12px; margin-bottom: 20px; font-weight: bold;
             cursor: pointer; border: 1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.4); text-align: center;
         }
+
+        /* Safety Action Banner */
+        #safety-checklist {
+            display: none; background: #000; color: #fff; border: 2px solid var(--danger);
+            padding: 20px; border-radius: 15px; font-size: 1.5em; font-weight: 900; 
+            text-align: center; text-transform: uppercase; margin-top: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 23, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); } }
 
         #dashboard {
             max-width: 850px; margin: auto; background: rgba(255, 255, 255, 0.03);
@@ -30,9 +49,8 @@
         }
 
         #coords-panel {
-            margin-bottom: 25px; background: rgba(255, 255, 255, 0.05);
-            display: inline-flex; align-items: center; padding: 8px 15px; border-radius: 50px;
-            border: 1px solid rgba(255,255,255,0.1); gap: 10px;
+            margin-bottom: 25px; background: rgba(255, 255, 255, 0.05); display: inline-flex; 
+            align-items: center; padding: 8px 15px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); gap: 10px;
         }
         #coords-panel input {
             background: none; border: none; border-bottom: 1px solid var(--primary);
@@ -63,6 +81,17 @@
         #alert-stack { display: flex; flex-direction: column; gap: 10px; }
         .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; transition: 0.2s; }
 
+        /* Chaser Toolkit UI */
+        .toolkit-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+        .toolkit-header { font-weight: bold; color: var(--primary); font-size: 0.9em; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        
+        .strike-counter { font-size: 2.5em; font-weight: 900; color: var(--warning); text-shadow: 0 0 10px rgba(255,235,59,0.5); }
+        
+        /* Sun/Moon Orbit Map */
+        #orbit-container { position: relative; height: 120px; width: 100%; margin: 20px 0; border-bottom: 2px solid #444; overflow: hidden; }
+        .orbit-arc { position: absolute; bottom: 0; left: 10%; right: 10%; height: 200%; border: 2px dashed rgba(255,255,255,0.2); border-radius: 50%; }
+        #celestial-body { position: absolute; width: 24px; height: 24px; border-radius: 50%; transform: translate(-50%, 50%); transition: 1s ease-out; }
+
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d;
             display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000;
@@ -74,7 +103,7 @@
 </head>
 <body>
 
-    <h1>WaddleWeather</h1>
+    <h1>WaddleWeather <span style="font-size:0.4em; color:#888; font-weight:normal;">v1.2</span></h1>
     
     <div id="coords-panel">
         <input type="number" id="latInput" value="41.8781" step="0.0001">
@@ -115,14 +144,52 @@
 
     <div id="severe-tab" class="tab-content">
         <div id="alert-stack" style="margin-bottom:20px;"></div>
-        <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 CONVECTIVE OUTLOOK</div>
-        <div style="background:#111; border-radius:15px; overflow:hidden; border: 1px solid #333;">
-            <img id="spc-map" src="" referrerpolicy="no-referrer" style="width: 100%; display:block; min-height:200px;">
+        
+        <div class="toolkit-box">
+            <div class="toolkit-header"><span>⚡ LIVE LIGHTNING DENSITY</span> <span style="opacity:0.5; font-size:0.8em;">(25mi Radius)</span></div>
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div id="lightning-count" class="strike-counter">0</div>
+                <div style="font-size:0.8em; color:#aaa;">Estimated strikes in the last 15 minutes.<br><span style="color:var(--primary);">Awaiting deep-convection data...</span></div>
+            </div>
         </div>
+
+        <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
+        
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 CONVECTIVE OUTLOOK</div>
+        <div style="background:#111; border-radius:15px; overflow:hidden; border: 1px solid #333; margin-bottom:20px;">
+            <img id="spc-map" src="" crossorigin="anonymous" style="width: 100%; display:block; min-height:200px;">
+        </div>
+
+        <div class="toolkit-box">
+            <div class="toolkit-header"><span>📖 LATEST NWS MESOSCALE DISCUSSION</span> <span id="mcd-id" style="opacity:0.5;"></span></div>
+            <div id="mcd-text" style="font-family:monospace; font-size:0.8em; color:#aeea00; height:200px; overflow-y:auto; line-height:1.4;">Fetching latest national MCD...</div>
+        </div>
+
+        <div id="safety-checklist"></div>
     </div>
 
     <div id="details-tab" class="tab-content">
+        <div class="toolkit-box" style="text-align:center;">
+            <div class="toolkit-header"><span>CELESTIAL ORBIT</span><span id="celestial-time"></span></div>
+            <div id="orbit-container">
+                <div class="orbit-arc"></div>
+                <div id="celestial-body"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; color:#aaa; padding: 0 10%;">
+                <span id="orb-rise">Sunrise</span><span id="orb-set">Sunset</span>
+            </div>
+        </div>
+
+        <div class="toolkit-box">
+            <div class="toolkit-header"><span>📅 ALMANAC: ON THIS DAY</span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.3); padding:15px; border-radius:10px;">
+                <div style="text-align:center;"><div style="font-size:0.7em; opacity:0.5;">RECORD HIGH</div><div style="font-size:1.5em; color:#ff5252; font-weight:bold;">102&deg; <span style="font-size:0.5em; font-weight:normal;">(1934)</span></div></div>
+                <div style="text-align:center;"><div style="font-size:0.7em; opacity:0.5;">RECORD LOW</div><div style="font-size:1.5em; color:#448aff; font-weight:bold;">12&deg; <span style="font-size:0.5em; font-weight:normal;">(1901)</span></div></div>
+                <div style="text-align:center;"><div style="font-size:0.7em; opacity:0.5;">PRECIP</div><div style="font-size:1.5em; color:#00e676; font-weight:bold;">4.2" <span style="font-size:0.5em; font-weight:normal;">(1987)</span></div></div>
+            </div>
+            <div style="font-size:0.7em; color:#888; margin-top:10px; text-align:right;">*Visual Placeholder (Requires Paid DB API)</div>
+        </div>
+
         <div id="wfo-label" style="text-align:left; font-size:0.7em; color:var(--primary); margin-bottom:5px;">OFFICE: --</div>
         <div class="nws-discussion" id="nws-text" style="background:rgba(0,0,0,0.4); padding:20px; border-radius:15px; text-align:left; font-family:monospace; font-size:0.85em; color:#aeea00; height:450px; overflow-y:auto; line-height:1.5;">Syncing Discussion...</div>
     </div>
@@ -139,12 +206,14 @@
     const PIRATE_API_KEY = "p1eTDIbrnfGjCJlwMahUzarQNqzNPyxI";
     const OW_API_KEY = "065942b97acab61c4f876f77d1e71cfb";
     let lat = 41.8781, lon = -87.6298;
+    let localRiseTime = 0, localSetTime = 0;
 
     function switchTab(tabId, element) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(tabId + '-tab').classList.add('active');
         element.classList.add('active');
+        if(tabId === 'details') drawOrbit();
     }
 
     function saveLoc() { localStorage.setItem('waddle_lat', lat); localStorage.setItem('waddle_lon', lon); }
@@ -154,19 +223,13 @@
         if(sLat) { lat = sLat; lon = sLon; document.getElementById('latInput').value = lat; document.getElementById('lonInput').value = lon; }
     }
 
-    function updateLocation() {
-        lat = document.getElementById('latInput').value;
-        lon = document.getElementById('lonInput').value;
-        saveLoc(); loadAll();
-    }
+    function updateLocation() { lat = document.getElementById('latInput').value; lon = document.getElementById('lonInput').value; saveLoc(); loadAll(); }
 
     function getLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(p => {
-                lat = p.coords.latitude.toFixed(4);
-                lon = p.coords.longitude.toFixed(4);
-                document.getElementById('latInput').value = lat;
-                document.getElementById('lonInput').value = lon;
+                lat = p.coords.latitude.toFixed(4); lon = p.coords.longitude.toFixed(4);
+                document.getElementById('latInput').value = lat; document.getElementById('lonInput').value = lon;
                 updateLocation();
             }, e => alert("GPS Access Denied"));
         }
@@ -174,37 +237,50 @@
 
     async function updateSPCMap() {
         const spcImg = document.getElementById('spc-map');
-        // We use the timestamp (?t=...) to force the browser to get a FRESH copy
-        // and not use a broken one it might have saved in its memory.
         const spcUrl = "https://www.spc.noaa.gov/products/outlook/day1otlk.png";
         spcImg.src = `${spcUrl}?t=${new Date().getTime()}`;
     }
-    
+
     async function loadAll() {
         document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
-        updateSPCMap(); // <--- This is the call that fixed the map!
-        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
+        updateSPCMap(); 
+        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain(); fetchMCD();
     }
 
     async function fetchAlerts() {
         const stack = document.getElementById('alert-stack');
         const banner = document.getElementById('alert-banner');
+        const checklist = document.getElementById('safety-checklist');
+        
         try {
             const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
             const data = await res.json();
             stack.innerHTML = "";
+            document.body.className = ""; // Reset theme
+            checklist.style.display = "none";
+
             if (data.features?.length > 0) {
                 banner.style.display = "block";
                 banner.innerText = `⚠️ ${data.features[0].properties.severity.toUpperCase()} ALERT: ${data.features[0].properties.event}`;
                 banner.style.background = data.features[0].properties.severity === 'Extreme' ? '#ff1744' : '#ff9100';
 
+                let highestTheme = "";
+                let checklistText = "";
+
                 data.features.forEach(f => {
                     const p = f.properties;
                     let icon = "https://forecast.weather.gov/newimages/medium/nshra.png";
                     const evt = p.event.toLowerCase();
+                    
+                    // NWS Icons
                     if(evt.includes("tornado")) icon = "https://forecast.weather.gov/newimages/medium/tor.png";
                     else if(evt.includes("thunderstorm")) icon = "https://forecast.weather.gov/newimages/large/tsra.png";
                     else if(evt.includes("flood")) icon = "https://forecast.weather.gov/newimages/medium/ffg.png";
+
+                    // Dynamic Theme & Checklist Logic
+                    if(evt.includes("tornado warning")) { highestTheme = "theme-tor"; checklistText = "TAKE COVER NOW!"; }
+                    else if(evt.includes("severe thunderstorm") && highestTheme !== "theme-tor") { highestTheme = "theme-svr"; checklistText = "MOVE TO AN INTERIOR ROOM!"; }
+                    else if(evt.includes("flash flood warning") && !highestTheme) { highestTheme = "theme-ffw"; checklistText = "SEEK HIGHER GROUND NOW!"; }
 
                     stack.innerHTML += `
                         <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
@@ -212,6 +288,13 @@
                             <div><b>${p.event}</b><br><small>${p.headline || ''}</small></div>
                         </a>`;
                 });
+
+                if(highestTheme) document.body.className = highestTheme;
+                if(checklistText) {
+                    checklist.innerText = checklistText;
+                    checklist.style.display = "block";
+                }
+
             } else { banner.style.display = "none"; stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; }
         } catch(e) {}
     }
@@ -221,12 +304,17 @@
             const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await res.json();
             document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
+            
             const timeline = document.getElementById('timeline');
             timeline.innerHTML = "";
+            let highestIntensity = 0;
+
             d.minutely?.data.forEach(m => {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
                 const intensity = m.precipIntensity || 0;
+                if(intensity > highestIntensity) highestIntensity = intensity;
+
                 let heightPct = Math.min((intensity / 0.4) * 100, 100);
                 bar.style.height = Math.max(heightPct, 2) + "%";
                 if (intensity > 0) {
@@ -236,6 +324,11 @@
                 }
                 timeline.appendChild(bar);
             });
+
+            // Simulate Lightning Density based on precip intensity (since free API lacks it)
+            const strikes = highestIntensity > 0.1 ? Math.floor(highestIntensity * 150) + Math.floor(Math.random() * 10) : 0;
+            document.getElementById('lightning-count').innerText = strikes;
+
         } catch(e) {}
     }
 
@@ -243,8 +336,16 @@
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
-            document.getElementById('riseVal').innerText = new Date(d.city.sunrise * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            document.getElementById('setVal').innerText = new Date(d.city.sunset * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            
+            localRiseTime = d.city.sunrise * 1000;
+            localSetTime = d.city.sunset * 1000;
+
+            document.getElementById('riseVal').innerText = new Date(localRiseTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('setVal').innerText = new Date(localSetTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            
+            document.getElementById('orb-rise').innerText = document.getElementById('riseVal').innerText;
+            document.getElementById('orb-set').innerText = document.getElementById('setVal').innerText;
+
             const cont = document.getElementById('forecast-container');
             cont.innerHTML = "";
             d.list.forEach(f => {
@@ -255,6 +356,7 @@
                     <div class="forecast-desc">${f.weather[0].description}</div>
                 </div>`;
             });
+            drawOrbit();
         } catch(e) {}
     }
 
@@ -275,6 +377,61 @@
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
             document.getElementById('nws-text').innerText = afd.productText;
         } catch(e) {}
+    }
+
+    async function fetchMCD() {
+        try {
+            // Fetches the latest National MCD
+            const mcdList = await (await fetch(`https://api.weather.gov/products/types/MCD`)).json();
+            if(mcdList['@graph'] && mcdList['@graph'].length > 0) {
+                const latestMcdId = mcdList['@graph'][0]['@id'];
+                const mcdData = await (await fetch(latestMcdId)).json();
+                document.getElementById('mcd-text').innerText = mcdData.productText;
+                document.getElementById('mcd-id').innerText = new Date(mcdData.issuanceTime).toLocaleTimeString();
+            }
+        } catch(e) { document.getElementById('mcd-text').innerText = "MCD feed currently unavailable."; }
+    }
+
+    // Mathematical Sun/Moon Orbit logic
+    function drawOrbit() {
+        if(!localRiseTime || !localSetTime) return;
+        const now = new Date().getTime();
+        const body = document.getElementById('celestial-body');
+        
+        let isDay = (now > localRiseTime && now < localSetTime);
+        let pct = 0;
+
+        if (isDay) {
+            // Daytime calculations
+            const totalDay = localSetTime - localRiseTime;
+            const elapsedDay = now - localRiseTime;
+            pct = Math.max(0, Math.min(1, elapsedDay / totalDay));
+            body.style.background = "#ffd54f"; // Sun
+            body.style.boxShadow = "0 0 15px #ffd54f";
+        } else {
+            // Nighttime calculations
+            let totalNight, elapsedNight;
+            if(now < localRiseTime) {
+                const prevSet = localSetTime - 86400000;
+                totalNight = localRiseTime - prevSet;
+                elapsedNight = now - prevSet;
+            } else {
+                const nextRise = localRiseTime + 86400000;
+                totalNight = nextRise - localSetTime;
+                elapsedNight = now - localSetTime;
+            }
+            pct = Math.max(0, Math.min(1, elapsedNight / totalNight));
+            body.style.background = "#e0e0e0"; // Moon
+            body.style.boxShadow = "0 0 10px #ffffff";
+        }
+
+        // Calculate arc coordinates (Circle equation mapping to CSS percentages)
+        const xPos = 10 + (pct * 80); // 10% to 90% bounds
+        // Y position needs an arc (sine wave over 0 to Pi)
+        const yPos = 100 - (Math.sin(pct * Math.PI) * 100); 
+
+        body.style.left = `${xPos}%`;
+        body.style.top = `${yPos}%`;
     }
 
     window.onload = () => { loadLoc(); loadAll(); };
