@@ -25,31 +25,7 @@
             96%, 99% { background-color: rgba(255, 255, 255, 0.15); }
         }
 
-        /* WEATHER FX ANIMATIONS */
-        #weather-fx {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1s ease;
-        }
-        .fx-rain {
-            background-image: 
-                linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.4) 50%, rgba(255,255,255,0)),
-                linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.2) 50%, rgba(255,255,255,0));
-            background-size: 2px 20vh, 1px 15vh;
-            background-position: 0 0, 50px 50px;
-            animation: rainFall 0.7s linear infinite;
-            opacity: 1 !important;
-        }
-        .fx-snow {
-            background-image: 
-                radial-gradient(circle, #fff 10%, transparent 10%),
-                radial-gradient(circle, #fff 10%, transparent 10%);
-            background-size: 10px 10px, 15px 15px;
-            background-position: 0 0, 25px 25px;
-            animation: snowFall 3s linear infinite;
-            opacity: 0.8 !important;
-        }
-        @keyframes rainFall { 0% {background-position: 0 0, 20px 0;} 100% {background-position: 10px 100vh, 30px 100vh;} }
-        @keyframes snowFall { 0% {background-position: 0 0, 25px 25px;} 100% {background-position: 20px 100vh, 45px calc(100vh + 25px);} }
+        /* All old "extreme" rain CSS has been removed to avoid conflicts */
 
         h1 { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; display: flex; justify-content: space-between; align-items: center; z-index: 10; position: relative; }
 
@@ -91,7 +67,6 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Modified details grid */
         .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 25px 0; }
         @media(max-width: 500px) { .detail-grid { grid-template-columns: repeat(2, 1fr); } }
         
@@ -112,7 +87,6 @@
         summary { font-weight: bold; cursor: pointer; outline: none; padding-bottom: 5px; font-size: 0.9em; letter-spacing: 0.5px; }
         summary::-webkit-details-marker { display: none; }
 
-        #alert-stack { display: flex; flex-direction: column; gap: 10px; }
         .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; transition: 0.2s; }
 
         .toolkit-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin-bottom: 20px; }
@@ -278,7 +252,6 @@
     let lat = 41.8781, lon = -87.6298;
     let localRiseTime = 0, localSetTime = 0;
     
-    // NEW TRACKERS
     let lastPressurePa = null;
     let alertIntervalId = null;
     let spcIntervalId = null;
@@ -375,32 +348,21 @@
         return "Typical conditions out there right now.";
     }
 
-    // SPC LIVE COUNTDOWN
     function startSPCCountdown() {
         clearInterval(spcIntervalId);
         function updateSPC() {
             const now = new Date();
             const currentUTC = now.getUTCHours() + (now.getUTCMinutes() / 60) + (now.getUTCSeconds() / 3600);
-            
-            // SPC Day 1 Update times in UTC hours
             const updateTimes = [1.0, 6.0, 13.0, 16.5, 20.0];
             let nextUpdateHour = updateTimes.find(t => t > currentUTC);
-            
             let nextDate = new Date(now);
-            if (nextUpdateHour === undefined) {
-                nextUpdateHour = 1.0; // Rollover to 0100Z next day
-                nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-            }
-            
+            if (nextUpdateHour === undefined) { nextUpdateHour = 1.0; nextDate.setUTCDate(nextDate.getUTCDate() + 1); }
             nextDate.setUTCHours(Math.floor(nextUpdateHour), (nextUpdateHour % 1) * 60, 0, 0);
-            
             const diff = nextDate.getTime() - new Date().getTime();
             if (diff <= 0) { document.getElementById('spc-countdown').innerText = "Update Imminent..."; return; }
-            
             const h = Math.floor(diff / (1000 * 60 * 60));
             const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
             const s = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
-            
             document.getElementById('spc-countdown').innerText = `Next Outlook: ${h}h ${m}m ${s}s`;
         }
         updateSPC();
@@ -413,13 +375,7 @@
         document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
         updateSPCMap();
         startSPCCountdown();
-        
-        fetchAlerts(); 
-        fetchPirate(); 
-        fetchOpenWeather(); 
-        fetchNWSChain();
-        fetchAQI();
-
+        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain(); fetchAQI();
         setTimeout(() => { indicator.style.opacity = "0"; }, 2000);
     }
 
@@ -427,8 +383,7 @@
         const stack = document.getElementById('alert-stack');
         const banner = document.getElementById('alert-banner');
         const checklist = document.getElementById('safety-checklist');
-        clearInterval(alertIntervalId); // Clear previous hazard countdowns
-        
+        clearInterval(alertIntervalId);
         const severityScore = { 'Extreme': 4, 'Severe': 3, 'Moderate': 2, 'Minor': 1, 'Unknown': 0 };
 
         try {
@@ -442,14 +397,12 @@
                     let currScore = severityScore[current.properties.severity] || 0;
                     return (currScore > prevScore) ? current : prev;
                 });
-
                 const topP = topAlert.properties;
                 const evtLower = topP.event.toLowerCase();
                 banner.style.display = "block";
                 banner.style.background = topP.severity === 'Extreme' ? 'var(--danger)' : '#ff9100';
                 banner.innerText = `⚠️ ${topP.event.toUpperCase()}`;
 
-                // LIVE COUNTDOWN FOR MAJOR HAZARDS
                 if (evtLower.includes("tornado warning") || evtLower.includes("severe thunderstorm warning") || evtLower.includes("flash flood warning")) {
                     const expTime = new Date(topP.expires || topP.ends).getTime();
                     alertIntervalId = setInterval(() => {
@@ -464,28 +417,18 @@
                 }
 
                 let highestTheme = ""; let checklistText = "";
-
                 data.features.forEach(f => {
                     const p = f.properties; const evt = p.event.toLowerCase();
                     let icon = "https://www.weather.gov/bundles/templating/images/top_news/important.png";
                     for (const key in ALERT_ICONS) { if (evt.includes(key)) { icon = ALERT_ICONS[key]; break; } }
-
                     if(evt.includes("tornado warning")) { highestTheme = "theme-tor"; checklistText = "TAKE COVER NOW!"; }
                     else if(evt.includes("severe thunderstorm") && highestTheme !== "theme-tor") { highestTheme = "theme-svr"; checklistText = "MOVE TO AN INTERIOR ROOM!"; }
                     else if(evt.includes("flash flood warning") && !highestTheme) { highestTheme = "theme-ffw"; checklistText = "SEEK HIGHER GROUND NOW!"; }
-
-                    stack.innerHTML += `
-                        <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
-                            <img src="${icon}" style="width:55px; border-radius:5px;">
-                            <div><b>${p.event}</b><br><small>${p.headline || ''}</small></div>
-                        </a>`;
+                    stack.innerHTML += `<a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}"><img src="${icon}" style="width:55px; border-radius:5px;"><div><b>${p.event}</b><br><small>${p.headline || ''}</small></div></a>`;
                 });
-
                 if(highestTheme) document.body.className = highestTheme;
                 if(checklistText) { checklist.innerText = checklistText; checklist.style.display = "block"; }
-            } else { 
-                stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; 
-            }
+            } else { stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; }
         } catch(e) { console.error("Alert Fetch Error:", e); }
     }
 
@@ -496,7 +439,6 @@
             const aqi = d.list[0].main.aqi;
             const aqiText = ["", "Good", "Fair", "Moderate", "Poor", "Very Poor"];
             const aqiColors = ["", "#00e676", "#ffeb3b", "#ff9100", "#ff5252", "#b71c1c"];
-            
             document.getElementById('aqi-val').innerText = aqi;
             document.getElementById('aqi-val').style.color = aqiColors[aqi];
             document.getElementById('aqi-desc').innerText = aqiText[aqi];
@@ -507,11 +449,9 @@
         try {
             const resP = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await resP.json();
-            
             document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
             const timeline = document.getElementById('timeline'); timeline.innerHTML = "";
             let highestIntensity = 0;
-
             if(d.minutely) {
                 d.minutely.data.forEach(m => {
                     const bar = document.createElement('div'); bar.className = 'bar';
@@ -527,10 +467,8 @@
                     timeline.appendChild(bar);
                 });
             }
-            
             const strikes = highestIntensity > 0.1 ? Math.floor(highestIntensity * 150) + Math.floor(Math.random() * 10) : 0;
             document.getElementById('lightning-count').innerText = strikes;
-
             const uv = d.currently?.uvIndex || 0;
             document.getElementById('uv-val').innerText = uv;
             let uvDesc = "Low (No burn risk)"; let uvCol = "#00e676";
@@ -540,7 +478,6 @@
             if(uv >= 11) { uvDesc = "Extreme (Burn: <10m)"; uvCol = "#b71c1c"; }
             document.getElementById('uv-val').style.color = uvCol;
             document.getElementById('uv-desc').innerText = uvDesc;
-
             if(d.daily?.data?.[0]) document.getElementById('moonVal').innerText = getMoonPhaseName(d.daily.data[0].moonPhase);
         } catch(e) {}
     }
@@ -550,40 +487,16 @@
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
             localRiseTime = d.city.sunrise * 1000; localSetTime = d.city.sunset * 1000;
-            
             document.getElementById('riseVal').innerText = new Date(localRiseTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             document.getElementById('setVal').innerText = new Date(localSetTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            
             const cont = document.getElementById('forecast-container'); cont.innerHTML = "";
-            
             d.list.forEach(f => {
                 const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : 0;
                 const rainVol = rainInches > 0 ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${rainInches} in</div>` : '';
                 const popPct = Math.round(f.pop * 100);
                 const gustInfo = f.wind.gust ? `<div><b>Gusts:</b> ${Math.round(f.wind.gust)} mph</div>` : '';
                 const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
-
-                cont.innerHTML += `
-                <div class="forecast-card" style="min-width: 140px; display: flex; flex-direction: column;">
-                    <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">${new Date(f.dt*1000).toLocaleTimeString([], {weekday:'short', hour:'numeric'})}</div>
-                    <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 2px auto;">
-                    <div style="font-size:0.7em; opacity:0.8; margin-bottom:5px; text-transform:capitalize;">${f.weather[0].description}</div>
-                    <div style="font-size:1.2em; font-weight:bold; color:var(--accent);">${Math.round(f.main.temp)}&deg;</div>
-                    <div style="font-size:0.75em; margin-top:5px; color:#ddd;">💧 ${popPct}% PoP</div>
-                    ${rainVol}
-                    
-                    <details style="background:transparent; border:none; padding:5px 0 0 0; margin:10px 0 0 0; border-top:1px solid rgba(255,255,255,0.1); border-radius:0;">
-                        <summary style="font-size:0.7em; padding-bottom:0; color:#aaa; font-weight:normal; text-align:center;">More Info</summary>
-                        <div style="font-size:0.75em; text-align:left; color:#ccc; line-height:1.5; margin-top:8px;">
-                            <div><b>Feels Like:</b> ${Math.round(f.main.feels_like)}&deg;</div>
-                            <div><b>Humidity:</b> ${f.main.humidity}%</div>
-                            <div><b>Wind:</b> ${Math.round(f.wind.speed)} mph</div>
-                            ${gustInfo}
-                            <div><b>Clouds:</b> ${f.clouds.all}%</div>
-                            <div><b>Pressure:</b> ${pressInHg} inHg</div>
-                        </div>
-                    </details>
-                </div>`;
+                cont.innerHTML += `<div class="forecast-card" style="min-width: 140px; display: flex; flex-direction: column;"><div style="font-size:0.75em; color:var(--primary); font-weight:bold;">${new Date(f.dt*1000).toLocaleTimeString([], {weekday:'short', hour:'numeric'})}</div><img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 2px auto;"><div style="font-size:0.7em; opacity:0.8; margin-bottom:5px; text-transform:capitalize;">${f.weather[0].description}</div><div style="font-size:1.2em; font-weight:bold; color:var(--accent);">${Math.round(f.main.temp)}&deg;</div><div style="font-size:0.75em; margin-top:5px; color:#ddd;">💧 ${popPct}% PoP</div>${rainVol}<details style="background:transparent; border:none; padding:5px 0 0 0; margin:10px 0 0 0; border-top:1px solid rgba(255,255,255,0.1); border-radius:0;"><summary style="font-size:0.7em; padding-bottom:0; color:#aaa; font-weight:normal; text-align:center;">More Info</summary><div style="font-size:0.75em; text-align:left; color:#ccc; line-height:1.5; margin-top:8px;"><div><b>Feels Like:</b> ${Math.round(f.main.feels_like)}&deg;</div><div><b>Humidity:</b> ${f.main.humidity}%</div><div><b>Wind:</b> ${Math.round(f.wind.speed)} mph</div>${gustInfo}<div><b>Clouds:</b> ${f.clouds.all}%</div><div><b>Pressure:</b> ${pressInHg} inHg</div></div></details></div>`;
             });
             drawOrbit();
         } catch(e) { console.error("OpenWeather Fetch Error:", e); }
@@ -604,13 +517,7 @@
                 const isHigh = per.isDaytime;
                 const tempColor = isHigh ? "#ff5252" : "#4fc3f7";
                 const tempLabel = isHigh ? "High" : "Low";
-                dailyCont.innerHTML += `
-                    <div class="forecast-card" style="min-width: 125px;">
-                        <div style="font-size:0.8em; font-weight:bold; margin-bottom:5px; color:#fff;">${per.name}</div>
-                        <img src="${per.icon}" style="width:45px; border-radius:8px; margin-bottom:5px;">
-                        <div style="color:${tempColor}; font-weight:bold; font-size:1.1em;">${tempLabel}: ${per.temperature}&deg;</div>
-                        <div style="font-size:0.65em; opacity:0.7; margin-top:5px; line-height:1.2; text-transform:capitalize;">${per.shortForecast}</div>
-                    </div>`;
+                dailyCont.innerHTML += `<div class="forecast-card" style="min-width: 125px;"><div style="font-size:0.8em; font-weight:bold; margin-bottom:5px; color:#fff;">${per.name}</div><img src="${per.icon}" style="width:45px; border-radius:8px; margin-bottom:5px;"><div style="color:${tempColor}; font-weight:bold; font-size:1.1em;">${tempLabel}: ${per.temperature}&deg;</div><div style="font-size:0.65em; opacity:0.7; margin-top:5px; line-height:1.2; text-transform:capitalize;">${per.shortForecast}</div></div>`;
             });
 
             const cliList = await (await fetch(`https://api.weather.gov/products/types/CLI/locations/${wfo}`)).json();
@@ -629,44 +536,32 @@
             const elevMeters = primaryStation.properties.elevation.value;
             document.getElementById('meta-elev').innerText = elevMeters ? Math.round(elevMeters * 3.28084) + " ft" : "N/A";
 
-            // Dashboard conditions & Weather FX
             const condition = obs.properties.textDescription || "--";
             document.getElementById('conditionText').innerText = condition;
             document.getElementById('weatherIcon').src = obs.properties.icon;
             document.getElementById('weatherIcon').style.display = "block";
             
-            // Trigger Animation based on condition
-            const fx = document.getElementById('weather-fx'); fx.className = '';
-            const cLow = condition.toLowerCase();
-            if (cLow.includes("rain") || cLow.includes("drizzle") || cLow.includes("thunderstorm") || cLow.includes("showers")) fx.classList.add('fx-rain');
-            else if (cLow.includes("snow") || cLow.includes("flurries") || cLow.includes("blizzard")) fx.classList.add('fx-snow');
+            // All weather-fx reference lines have been removed here to prevent crashing
             
-            // Temp (convert C to F)
             const tempC = obs.properties.temperature.value;
             const tempF = tempC !== null ? Math.round(tempC * 9/5 + 32) : "--";
             document.getElementById('tempVal').innerText = tempF !== "--" ? tempF + "\xB0" : "--";
             
-            // Smart Wind Barb
             const windDir = obs.properties.windDirection.value;
             const windSpd = obs.properties.windSpeed.value !== null ? Math.round(obs.properties.windSpeed.value * 0.621) : "--";
             let windHtml = windSpd + " mph";
-            if (windDir !== null && windSpd !== "--") {
-                // Rotates a downward arrow to match the direction the wind is BLOWING
-                windHtml += ` <span style="display:inline-block; transform:rotate(${windDir}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
-            }
+            if (windDir !== null && windSpd !== "--") windHtml += ` <span style="display:inline-block; transform:rotate(${windDir}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
             document.getElementById('windVal').innerHTML = windHtml;
 
-            // Humidity
             document.getElementById('humVal').innerText = obs.properties.relativeHumidity.value !== null ? Math.round(obs.properties.relativeHumidity.value) + "%" : "--";
             
-            // Pressure Trend Indicator
             const presPa = obs.properties.barometricPressure.value;
             let trend = "➡️";
             if (lastPressurePa !== null && presPa !== null) {
-                if (presPa > lastPressurePa + 34) trend = "↗️"; // Rose by ~0.01 inHg
-                else if (presPa < lastPressurePa - 34) trend = "↘️"; // Fell by ~0.01 inHg
+                if (presPa > lastPressurePa + 34) trend = "↗️"; 
+                else if (presPa < lastPressurePa - 34) trend = "↘️"; 
             }
-            lastPressurePa = presPa; // Save for next sync
+            lastPressurePa = presPa;
             const presIn = presPa !== null ? (presPa / 3386.389).toFixed(2) : "--";
             document.getElementById('presVal').innerHTML = presIn !== "--" ? `${presIn} in <span style="font-size:0.75em; opacity:0.8;">${trend}</span>` : "--";
 
@@ -697,44 +592,41 @@
     }
 
     function initRain() {
-    const canvas = document.getElementById('rainCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+        const canvas = document.getElementById('rainCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-    let drops = [];
-    for(let i = 0; i < 100; i++) {
-        drops.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            len: Math.random() * 20 + 10,
-            vel: Math.random() * 10 + 5
-        });
+        let drops = [];
+        for(let i = 0; i < 100; i++) {
+            drops.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                len: Math.random() * 20 + 10,
+                vel: Math.random() * 10 + 5
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'rgba(174, 194, 224, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.lineCap = 'round';
+            drops.forEach(d => {
+                ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x, d.y + d.len); ctx.stroke();
+                d.y += d.vel; if(d.y > canvas.height) d.y = -d.len;
+            });
+            requestAnimationFrame(draw);
+        }
+        draw();
     }
-
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'rgba(174, 194, 224, 0.2)'; // Subtle blue-grey
-        ctx.lineWidth = 1;
-        ctx.lineCap = 'round';
-
-        drops.forEach(d => {
-            ctx.beginPath();
-            ctx.moveTo(d.x, d.y);
-            ctx.lineTo(d.x, d.y + d.len);
-            ctx.stroke();
-
-            d.y += d.vel;
-            if(d.y > canvas.height) d.y = -d.len;
-        });
-        requestAnimationFrame(draw);
-    }
-    draw();
-}
-// Call initRain() inside your window.onload
 
     setInterval(loadAll, 300000);
-    window.onload = () => { loadLoc(); loadAll(); };
+    window.onload = () => { 
+        loadLoc(); 
+        loadAll(); 
+        initRain(); // This actually starts the rain effect now
+    };
 </script>
 </body>
 </html>
