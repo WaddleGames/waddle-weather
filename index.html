@@ -58,7 +58,6 @@
         .btn-action { background: var(--primary); color: #07131d; border: none; padding: 6px 12px; border-radius: 15px; font-weight: bold; cursor: pointer; }
         .btn-gps { background: rgba(255,255,255,0.1); color: white; }
 
-        /* THE MISSING CSS THAT BROKE EVERYTHING HAS BEEN RESTORED */
         .tab-content { display: none; animation: fadeIn 0.3s ease-out; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -97,7 +96,7 @@
 <body>
 
     <h1>
-        <span>WaddleWeather <span style="font-size:0.4em; color:#888; font-weight:normal;">v1.3</span></span>
+        <span>WaddleWeather <span style="font-size:0.4em; color:#888; font-weight:normal;">v1.3.1</span></span>
         <span id="sync-indicator" style="font-size:0.4em; color:var(--success); opacity: 0; transition: opacity 0.3s;">● SYNCING</span>
     </h1>
     
@@ -134,7 +133,7 @@
         </div>
         <div class="x-axis"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
 
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY OUTLOOK</div>
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY FORECAST</div>
         <div class="forecast-scroll" id="forecast-container"></div>
     </div>
 
@@ -193,7 +192,6 @@
     let lat = 41.8781, lon = -87.6298;
     let localRiseTime = 0, localSetTime = 0;
 
-    // CUSTOM NWS ALERT ICONS RETAINED
     const ALERT_ICONS = {
         "tornado warning": "https://forecast.weather.gov/newimages/medium/tor.png",
         "tornado watch": "https://www.weather.gov/images/nws/newicons/fc.png",
@@ -205,6 +203,7 @@
         "snow squall warning": "https://www.weather.gov/images/nws/newicons/blizzard.png",
         "dust storm warning": "https://www.weather.gov/images/nws/newicons/du.png",
         "high wind warning": "https://www.weather.gov/images/nws/newicons/wind_ovc.png",
+        "red flag warning": "https://forecast.weather.gov/newimages/medium/fire.png"
     };
 
     function switchTab(tabId, element) {
@@ -216,18 +215,13 @@
     }
 
     function saveLoc() { localStorage.setItem('waddle_lat', lat); localStorage.setItem('waddle_lon', lon); }
-    
     function loadLoc() {
         const sLat = localStorage.getItem('waddle_lat');
         if(sLat) { lat = sLat; lon = localStorage.getItem('waddle_lon'); document.getElementById('latInput').value = lat; document.getElementById('lonInput').value = lon; }
     }
 
-    function updateLocation() {
-        lat = document.getElementById('latInput').value; lon = document.getElementById('lonInput').value;
-        saveLoc(); loadAll();
-    }
+    function updateLocation() { lat = document.getElementById('latInput').value; lon = document.getElementById('lonInput').value; saveLoc(); loadAll(); }
 
-    // GPS FUNCTION RESTORED
     function getLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(p => {
@@ -240,22 +234,18 @@
 
     async function updateSPCMap() {
         const spcImg = document.getElementById('spc-map');
-        const spcUrl = "https://www.spc.noaa.gov/products/outlook/day1otlk.png";
-        
-        // NEW PROXY METHOD: corsproxy.io mimics a browser request explicitly.
-        spcImg.src = `https://corsproxy.io/?${encodeURIComponent(spcUrl)}?t=${new Date().getTime()}`;
-        document.getElementById('spc-link').href = spcUrl;
+        const spcUrl = "www.spc.noaa.gov/products/outlook/day1otlk.png";
+        // Switched to Weserv Proxy (high reliability for NOAA images)
+        spcImg.src = `https://images.weserv.nl/?url=${spcUrl}&t=${new Date().getTime()}`;
+        document.getElementById('spc-link').href = `https://${spcUrl}`;
     }
 
     async function loadAll() {
         const indicator = document.getElementById('sync-indicator');
         indicator.style.opacity = "1";
-
         document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
-        
         updateSPCMap();
         fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
-
         setTimeout(() => { indicator.style.opacity = "0"; }, 2000);
     }
 
@@ -278,7 +268,6 @@
 
                 data.features.forEach(f => {
                     const p = f.properties; const evt = p.event.toLowerCase();
-                    
                     let icon = "https://www.weather.gov/bundles/templating/images/top_news/important.png";
                     for (const key in ALERT_ICONS) { if (evt.includes(key)) { icon = ALERT_ICONS[key]; break; } }
 
@@ -330,16 +319,17 @@
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
             localRiseTime = d.city.sunrise * 1000; localSetTime = d.city.sunset * 1000;
-
             document.getElementById('riseVal').innerText = new Date(localRiseTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             document.getElementById('setVal').innerText = new Date(localSetTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             
             const cont = document.getElementById('forecast-container'); cont.innerHTML = "";
             d.list.forEach(f => {
+                // RESTORED: Added main condition text back to the cards
                 cont.innerHTML += `<div class="forecast-card">
-                    <div style="font-size:0.8em; color:var(--primary); font-weight:bold;">${new Date(f.dt*1000).toLocaleTimeString([], {weekday:'short', hour:'numeric'})}</div>
-                    <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 5px 0;">
-                    <div style="font-size:1.2em; font-weight:bold;">${Math.round(f.main.temp)}&deg;</div>
+                    <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">${new Date(f.dt*1000).toLocaleTimeString([], {weekday:'short', hour:'numeric'})}</div>
+                    <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 2px 0;">
+                    <div style="font-size:0.7em; opacity:0.8; margin-bottom:5px; text-transform:capitalize;">${f.weather[0].main}</div>
+                    <div style="font-size:1.1em; font-weight:bold;">${Math.round(f.main.temp)}&deg;</div>
                 </div>`;
             });
             drawOrbit();
@@ -351,14 +341,11 @@
             const p = await (await fetch(`https://api.weather.gov/points/${lat},${lon}`)).json();
             const wfo = p.properties.cwa;
             document.getElementById('wfo-label').innerText = "OFFICE: " + wfo;
-            
-            // CLI FETCH
             const cliList = await (await fetch(`https://api.weather.gov/products/types/CLI/locations/${wfo}`)).json();
             if(cliList['@graph']?.length > 0) {
                 const cliData = await (await fetch(cliList['@graph'][0]['@id'])).json();
                 document.getElementById('cli-text').innerText = cliData.productText;
             }
-
             const stations = await (await fetch(p.properties.observationStations)).json();
             const obs = await (await fetch(`${stations.features[0].id}/observations/latest`)).json();
             document.getElementById('stationName').innerText = stations.features[0].properties.name;
@@ -367,7 +354,6 @@
             document.getElementById('weatherIcon').style.display = "block";
             document.getElementById('windVal').innerText = Math.round(obs.properties.windSpeed.value * 0.621) + " mph";
             document.getElementById('humVal').innerText = Math.round(obs.properties.relativeHumidity.value) + "%";
-            
             const afdList = await (await fetch(`https://api.weather.gov/products/types/AFD/locations/${wfo}`)).json();
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
             document.getElementById('nws-text').innerText = afd.productText;
@@ -391,7 +377,6 @@
         body.style.left = `${10 + (pct * 80)}%`; body.style.top = `${100 - (Math.sin(pct * Math.PI) * 100)}%`;
     }
 
-    // Auto-refresh every 5 minutes
     setInterval(loadAll, 300000);
     window.onload = () => { loadLoc(); loadAll(); };
 </script>
