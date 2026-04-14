@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaddleWeather | Professional Station</title>
     <style>
-        :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --bg: #07131d; }
+        :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffd600; --success: #00e676; --bg: #07131d; }
         
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -16,7 +16,6 @@
 
         h1 { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; }
 
-        /* Alert Banner */
         #alert-banner {
             display: none; background: var(--danger); color: white; padding: 15px;
             border-radius: 12px; margin-bottom: 20px; font-weight: bold;
@@ -46,29 +45,26 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Detail Grid */
         .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 25px 0; }
         .detail-item { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }
         .detail-label { font-size: 0.7em; opacity: 0.5; text-transform: uppercase; margin-bottom: 5px; }
         .detail-val { font-size: 1.2em; font-weight: bold; color: var(--accent); }
 
-        /* MinuteCast Restored UI */
-        .chart-frame { display: flex; height: 150px; margin-top: 15px; position: relative; }
+        /* MinuteCast - FIXED OVERFLOW */
+        .chart-frame { display: flex; height: 150px; margin-top: 15px; position: relative; overflow: hidden; }
         .y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 12px; font-size: 0.6em; color: #888; text-align: right; width: 45px; }
-        #timeline { flex-grow: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #444; border-left: 1px solid #444; }
-        .bar { flex: 1; background: rgba(255,255,255,0.05); min-height: 2px; border-radius: 1px 1px 0 0; }
+        #timeline { flex-grow: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #444; border-left: 1px solid #444; height: 100%; }
+        .bar { flex: 1; background: rgba(255,255,255,0.05); min-height: 2px; border-radius: 1px 1px 0 0; transition: height 0.5s; }
         .x-axis { display: flex; margin-left: 60px; justify-content: space-between; margin-top: 8px; font-size: 0.7em; color: var(--primary); opacity: 0.8; }
 
-        /* Forecast Scroll */
         .forecast-scroll { display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; scrollbar-width: thin; }
         .forecast-card { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; min-width: 110px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05); }
         .forecast-desc { font-size: 0.65em; opacity: 0.7; text-transform: capitalize; margin-top: 4px; line-height: 1.2; }
 
-        /* Alert Cards */
         #alert-stack { display: flex; flex-direction: column; gap: 10px; }
-        .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; }
+        .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; transition: 0.2s; }
+        .alert-card:hover { transform: scale(1.01); }
 
-        /* Navigation */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d;
             display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000;
@@ -115,15 +111,15 @@
         </div>
         <div class="x-axis"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
 
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY OUTLOOK</div>
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY OUTLOOK (5 DAY)</div>
         <div class="forecast-scroll" id="forecast-container"></div>
     </div>
 
     <div id="severe-tab" class="tab-content">
         <div id="alert-stack" style="margin-bottom:20px;"></div>
-        <iframe id="radar-frame" width="100%" height="400" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC CONVECTIVE OUTLOOK</div>
-        <img id="spc-map" src="https://www.spc.noaa.gov/products/outlook/day1otlk.gif" referrerpolicy="no-referrer" style="width: 100%; border-radius: 15px; border: 1px solid #333;">
+        <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 OUTLOOK</div>
+        <img id="spc-map" src="https://www.spc.noaa.gov/products/outlook/day1otlk.gif" referrerpolicy="no-referrer" style="width: 100%; border-radius: 15px; border: 1px solid #333; background: #111;">
     </div>
 
     <div id="details-tab" class="tab-content">
@@ -192,12 +188,52 @@
             if (data.features?.length > 0) {
                 banner.style.display = "block";
                 banner.innerText = `⚠️ ${data.features[0].properties.severity.toUpperCase()} ALERT: ${data.features[0].properties.event}`;
+                banner.style.background = data.features[0].properties.severity === 'Extreme' ? '#ff1744' : '#ff9100';
+
                 data.features.forEach(f => {
                     const p = f.properties;
-                    stack.innerHTML += `<a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
-                        <div><b>${p.event}</b><br><small>${p.headline || ''}</small></div></a>`;
+                    let icon = "https://forecast.weather.gov/newimages/medium/nshra.png";
+                    const evt = p.event.toLowerCase();
+                    if(evt.includes("tornado")) icon = "https://forecast.weather.gov/newimages/medium/tor.png";
+                    else if(evt.includes("thunderstorm")) icon = "https://forecast.weather.gov/newimages/large/tsra.png";
+                    else if(evt.includes("flood")) icon = "https://forecast.weather.gov/newimages/medium/ffg.png";
+
+                    stack.innerHTML += `
+                        <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
+                            <img src="${icon}" style="width:55px; border-radius:5px;">
+                            <div><b>${p.event}</b><br><small>${p.headline || ''}</small></div>
+                        </a>`;
                 });
-            } else { banner.style.display = "none"; stack.innerHTML = "<div style='opacity:0.5;'>No active hazards.</div>"; }
+            } else { banner.style.display = "none"; stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; }
+        } catch(e) {}
+    }
+
+    async function fetchPirate() {
+        try {
+            const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
+            const d = await res.json();
+            document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
+            
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = "";
+            
+            d.minutely?.data.forEach(m => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                const intensity = m.precipIntensity || 0;
+                
+                // FIXED SCALING: 0.4 in/hr is Heavy (100% height)
+                let heightPct = Math.min((intensity / 0.4) * 100, 100);
+                bar.style.height = Math.max(heightPct, 2) + "%";
+
+                // RESTORED COLOR CODING
+                if (intensity > 0) {
+                    if (intensity >= 0.3) bar.style.background = "#ff1744"; // Red (Heavy)
+                    else if (intensity >= 0.1) bar.style.background = "#ffd600"; // Yellow (Mod)
+                    else bar.style.background = "#00e676"; // Green (Light)
+                }
+                timeline.appendChild(bar);
+            });
         } catch(e) {}
     }
 
@@ -216,24 +252,6 @@
                     <div style="font-size:1.3em; font-weight:bold;">${Math.round(f.main.temp)}&deg;</div>
                     <div class="forecast-desc">${f.weather[0].description}</div>
                 </div>`;
-            });
-        } catch(e) {}
-    }
-
-    async function fetchPirate() {
-        try {
-            const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
-            const d = await res.json();
-            document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
-            const timeline = document.getElementById('timeline');
-            timeline.innerHTML = "";
-            d.minutely?.data.forEach(m => {
-                const bar = document.createElement('div');
-                bar.className = 'bar';
-                const intensity = m.precipIntensity || 0;
-                bar.style.height = Math.max((intensity * 500), 4) + "px";
-                if(intensity > 0) bar.style.background = "#4fc3f7";
-                timeline.appendChild(bar);
             });
         } catch(e) {}
     }
