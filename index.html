@@ -97,9 +97,9 @@
 <div id="dashboard">
 
     <div id="home-tab" class="tab-content active">
-        <div id="stationName" style="color: #888; font-size: 0.75em; letter-spacing: 1.5px; margin-bottom: 10px;">SYNCING NWS SENSORS...</div>
+        <div id="stationName" style="color: #888; font-size: 0.75em; letter-spacing: 1.5px; margin-bottom: 10px;">SYNCING...</div>
         <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-            <img id="weatherIcon" src="" style="display:none; width: 70px; border-radius:10px;">
+            <img id="weatherIcon" src="" style="display:none; width: 70px;">
             <div id="conditionText" style="font-size: 2em; font-weight: 300;">--</div>
         </div>
 
@@ -115,6 +115,9 @@
             <div class="section-title">Minute-Cast</div>
             <div class="attribution">Pirate Weather</div>
         </div>
+        
+        <div id="minuteSummary" style="font-size: 1.1em; color: #ffd54f; margin-bottom: 15px; font-weight: bold;">--</div>
+
         <div style="display: flex; justify-content: space-around; margin-bottom: 10px; font-size: 0.8em;">
             <div>60M PRECIP: <span id="oneHourTotal" style="color:#4fc3f7; font-weight:bold;">0.00"</span></div>
             <div>24H PRECIP: <span id="twentyFourHourTotal" style="color:#4fc3f7; font-weight:bold;">0.00"</span></div>
@@ -134,8 +137,8 @@
     </div>
 
     <div id="severe-tab" class="tab-content">
-        <div class="section-title" style="text-align: left; margin-bottom: 10px;">Alert Stack</div>
-        <div id="alert-stack"><div style="opacity:0.5; font-style:italic;">Scanning NWS frequencies...</div></div>
+        <div class="section-title" style="text-align: left; margin-bottom: 10px;">Live Alert Intelligence</div>
+        <div id="alert-stack"></div>
 
         <hr class="section-divider">
         <div class="section-header">
@@ -144,32 +147,13 @@
         </div>
         <iframe id="radar-frame" width="100%" height="300" frameborder="0" style="border-radius:15px; background: #000; margin-bottom:20px;"></iframe>
 
-        <div class="section-title" style="text-align: left; margin-bottom: 10px;">SPC Day 1 Convective Outlook</div>
-        <img src="https://www.spc.noaa.gov/products/outlook/day1otlk_sm.gif" style="width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+        <div class="section-title" style="text-align: left; margin-bottom: 10px;">SPC Day 1 Outlook</div>
+        <img src="https://www.spc.noaa.gov/products/outlook/day1otlk.gif" style="width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
     </div>
 
     <div id="details-tab" class="tab-content">
-        <div class="section-title" style="text-align: left; margin-bottom: 10px;">Daily Impact Meter</div>
-        <div class="detail-grid" id="impact-meter">
-            <div class="detail-item"><div class="detail-label">Driving</div><div id="imp-drive" class="detail-val">--</div></div>
-            <div class="detail-item"><div class="detail-label">Outdoors</div><div id="imp-out" class="detail-val">--</div></div>
-            <div class="detail-item"><div class="detail-label">Moon Phase</div><div id="moon-phase" class="detail-val">--</div></div>
         </div>
 
-        <hr class="section-divider">
-        <div class="section-header">
-            <div class="section-title">NWS Area Forecast Discussion</div>
-            <div class="attribution" id="wfo-label">Locating Office...</div>
-        </div>
-        <div class="nws-discussion" id="nws-text">Awaiting transmission...</div>
-    </div>
-
-</div>
-
-<div class="bottom-nav">
-    <div class="nav-item active" onclick="switchTab('home', this)">🏠 <span>Home</span></div>
-    <div class="nav-item" onclick="switchTab('severe', this)">⚠️ <span>Severe</span></div>
-    <div class="nav-item" onclick="switchTab('details', this)">📖 <span>Deep Dive</span></div>
 </div>
 
 <script>
@@ -218,28 +202,40 @@
             const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
             const data = await res.json();
             stack.innerHTML = "";
+            
             if (data.features?.length > 0) {
-                // Sort by severity
-                const sevMap = {"Extreme":4, "Severe":3, "Moderate":2, "Minor":1, "Unknown":0};
-                data.features.sort((a,b) => sevMap[b.properties.severity] - sevMap[a.properties.severity]);
-                
                 data.features.forEach(f => {
-                    const sev = f.properties.severity;
-                    let icon = "⚠️";
-                    if(f.properties.event.includes("Tornado")) icon = "🌪️";
-                    if(f.properties.event.includes("Flood")) icon = "🌊";
-                    if(f.properties.event.includes("Winter") || f.properties.event.includes("Snow")) icon = "❄️";
-                    
-                    stack.innerHTML += `<div class="alert-item alert-${sev}">
-                        <div style="font-size:2em;">${icon}</div>
-                        <div>
-                            <div style="font-size:0.7em; text-transform:uppercase; opacity:0.8;">${sev}</div>
-                            <div>${f.properties.event}</div>
-                        </div>
-                    </div>`;
+                    const props = f.properties;
+                    let alertImg = "https://forecast.weather.gov/newimages/medium/nshra.png"; // Default
+                    const event = props.event.toLowerCase();
+
+                    // IMAGE LOGIC
+                    if (event.includes("tornado")) {
+                        alertImg = "https://forecast.weather.gov/newimages/medium/tor.png";
+                    } else if (event.includes("thunderstorm")) {
+                        alertImg = "https://forecast.weather.gov/newimages/large/tsra.png";
+                    } else if (event.includes("flood") && props.severity === "Extreme") {
+                        alertImg = "https://forecast.weather.gov/newimages/medium/nshra.png";
+                    }
+
+                    // BUILD ALERT CARD
+                    stack.innerHTML += `
+                        <a href="https://forecast.weather.gov/showsigwx.php?warnzone=dummy&warncounty=dummy&firewxzone=dummy&local_forecast1=dummy&warnregion=dummy&wwa=${encodeURIComponent(props.event)}" target="_blank" style="text-decoration:none;">
+                            <div class="alert-item alert-${props.severity}" style="margin-bottom:10px; min-height:80px;">
+                                <img src="${alertImg}" style="width:60px; height:60px; border-radius:5px; object-fit:cover;">
+                                <div style="flex:1">
+                                    <div style="font-size:0.6em; text-transform:uppercase; opacity:0.8;">${props.severity}</div>
+                                    <div style="font-size:1em;">${props.event}</div>
+                                    <div style="font-size:0.7em; opacity:0.7; font-weight:normal; margin-top:4px;">${props.headline || 'Click for full details'}</div>
+                                </div>
+                                <div style="font-size:1.2em; opacity:0.5">➔</div>
+                            </div>
+                        </a>`;
                 });
-            } else { stack.innerHTML = "<div style='opacity:0.6; padding: 20px;'>No active NWS alerts for this location. Sky is clear.</div>"; }
-        } catch(e) { stack.innerHTML = "Alert system offline."; }
+            } else {
+                stack.innerHTML = "<div style='opacity:0.6; padding: 20px;'>Clear Skies - No Active Warnings</div>";
+            }
+        } catch(e) { console.error("Alert Error:", e); }
     }
 
     async function fetchNWSChain() {
@@ -283,11 +279,14 @@
             const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await res.json();
             
-            // 24 Hour Precip & Minute Chart
+            // RESTORED SUMMARY
+            document.getElementById('minuteSummary').innerText = d.minutely?.summary || "No immediate precipitation expected.";
+            
             let t24 = 0; d.hourly.data.slice(0, 24).forEach(h => t24 += (h.precipIntensity || 0));
             document.getElementById('twentyFourHourTotal').innerText = t24.toFixed(2) + '"';
             const c = document.getElementById('timeline'); c.innerHTML = "";
             let t1 = 0;
+            
             d.minutely?.data.forEach(m => {
                 const i = m.precipIntensity || 0; t1 += (i/60);
                 const b = document.createElement('div'); b.className = 'bar';
@@ -299,14 +298,6 @@
                 c.appendChild(b);
             });
             document.getElementById('oneHourTotal').innerText = t1.toFixed(2) + '"';
-
-            // Moon Phase logic (0 = New Moon, 0.5 = Full Moon)
-            const mp = d.daily.data[0].moonPhase;
-            let mIcon = "🌑";
-            if (mp > 0 && mp < 0.25) mIcon = "🌒"; else if (mp >= 0.25 && mp < 0.5) mIcon = "🌓";
-            else if (mp >= 0.5 && mp < 0.75) mIcon = "🌔"; else if (mp >= 0.75 && mp <= 1) mIcon = "🌕";
-            document.getElementById('moon-phase').innerText = mIcon;
-
         } catch(e) {}
     }
 
