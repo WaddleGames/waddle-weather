@@ -14,7 +14,7 @@
             padding: 20px 20px 100px 20px;
         }
 
-        h1 { margin: 0 0 20px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; }
+        h1 { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; }
 
         /* Alert Banner */
         #alert-banner {
@@ -24,7 +24,6 @@
             box-shadow: 0 4px 15px rgba(255, 23, 68, 0.4);
         }
 
-        /* Dashboard Layout */
         #dashboard {
             max-width: 850px; margin: auto; background: rgba(255, 255, 255, 0.03);
             padding: 30px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.08);
@@ -33,53 +32,46 @@
 
         #coords-panel {
             margin-bottom: 25px; background: rgba(255, 255, 255, 0.05);
-            display: inline-flex; align-items: center; padding: 5px 15px; border-radius: 50px;
-            border: 1px solid rgba(255,255,255,0.1);
+            display: inline-flex; align-items: center; padding: 8px 15px; border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1); gap: 10px;
         }
         #coords-panel input {
             background: none; border: none; border-bottom: 1px solid var(--primary);
-            color: white; padding: 5px; width: 80px; text-align: center; outline: none; margin: 0 5px;
+            color: white; padding: 5px; width: 80px; text-align: center; outline: none;
         }
+        .btn-action { background: var(--primary); color: #07131d; border: none; padding: 6px 12px; border-radius: 15px; font-weight: bold; cursor: pointer; }
+        .btn-gps { background: rgba(255,255,255,0.1); color: white; }
 
         .tab-content { display: none; animation: fadeIn 0.3s ease-out; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Grids & UI Elements */
+        /* Detail Grid */
         .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 25px 0; }
         .detail-item { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); }
         .detail-label { font-size: 0.7em; opacity: 0.5; text-transform: uppercase; margin-bottom: 5px; }
         .detail-val { font-size: 1.2em; font-weight: bold; color: var(--accent); }
 
-        /* MinuteCast - FIXED HEIGHT & SPACING */
-        .chart-frame { display: flex; height: 150px; margin-top: 15px; align-items: flex-end; gap: 2px; }
-        #timeline { flex-grow: 1; display: flex; align-items: flex-end; height: 100%; border-bottom: 1px solid #444; }
-        .bar { flex: 1; background: rgba(255,255,255,0.1); min-height: 2px; border-radius: 2px 2px 0 0; transition: 0.5s; }
+        /* MinuteCast Restored UI */
+        .chart-frame { display: flex; height: 150px; margin-top: 15px; position: relative; }
+        .y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 12px; font-size: 0.6em; color: #888; text-align: right; width: 45px; }
+        #timeline { flex-grow: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #444; border-left: 1px solid #444; }
+        .bar { flex: 1; background: rgba(255,255,255,0.05); min-height: 2px; border-radius: 1px 1px 0 0; }
+        .x-axis { display: flex; margin-left: 60px; justify-content: space-between; margin-top: 8px; font-size: 0.7em; color: var(--primary); opacity: 0.8; }
 
-        /* 3-Hourly Forecast - HORIZONTAL SCROLL */
-        .forecast-scroll { 
-            display: flex; overflow-x: auto; gap: 15px; padding: 10px 0; 
-            scrollbar-width: thin; scrollbar-color: var(--primary) transparent;
-        }
-        .forecast-card { 
-            background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; 
-            min-width: 110px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05); 
-        }
-        .forecast-time { font-size: 0.8em; font-weight: bold; color: var(--primary); }
-        .forecast-desc { font-size: 0.65em; opacity: 0.7; text-transform: capitalize; margin-top: 5px; }
+        /* Forecast Scroll */
+        .forecast-scroll { display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; scrollbar-width: thin; }
+        .forecast-card { background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; min-width: 110px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05); }
+        .forecast-desc { font-size: 0.65em; opacity: 0.7; text-transform: capitalize; margin-top: 4px; line-height: 1.2; }
 
         /* Alert Cards */
-        #alert-stack { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-        .alert-card { 
-            display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; 
-            text-align: left; text-decoration: none; color: white; transition: 0.2s;
-        }
-        .alert-card:hover { transform: scale(1.01); filter: brightness(1.1); }
+        #alert-stack { display: flex; flex-direction: column; gap: 10px; }
+        .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; }
 
-        /* Nav */
+        /* Navigation */
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d;
-            display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000;
         }
         .nav-item { color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-size: 1.1em; transition: 0.3s; }
         .nav-item span { font-size: 0.5em; text-transform: uppercase; margin-top: 4px; }
@@ -93,15 +85,16 @@
     <div id="coords-panel">
         <input type="number" id="latInput" value="41.8781" step="0.0001">
         <input type="number" id="lonInput" value="-87.6298" step="0.0001">
-        <button onclick="updateLocation()" style="background:none; border:none; color:var(--primary); font-weight:bold; cursor:pointer; margin-left:10px;">SYNC</button>
+        <button class="btn-action" onclick="updateLocation()">SYNC</button>
+        <button class="btn-action btn-gps" onclick="getLocation()">📍 GPS</button>
     </div>
 
 <div id="dashboard">
 
     <div id="home-tab" class="tab-content active">
-        <div id="alert-banner" onclick="switchTab('severe', document.getElementById('nav-severe'))">⚠️ LOADING HAZARDS...</div>
+        <div id="alert-banner" onclick="switchTab('severe', document.getElementById('nav-severe'))">⚠️ ALERTS ACTIVE</div>
 
-        <div id="stationName" style="color: #888; font-size: 0.75em; margin-bottom: 10px; letter-spacing: 1px;">LOCATING...</div>
+        <div id="stationName" style="color: #888; font-size: 0.75em; margin-bottom: 10px; letter-spacing: 1px;">INITIALIZING...</div>
         <div style="display: flex; align-items: center; justify-content: center; gap: 25px;">
             <img id="weatherIcon" src="" style="display:none; width: 80px;">
             <div id="conditionText" style="font-size: 2.5em; font-weight: 300;">--</div>
@@ -115,26 +108,27 @@
         </div>
 
         <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:5px;">MINUTE-PRECIP</div>
-        <div id="minuteSummary" style="text-align:left; font-size: 1.1em; color: var(--accent); margin-bottom: 15px;">--</div>
+        <div id="minuteSummary" style="text-align:left; font-size: 1.1em; color: var(--accent); margin-bottom: 10px;">--</div>
         <div class="chart-frame">
+            <div class="y-axis"><div>Heavy</div><div>Mod</div><div>Light</div></div>
             <div id="timeline"></div>
         </div>
+        <div class="x-axis"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
 
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY OUTLOOK (5 DAY)</div>
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin: 30px 0 10px 0;">3-HOURLY OUTLOOK</div>
         <div class="forecast-scroll" id="forecast-container"></div>
     </div>
 
     <div id="severe-tab" class="tab-content">
-        <div id="alert-stack"></div>
+        <div id="alert-stack" style="margin-bottom:20px;"></div>
         <iframe id="radar-frame" width="100%" height="400" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 CONVECTIVE OUTLOOK</div>
-        <img id="spc-map" src="" referrerpolicy="no-referrer" style="width: 100%; border-radius: 15px; border: 1px solid #333; background:#111; min-height:200px;">
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC CONVECTIVE OUTLOOK</div>
+        <img id="spc-map" src="https://www.spc.noaa.gov/products/outlook/day1otlk.gif" referrerpolicy="no-referrer" style="width: 100%; border-radius: 15px; border: 1px solid #333;">
     </div>
 
     <div id="details-tab" class="tab-content">
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">METEOROLOGIST DISCUSSION</div>
-        <div id="wfo-label" style="text-align:left; font-size:0.7em; opacity:0.5; margin-bottom:10px;">OFFICE: --</div>
-        <div class="nws-discussion" id="nws-text" style="background:rgba(0,0,0,0.4); padding:20px; border-radius:15px; text-align:left; font-family:monospace; font-size:0.85em; color:#aeea00; line-height:1.5; height:400px; overflow-y:auto;">Awaiting Data...</div>
+        <div id="wfo-label" style="text-align:left; font-size:0.7em; color:var(--primary); margin-bottom:5px;">OFFICE: --</div>
+        <div class="nws-discussion" id="nws-text" style="background:rgba(0,0,0,0.4); padding:20px; border-radius:15px; text-align:left; font-family:monospace; font-size:0.85em; color:#aeea00; height:450px; overflow-y:auto; line-height:1.5;">Syncing Discussion...</div>
     </div>
 
 </div>
@@ -157,21 +151,35 @@
         element.classList.add('active');
     }
 
+    function saveLoc() { localStorage.setItem('waddle_lat', lat); localStorage.setItem('waddle_lon', lon); }
+    function loadLoc() {
+        const sLat = localStorage.getItem('waddle_lat');
+        const sLon = localStorage.getItem('waddle_lon');
+        if(sLat) { lat = sLat; lon = sLon; document.getElementById('latInput').value = lat; document.getElementById('lonInput').value = lon; }
+    }
+
     function updateLocation() {
         lat = document.getElementById('latInput').value;
         lon = document.getElementById('lonInput').value;
-        loadAll();
+        saveLoc(); loadAll();
+    }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(p => {
+                lat = p.coords.latitude.toFixed(4);
+                lon = p.coords.longitude.toFixed(4);
+                document.getElementById('latInput').value = lat;
+                document.getElementById('lonInput').value = lon;
+                updateLocation();
+            }, e => alert("GPS Access Denied"));
+        }
     }
 
     async function loadAll() {
-        // SPC Image Fix: Use timestamp to force refresh and direct path
-        document.getElementById('spc-map').src = `https://www.spc.noaa.gov/products/outlook/day1otlk.gif?${new Date().getTime()}`;
         document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
-        
-        fetchAlerts();
-        fetchPirate();
-        fetchOpenWeather();
-        fetchNWSChain();
+        document.getElementById('spc-map').src = `https://www.spc.noaa.gov/products/outlook/day1otlk.gif?t=${new Date().getTime()}`;
+        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
     }
 
     async function fetchAlerts() {
@@ -181,62 +189,35 @@
             const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
             const data = await res.json();
             stack.innerHTML = "";
-            
             if (data.features?.length > 0) {
                 banner.style.display = "block";
-                let topAlert = data.features[0].properties;
-                banner.innerText = `⚠️ ${topAlert.severity.toUpperCase()} ALERT: ${topAlert.event}`;
-                banner.style.background = topAlert.severity === "Extreme" ? "#ff1744" : "#ff9100";
-
+                banner.innerText = `⚠️ ${data.features[0].properties.severity.toUpperCase()} ALERT: ${data.features[0].properties.event}`;
                 data.features.forEach(f => {
                     const p = f.properties;
-                    let img = "https://forecast.weather.gov/newimages/medium/nshra.png";
-                    if(p.event.toLowerCase().includes("tornado")) img = "https://forecast.weather.gov/newimages/medium/tor.png";
-                    if(p.event.toLowerCase().includes("thunderstorm")) img = "https://forecast.weather.gov/newimages/large/tsra.png";
-                    
-                    stack.innerHTML += `
-                        <a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
-                            <img src="${img}" style="width:60px; border-radius:8px;">
-                            <div>
-                                <div style="font-size:0.7em; opacity:0.8;">${p.severity}</div>
-                                <div style="font-size:1.1em; font-weight:bold;">${p.event}</div>
-                                <div style="font-size:0.8em; opacity:0.9;">${p.headline || ''}</div>
-                            </div>
-                        </a>`;
+                    stack.innerHTML += `<a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${p.severity==='Extreme'?'#b71c1c':'#e65100'}">
+                        <div><b>${p.event}</b><br><small>${p.headline || ''}</small></div></a>`;
                 });
-            } else {
-                banner.style.display = "none";
-                stack.innerHTML = "<div style='opacity:0.5; padding:40px;'>No active NWS hazards for this location.</div>";
-            }
-        } catch(e) { console.error(e); }
+            } else { banner.style.display = "none"; stack.innerHTML = "<div style='opacity:0.5;'>No active hazards.</div>"; }
+        } catch(e) {}
     }
 
     async function fetchOpenWeather() {
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
-            
-            // Sunrise/Set from City Object
             document.getElementById('riseVal').innerText = new Date(d.city.sunrise * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             document.getElementById('setVal').innerText = new Date(d.city.sunset * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-
             const cont = document.getElementById('forecast-container');
             cont.innerHTML = "";
-            
-            // 3-Hourly Loop
             d.list.forEach(f => {
-                const date = new Date(f.dt * 1000);
-                const timeStr = date.toLocaleTimeString([], {weekday:'short', hour:'numeric'});
-                
-                cont.innerHTML += `
-                    <div class="forecast-card">
-                        <div class="forecast-time">${timeStr}</div>
-                        <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:50px;">
-                        <div style="font-size:1.3em; font-weight:bold;">${Math.round(f.main.temp)}&deg;</div>
-                        <div class="forecast-desc">${f.weather[0].description}</div>
-                    </div>`;
+                cont.innerHTML += `<div class="forecast-card">
+                    <div style="font-size:0.8em; color:var(--primary); font-weight:bold;">${new Date(f.dt*1000).toLocaleTimeString([], {weekday:'short', hour:'numeric'})}</div>
+                    <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:50px;">
+                    <div style="font-size:1.3em; font-weight:bold;">${Math.round(f.main.temp)}&deg;</div>
+                    <div class="forecast-desc">${f.weather[0].description}</div>
+                </div>`;
             });
-        } catch(e) { console.error("OW Error", e); }
+        } catch(e) {}
     }
 
     async function fetchPirate() {
@@ -244,10 +225,8 @@
             const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await res.json();
             document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
-            
             const timeline = document.getElementById('timeline');
             timeline.innerHTML = "";
-            
             d.minutely?.data.forEach(m => {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
@@ -263,26 +242,22 @@
         try {
             const p = await (await fetch(`https://api.weather.gov/points/${lat},${lon}`)).json();
             const wfo = p.properties.cwa;
-            document.getElementById('wfo-label').innerText = "NWS OFFICE: " + wfo;
-            
+            document.getElementById('wfo-label').innerText = "OFFICE: " + wfo;
             const stations = await (await fetch(p.properties.observationStations)).json();
             const obs = await (await fetch(`${stations.features[0].id}/observations/latest`)).json();
-            const props = obs.properties;
-            
             document.getElementById('stationName').innerText = stations.features[0].properties.name;
-            document.getElementById('conditionText').innerText = props.textDescription || "--";
-            document.getElementById('weatherIcon').src = props.icon;
+            document.getElementById('conditionText').innerText = obs.properties.textDescription || "--";
+            document.getElementById('weatherIcon').src = obs.properties.icon;
             document.getElementById('weatherIcon').style.display = "block";
-            document.getElementById('windVal').innerText = Math.round(props.windSpeed.value * 0.621) + " mph";
-            document.getElementById('humVal').innerText = Math.round(props.relativeHumidity.value) + "%";
-
+            document.getElementById('windVal').innerText = Math.round(obs.properties.windSpeed.value * 0.621) + " mph";
+            document.getElementById('humVal').innerText = Math.round(obs.properties.relativeHumidity.value) + "%";
             const afdList = await (await fetch(`https://api.weather.gov/products/types/AFD/locations/${wfo}`)).json();
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
             document.getElementById('nws-text').innerText = afd.productText;
         } catch(e) {}
     }
 
-    window.onload = loadAll;
+    window.onload = () => { loadLoc(); loadAll(); };
 </script>
 </body>
 </html>
