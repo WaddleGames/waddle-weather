@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WaddleWeather | Professional Station</title>
     <style>
-        :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffd600; --success: #00e676; --bg: #07131d; }
+        :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffeb3b; --success: #00e676; --bg: #07131d; }
         
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -50,7 +50,6 @@
         .detail-label { font-size: 0.7em; opacity: 0.5; text-transform: uppercase; margin-bottom: 5px; }
         .detail-val { font-size: 1.2em; font-weight: bold; color: var(--accent); }
 
-        /* MinuteCast - FIXED OVERFLOW */
         .chart-frame { display: flex; height: 150px; margin-top: 15px; position: relative; overflow: hidden; }
         .y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 12px; font-size: 0.6em; color: #888; text-align: right; width: 45px; }
         #timeline { flex-grow: 1; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #444; border-left: 1px solid #444; height: 100%; }
@@ -63,7 +62,6 @@
 
         #alert-stack { display: flex; flex-direction: column; gap: 10px; }
         .alert-card { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 12px; text-align: left; text-decoration: none; color: white; transition: 0.2s; }
-        .alert-card:hover { transform: scale(1.01); }
 
         .bottom-nav {
             position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d;
@@ -118,8 +116,10 @@
     <div id="severe-tab" class="tab-content">
         <div id="alert-stack" style="margin-bottom:20px;"></div>
         <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 OUTLOOK</div>
-        <img id="spc-map" src="https://www.spc.noaa.gov/products/outlook/day1otlk.png" referrerpolicy="no-referrer" style="width: 100%; border-radius: 15px; border: 1px solid #333; background: #111;">
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:10px;">SPC DAY 1 CONVECTIVE OUTLOOK</div>
+        <div style="background:#111; border-radius:15px; overflow:hidden; border: 1px solid #333;">
+            <img id="spc-map" src="" referrerpolicy="no-referrer" style="width: 100%; display:block; min-height:200px;">
+        </div>
     </div>
 
     <div id="details-tab" class="tab-content">
@@ -172,24 +172,17 @@
         }
     }
 
-    async function loadAll() {
-        document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
-        document.getElementById('spc-map').src = `https://www.spc.noaa.gov/products/outlook/day1otlk.gif?t=${new Date().getTime()}`;
-        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
-    }
-
     async function updateSPCMap() {
         const spcImg = document.getElementById('spc-map');
         const targetUrl = "https://www.spc.noaa.gov/products/outlook/day1otlk.png";
-        
-        // Using a public proxy to bypass NOAA's hotlink protection
-        // This 'cors-anywhere' approach or a simple cache-buster usually does the trick
+        // Using a proxy ensures NOAA's server doesn't block the request from a browser
         spcImg.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}?t=${new Date().getTime()}`;
-        
-        // Fallback: If proxy fails, try the direct link with a cache buster
-        spcImg.onerror = () => {
-            spcImg.src = targetUrl + "?t=" + new Date().getTime();
-        };
+    }
+
+    async function loadAll() {
+        document.getElementById('radar-frame').src = `https://www.rainviewer.com/map.html?loc=${lat},${lon},8&oFa=0&oC=1&oU=0&oLL=0&oHu=0&oD=1&oQ=0&oTh=0&color=2&sm=1&sn=1`;
+        updateSPCMap(); // <--- This is the call that fixed the map!
+        fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
     }
 
     async function fetchAlerts() {
@@ -227,24 +220,18 @@
             const res = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await res.json();
             document.getElementById('minuteSummary').innerText = d.minutely?.summary || "Conditions holding steady.";
-            
             const timeline = document.getElementById('timeline');
             timeline.innerHTML = "";
-            
             d.minutely?.data.forEach(m => {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
                 const intensity = m.precipIntensity || 0;
-                
-                // FIXED SCALING: 0.4 in/hr is Heavy (100% height)
                 let heightPct = Math.min((intensity / 0.4) * 100, 100);
                 bar.style.height = Math.max(heightPct, 2) + "%";
-
-                // RESTORED COLOR CODING
                 if (intensity > 0) {
-                    if (intensity >= 0.3) bar.style.background = "#ff1744"; // Red (Heavy)
-                    else if (intensity >= 0.1) bar.style.background = "#ffd600"; // Yellow (Mod)
-                    else bar.style.background = "#00e676"; // Green (Light)
+                    if (intensity >= 0.3) bar.style.background = "#ff1744"; 
+                    else if (intensity >= 0.1) bar.style.background = "#ffeb3b";
+                    else bar.style.background = "#00e676";
                 }
                 timeline.appendChild(bar);
             });
