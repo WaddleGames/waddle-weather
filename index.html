@@ -129,7 +129,7 @@
         </div>
 
         <div class="detail-grid">
-            <div class="detail-item"><div class="detail-label">Temp</div><div id="tempVal" class="detail-val" style="color: #ff5252;">--</div></div>
+            <div class="detail-item"><div class="detail-label">Temp</div><div id="tempVal" class="detail-val">--</div></div>
             <div class="detail-item"><div class="detail-label">Wind</div><div id="windVal" class="detail-val">--</div></div>
             <div class="detail-item"><div class="detail-label">Humidity</div><div id="humVal" class="detail-val">--</div></div>
             <div class="detail-item"><div class="detail-label">Pressure</div><div id="presVal" class="detail-val">--</div></div>
@@ -298,6 +298,15 @@
         const storyRawUrl = `www.weather.gov/images/${wfo.toLowerCase()}/wxstory/Tab1FileL.png`;
         storyImg.src = `https://images.weserv.nl/?url=${storyRawUrl}&t=${new Date().getTime()}`;
         document.getElementById('wxstory-link').href = `https://${storyRawUrl}`;
+    }
+
+    function getTempColor(t) {
+    if (t === "--" || t === null) return "#ffffff";
+    if (t < 0) return "#3f51b5";       // DEEP BLUE (Sub-zero)
+    if (t < 40) return "#4fc3f7";      // Light Blue
+    if (t <= 60) return "#ffffff";     // White
+    if (t <= 75) return "#ffd54f";     // Yellow
+    return "#ff5252";                  // Red
     }
 
     // Helper to translate Moon Phase decimal to string
