@@ -491,10 +491,15 @@
             const cont = document.getElementById('forecast-container'); cont.innerHTML = "";
             
             d.list.forEach(f => {
-                // Calculate conditional data points
+                // Fix: Convert mm to inches (OpenWeather sends rain in mm)
+                const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : 0;
+                const rainVol = rainInches > 0 ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${rainInches} in</div>` : '';
+                
                 const popPct = Math.round(f.pop * 100);
-                const rainVol = f.rain && f.rain['3h'] ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${f.rain['3h'].toFixed(2)} in</div>` : '';
                 const gustInfo = f.wind.gust ? `<div><b>Gusts:</b> ${Math.round(f.wind.gust)} mph</div>` : '';
+                
+                // Fix: Convert hPa to inHg
+                const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
 
                 cont.innerHTML += `
                 <div class="forecast-card" style="min-width: 140px; display: flex; flex-direction: column;">
@@ -513,7 +518,7 @@
                             <div><b>Wind:</b> ${Math.round(f.wind.speed)} mph</div>
                             ${gustInfo}
                             <div><b>Clouds:</b> ${f.clouds.all}%</div>
-                            <div><b>Pressure:</b> ${f.main.pressure} hPa</div>
+                            <div><b>Pressure:</b> ${pressInHg} inHg</div>
                         </div>
                     </details>
                 </div>`;
