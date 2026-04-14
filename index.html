@@ -346,23 +346,45 @@
         const banner = document.getElementById('alert-banner');
         const checklist = document.getElementById('safety-checklist');
         
+        // Define priority: Higher number = Higher priority
+        const severityScore = {
+            'Extreme': 4,
+            'Severe': 3,
+            'Moderate': 2,
+            'Minor': 1,
+            'Unknown': 0
+        };
+
         try {
             const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
             const data = await res.json();
             stack.innerHTML = ""; document.body.className = ""; checklist.style.display = "none";
 
             if (data.features?.length > 0) {
+                // Find the "Top Alert" based on severity score
+                let topAlert = data.features.reduce((prev, current) => {
+                    let prevScore = severityScore[prev.properties.severity] || 0;
+                    let currScore = severityScore[current.properties.severity] || 0;
+                    return (currScore > prevScore) ? current : prev;
+                });
+
+                const topP = topAlert.properties;
                 banner.style.display = "block";
-                banner.innerText = `⚠️ ${data.features[0].properties.event.toUpperCase()}`;
-                banner.style.background = data.features[0].properties.severity === 'Extreme' ? '#ff1744' : '#ff9100';
+                banner.innerText = `⚠️ ${topP.event.toUpperCase()}`;
+                banner.style.background = topP.severity === 'Extreme' ? 'var(--danger)' : '#ff9100';
 
-                let highestTheme = ""; let checklistText = "";
+                let highestTheme = ""; 
+                let checklistText = "";
 
+                // Process all alerts for the stack and theme logic
                 data.features.forEach(f => {
-                    const p = f.properties; const evt = p.event.toLowerCase();
+                    const p = f.properties; 
+                    const evt = p.event.toLowerCase();
+                    
                     let icon = "https://www.weather.gov/bundles/templating/images/top_news/important.png";
                     for (const key in ALERT_ICONS) { if (evt.includes(key)) { icon = ALERT_ICONS[key]; break; } }
 
+                    // Safety & Theme logic (Tornado > Severe Tstm > Flood)
                     if(evt.includes("tornado warning")) { highestTheme = "theme-tor"; checklistText = "TAKE COVER NOW!"; }
                     else if(evt.includes("severe thunderstorm") && highestTheme !== "theme-tor") { highestTheme = "theme-svr"; checklistText = "MOVE TO AN INTERIOR ROOM!"; }
                     else if(evt.includes("flash flood warning") && !highestTheme) { highestTheme = "theme-ffw"; checklistText = "SEEK HIGHER GROUND NOW!"; }
@@ -376,8 +398,11 @@
 
                 if(highestTheme) document.body.className = highestTheme;
                 if(checklistText) { checklist.innerText = checklistText; checklist.style.display = "block"; }
-            } else { banner.style.display = "none"; stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; }
-        } catch(e) {}
+            } else { 
+                banner.style.display = "none"; 
+                stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; 
+            }
+        } catch(e) { console.error("Alert Fetch Error:", e); }
     }
 
     async function fetchAQI() {
