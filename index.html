@@ -178,6 +178,20 @@
         fetchAlerts(); fetchPirate(); fetchOpenWeather(); fetchNWSChain();
     }
 
+    async function updateSPCMap() {
+        const spcImg = document.getElementById('spc-map');
+        const targetUrl = "https://www.spc.noaa.gov/products/outlook/day1otlk.png";
+        
+        // Using a public proxy to bypass NOAA's hotlink protection
+        // This 'cors-anywhere' approach or a simple cache-buster usually does the trick
+        spcImg.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}?t=${new Date().getTime()}`;
+        
+        // Fallback: If proxy fails, try the direct link with a cache buster
+        spcImg.onerror = () => {
+            spcImg.src = targetUrl + "?t=" + new Date().getTime();
+        };
+    }
+
     async function fetchAlerts() {
         const stack = document.getElementById('alert-stack');
         const banner = document.getElementById('alert-banner');
