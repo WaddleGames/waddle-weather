@@ -550,7 +550,7 @@
             document.getElementById('weatherIcon').src = obs.properties.icon;
             document.getElementById('weatherIcon').style.display = "block";
             
-            // Trigger weather FX
+            // Start the Dynamic FX
             startWeatherFX(condition);
 
             const tempC = obs.properties.temperature.value;
@@ -622,21 +622,31 @@
 
         const text = condition.toLowerCase();
         let type = 'none';
+        let count = 100; // Base particle count
+        let speedMult = 1;
 
-        if (text.includes('rain') || text.includes('drizzle') || text.includes('storm')) {
-            type = 'rain';
-        } else if (text.includes('snow') || text.includes('flurries') || text.includes('winter')) {
+        if (text.includes('snow') || text.includes('flurries') || text.includes('winter')) {
             type = 'snow';
+        } else if (text.includes('rain') || text.includes('drizzle') || text.includes('storm')) {
+            type = 'rain';
+            // Set Intensity logic
+            if (text.includes('heavy') || text.includes('storm')) {
+                count = 350;
+                speedMult = 1.8;
+            } else if (text.includes('light') || text.includes('drizzle')) {
+                count = 50;
+                speedMult = 0.6;
+            }
         }
         
         if (type === 'none') return; 
 
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < count; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
-                len: type === 'rain' ? Math.random() * 20 + 10 : Math.random() * 4 + 2,
-                vel: type === 'rain' ? Math.random() * 10 + 5 : Math.random() * 1 + 0.5,
+                len: type === 'rain' ? (Math.random() * 20 + 10) * speedMult : Math.random() * 4 + 2,
+                vel: type === 'rain' ? (Math.random() * 10 + 5) * speedMult : Math.random() * 1 + 0.5,
                 drift: Math.random() * 1 - 0.5 
             });
         }
@@ -686,7 +696,7 @@
         }
         fxAnimationId = requestAnimationFrame(draw);
     }
-
+    
     setInterval(loadAll, 300000);
     window.onload = () => { 
         loadLoc(); 
