@@ -25,8 +25,6 @@
             96%, 99% { background-color: rgba(255, 255, 255, 0.15); }
         }
 
-        /* All old "extreme" rain CSS has been removed to avoid conflicts */
-
         h1 { margin: 0 0 10px 0; font-weight: 800; font-size: 2.2em; color: var(--accent); letter-spacing: -1px; display: flex; justify-content: space-between; align-items: center; z-index: 10; position: relative; }
 
         #alert-banner {
@@ -34,6 +32,20 @@
             border-radius: 12px; margin-bottom: 20px; font-weight: bold;
             cursor: pointer; border: 1px solid rgba(255,255,255,0.3);
             box-shadow: 0 4px 15px rgba(255, 23, 68, 0.4); text-align: center;
+        }
+
+        @keyframes emergPulse {
+            0% { background-color: #b71c1c; box-shadow: 0 0 10px rgba(183,28,28,0.5); }
+            50% { background-color: #ff1744; box-shadow: 0 0 40px rgba(255,23,68,0.8); transform: scale(1.02); }
+            100% { background-color: #b71c1c; box-shadow: 0 0 10px rgba(183,28,28,0.5); }
+        }
+        
+        .emergency-banner {
+            animation: emergPulse 1.5s infinite;
+            font-weight: 900 !important;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 2px solid white !important;
         }
 
         #safety-checklist {
@@ -307,6 +319,29 @@
         "storm warning": "https://forecast.weather.gov/images/wtf/medium/m_ntsra.png",
     };
 
+    const EMERGENCY_TYPES = [
+        "civil emergency message", "civil danger warning", "evacuation immediate", 
+        "fire warning", "law enforcement warning", "local area emergency", 
+        "shelter in place warning", "radiological hazard warning", 
+        "hazardous materials warning", "child abduction emergency", "911 telephone outage"
+    ];
+
+    const SEVERITY_SCORE = { 'Extreme': 4, 'Severe': 3, 'Moderate': 2, 'Minor': 1, 'Unknown': 0 };
+
+    function getAlertPriority(eventStr, severityStr) {
+        const e = eventStr.toLowerCase();
+        let baseScore = 0;
+        
+        if (EMERGENCY_TYPES.some(em => e.includes(em))) baseScore = 10000;
+        else if (e.includes("warning")) baseScore = 8000;
+        else if (e.includes("watch")) baseScore = 6000;
+        else if (e.includes("advisory")) baseScore = 4000;
+        else if (e.includes("statement")) baseScore = 2000;
+        else baseScore = 1000;
+
+        return baseScore + (SEVERITY_SCORE[severityStr] || 0);
+    }
+
     function switchTab(tabId, element) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -321,7 +356,27 @@
         if(sLat) { lat = sLat; lon = localStorage.getItem('waddle_lon'); document.getElementById('latInput').value = lat; document.getElementById('lonInput').value = lon; }
     }
 
-    function updateLocation() { lat = document.getElementById('latInput').value; lon = document.getElementById('lonInput').value; saveLoc(); loadAll(); }
+    function updateLocation() { 
+        lat = document.getElementById('latInput').value; 
+        lon = document.getElementById('lonInput').value; 
+        saveLoc(); 
+
+        // Clear UI Immediately to fix transition delay
+        document.getElementById('stationName').innerText = "LOCATING METRICS...";
+        document.getElementById('conditionText').innerText = "--";
+        document.getElementById('tempVal').innerText = "--";
+        document.getElementById('windVal').innerText = "--";
+        document.getElementById('humVal').innerText = "--";
+        document.getElementById('presVal').innerText = "--";
+        document.getElementById('weatherIcon').style.display = "none";
+        document.getElementById('minuteSummary').innerText = "Scanning radar...";
+        document.getElementById('timeline').innerHTML = "";
+        document.getElementById('alert-banner').style.display = "none";
+        document.getElementById('alert-stack').innerHTML = "";
+        stopWeatherFX();
+
+        loadAll(); 
+    }
 
     function getLocation() {
         if (navigator.geolocation) {
@@ -377,7 +432,7 @@
         if (temp < 40) return "Chilly outside—grab a heavy coat.";
         if (c.includes("clear") || c.includes("sun")) return "Beautiful skies—perfect time to be outside!";
         if (c.includes("overcast") || c.includes("cloud")) return "Cloudy skies at the moment—good for anyone who loves the shade.";
-        if (c.includes("fog")) return "Low visibility. Drive safely.";
+        if (c.includes("fog") || c.includes("haze")) return "Low visibility. Drive safely.";
         return "Typical conditions out there right now.";
     }
 
@@ -417,51 +472,68 @@
         const banner = document.getElementById('alert-banner');
         const checklist = document.getElementById('safety-checklist');
         clearInterval(alertIntervalId);
-        const severityScore = { 'Extreme': 4, 'Severe': 3, 'Moderate': 2, 'Minor': 1, 'Unknown': 0 };
 
         try {
             const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
             const data = await res.json();
-            stack.innerHTML = ""; document.body.className = ""; checklist.style.display = "none"; banner.style.display = "none";
+            stack.innerHTML = ""; document.body.className = ""; checklist.style.display = "none"; banner.style.display = "none"; banner.className = "";
 
             if (data.features?.length > 0) {
                 let topAlert = data.features.reduce((prev, current) => {
-                    let prevScore = severityScore[prev.properties.severity] || 0;
-                    let currScore = severityScore[current.properties.severity] || 0;
+                    let prevScore = getAlertPriority(prev.properties.event, prev.properties.severity);
+                    let currScore = getAlertPriority(current.properties.event, current.properties.severity);
                     return (currScore > prevScore) ? current : prev;
                 });
                 
                 const topP = topAlert.properties;
                 const evtLower = topP.event.toLowerCase();
                 
-                // PDS Check for the Home Banner
+                // Emergency & PDS Check
                 const topDesc = topP.description ? topP.description.toUpperCase() : "";
                 const isTopPDS = topDesc.includes("PARTICULARLY DANGEROUS SITUATION") || topDesc.includes("FLASH FLOOD EMERGENCY");
                 const topEventName = isTopPDS ? `PDS ${topP.event.toUpperCase()}` : topP.event.toUpperCase();
+                const isEmergency = EMERGENCY_TYPES.some(em => evtLower.includes(em));
 
                 banner.style.display = "block";
-                // Uses a dark magenta/wine red (#880e4f) for PDS, standard extreme colors otherwise
-                banner.style.background = isTopPDS ? '#880e4f' : (topP.severity === 'Extreme' ? 'var(--danger)' : '#ff9100');
-                banner.innerText = `⚠️ ${topEventName}`;
+                let bannerTextPrefix = isEmergency ? `🚨 ${topEventName}` : `⚠️ ${topEventName}`;
+                
+                if (isEmergency) {
+                    banner.classList.add("emergency-banner");
+                    banner.style.background = ""; // Reset inline to allow CSS animation
+                } else {
+                    banner.style.background = isTopPDS ? '#880e4f' : (topP.severity === 'Extreme' ? 'var(--danger)' : '#ff9100');
+                }
 
-                if (evtLower.includes("tornado warning") || evtLower.includes("severe thunderstorm warning") || evtLower.includes("flash flood warning")) {
+                // Any warning or emergency triggers the countdown check
+                if (evtLower.includes("warning") || isEmergency) {
                     const expTime = new Date(topP.expires || topP.ends).getTime();
                     alertIntervalId = setInterval(() => {
                         const diff = expTime - new Date().getTime();
-                        if (diff <= 0) { banner.innerText = `⚠️ ${topEventName} (EXPIRED)`; clearInterval(alertIntervalId); } 
+                        if (diff <= 0) { banner.innerText = `${bannerTextPrefix} (EXPIRED)`; clearInterval(alertIntervalId); } 
                         else {
-                            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                            const h = Math.floor(diff / (1000 * 60 * 60));
+                            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
                             const s = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
-                            banner.innerText = `⚠️ ${topEventName} - Expires in ${m}:${s}`;
+                            const timeStr = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+                            banner.innerText = `${bannerTextPrefix} - Expires in ${timeStr}`;
                         }
                     }, 1000);
+                } else {
+                    banner.innerText = bannerTextPrefix;
                 }
 
                 let highestTheme = ""; let checklistText = "";
-                data.features.forEach(f => {
+                
+                // Sort the stack visually by our new priority logic
+                const sortedFeatures = data.features.sort((a, b) => {
+                    return getAlertPriority(b.properties.event, b.properties.severity) - getAlertPriority(a.properties.event, a.properties.severity);
+                });
+
+                sortedFeatures.forEach(f => {
                     const p = f.properties; const evt = p.event.toLowerCase();
                     const desc = p.description ? p.description.toUpperCase() : "";
                     const isPDS = desc.includes("PARTICULARLY DANGEROUS SITUATION") || desc.includes("FLASH FLOOD EMERGENCY");
+                    const isLocalEmergency = EMERGENCY_TYPES.some(em => evt.includes(em));
 
                     let icon = "https://www.weather.gov/bundles/templating/images/top_news/important.png";
                     for (const key in ALERT_ICONS) { if (evt.includes(key)) { icon = ALERT_ICONS[key]; break; } }
@@ -479,9 +551,13 @@
                         checklistText = isPDS ? "FLASH FLOOD EMERGENCY! SEEK HIGHER GROUND NOW!" : "SEEK HIGHER GROUND NOW!"; 
                     }
 
-                    // Alert Stack UI adjustments for PDS
                     const displayName = isPDS ? `PDS ${p.event}` : p.event;
-                    const bgColor = isPDS ? '#880e4f' : (p.severity === 'Extreme' ? '#b71c1c' : '#e65100');
+                    let bgColor = '#e65100'; // Default Orange
+                    if (isLocalEmergency) bgColor = '#b71c1c';
+                    else if (isPDS) bgColor = '#880e4f';
+                    else if (p.severity === 'Extreme') bgColor = '#b71c1c';
+                    else if (evt.includes("watch")) bgColor = '#ffb300';
+                    else if (evt.includes("advisory")) bgColor = '#29b6f6';
 
                     stack.innerHTML += `<a href="https://forecast.weather.gov/MapClick.php?lat=${lat}&lon=${lon}" target="_blank" class="alert-card" style="background:${bgColor}"><img src="${icon}" style="width:55px; border-radius:5px;"><div><b>${displayName}</b><br><small>${p.headline || ''}</small></div></a>`;
                 });
@@ -680,14 +756,13 @@
 
         const text = condition.toLowerCase();
         let type = 'none';
-        let count = 100; // Base particle count
+        let count = 100;
         let speedMult = 1;
 
         if (text.includes('snow') || text.includes('flurries') || text.includes('winter')) {
             type = 'snow';
         } else if (text.includes('rain') || text.includes('drizzle') || text.includes('storm')) {
             type = 'rain';
-            // Set Intensity logic
             if (text.includes('heavy') || text.includes('storm')) {
                 count = 350;
                 speedMult = 1.8;
@@ -695,6 +770,10 @@
                 count = 50;
                 speedMult = 0.6;
             }
+        } else if (text.includes('fog') || text.includes('mist') || text.includes('haze')) {
+            type = 'fog';
+            count = 30;
+            speedMult = 0.1;
         }
         
         if (type === 'none') return; 
@@ -703,9 +782,9 @@
             particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
-                len: type === 'rain' ? (Math.random() * 20 + 10) * speedMult : Math.random() * 4 + 2,
-                vel: type === 'rain' ? (Math.random() * 10 + 5) * speedMult : Math.random() * 1 + 0.5,
-                drift: Math.random() * 1 - 0.5 
+                len: type === 'fog' ? Math.random() * 80 + 40 : (type === 'rain' ? (Math.random() * 20 + 10) * speedMult : Math.random() * 4 + 2),
+                vel: type === 'fog' ? Math.random() * 0.5 + 0.1 : (type === 'rain' ? (Math.random() * 10 + 5) * speedMult : Math.random() * 1 + 0.5),
+                drift: type === 'fog' ? Math.random() * 0.5 - 0.25 : Math.random() * 1 - 0.5 
             });
         }
 
@@ -727,27 +806,42 @@
                 }
             }
 
-            ctx.lineWidth = 1;
-            ctx.lineCap = 'round';
-
             particles.forEach(p => {
-                ctx.beginPath();
-                if (type === 'rain') {
+                if (type === 'fog') {
+                    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.len);
+                    grad.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+                    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.len, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    p.x += p.drift;
+                    p.y -= p.vel;
+                    if (p.y < -p.len) {
+                        p.y = canvas.height + p.len;
+                        p.x = Math.random() * canvas.width;
+                    }
+                } else if (type === 'snow') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.len, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    p.y += p.vel;
+                    p.x += p.drift;
+                    if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
+                } else if (type === 'rain') {
+                    ctx.lineWidth = 1;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
                     ctx.strokeStyle = 'rgba(174, 194, 224, 0.2)';
                     ctx.moveTo(p.x, p.y);
                     ctx.lineTo(p.x, p.y + p.len);
-                } else {
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                    ctx.arc(p.x, p.y, p.len, 0, Math.PI * 2);
-                }
-                ctx.stroke();
+                    ctx.stroke();
 
-                p.y += p.vel;
-                if (type === 'snow') p.x += p.drift;
-
-                if (p.y > canvas.height) {
-                    p.y = -20;
-                    p.x = Math.random() * canvas.width;
+                    p.y += p.vel;
+                    if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
                 }
             });
             fxAnimationId = requestAnimationFrame(draw);
