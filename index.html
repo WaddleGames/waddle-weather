@@ -647,26 +647,37 @@
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}`);
             const d = await res.json();
-            const rawIndex = d.list[0].main.aqi; // The OpenWeather 1-5 index
             
-            // Map the 1-5 index to typical US EPA AQI numerical ranges
-            const aqiData = {
-                1: { val: 25, label: "Good", color: "#00e676" },          // 0-50 range
-                2: { val: 75, label: "Moderate", color: "#ffeb3b" },      // 51-100 range
-                3: { val: 125, label: "Unhealthy (S)", color: "#ff9100" },// 101-150 range
-                4: { val: 175, label: "Unhealthy", color: "#ff5252" },     // 151-200 range
-                5: { val: 300, label: "Hazardous", color: "#b71c1c" }      // 201-500 range
-            };
+            // Calculate US EPA AQI using PM2.5 concentration for accuracy
+            const pm25 = d.list[0].components.pm2_5;
+            let aqi, aqiDesc, aqiCol;
 
-            const result = aqiData[rawIndex] || { val: "--", label: "Unknown", color: "#888" };
-
-            const valEl = document.getElementById('aqi-val');
-            valEl.innerText = result.val;
-            valEl.style.color = result.color;
-            document.getElementById('aqi-desc').innerText = result.label;
-        } catch(e) {
-            console.error("AQI Fetch Error:", e);
+        if (pm25 <= 12.0) {
+            aqi = Math.round((50 / 12.0) * pm25);
+            aqiDesc = "Good";
+            aqiCol = "#00e676";
+        } else if (pm25 <= 35.4) {
+            aqi = Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
+            aqiDesc = "Moderate";
+            aqiCol = "#ffeb3b";
+        } else if (pm25 <= 55.4) {
+            aqi = Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
+            aqiDesc = "Unhealthy (Sensitive)";
+            aqiCol = "#ff9100";
+        } else if (pm25 <= 150.4) {
+            aqi = Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
+            aqiDesc = "Unhealthy";
+            aqiCol = "#ff5252";
+        } else {
+            aqi = Math.round(((300 - 201) / (250.4 - 150.5)) * (pm25 - 150.5) + 201);
+            aqiDesc = "Very Unhealthy";
+            aqiCol = "#b71c1c";
         }
+
+            document.getElementById('aqi-val').innerText = `AQI ${aqi}`;
+            document.getElementById('aqi-val').style.color = aqiCol;
+            document.getElementById('aqi-desc').innerText = aqiDesc;
+        } catch(e) { console.error("AQI Sync Error:", e); }
     }
 
     async function fetchPirate() {
