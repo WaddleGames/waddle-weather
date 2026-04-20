@@ -269,11 +269,11 @@
             </div>
         </a>
 
-        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:5px;">AREA FORECAST DISCUSSION (AFD)</div>
+        <div style="text-align:left; font-weight:bold; color:var(--primary); margin-bottom:5px;">LOCAL AREA FORECAST DISCUSSION</div>
         <div class="nws-discussion" id="nws-text" style="background:rgba(0,0,0,0.4); padding:20px; border-radius:15px; text-align:left; font-family:monospace; font-size:0.85em; color:#aeea00; height:350px; overflow-y:auto; line-height:1.5; margin-bottom:20px;">Syncing Discussion...</div>
 
         <div class="toolkit-box">
-            <div class="toolkit-header"><span>📅 LOCAL CLIMATE REPORT (CLI)</span></div>
+            <div class="toolkit-header"><span>LOCAL CLIMATE REPORT</span></div>
             <div id="cli-text" style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; font-family:monospace; font-size:0.75em; color:#aeea00; white-space:pre-wrap; height:250px; overflow-y:auto; text-align:left;">Syncing Climate Data...</div>
         </div>
     </div>
@@ -357,7 +357,9 @@
         "civil emergency message", "civil danger warning", "evacuation immediate", 
         "fire warning", "law enforcement warning", "local area emergency", 
         "shelter in place warning", "radiological hazard warning", 
-        "hazardous materials warning", "child abduction emergency", "911 telephone outage"
+        "hazardous materials warning", "child abduction emergency", 
+        "911 telephone outage emergency", "blue alert", "avalanche warning", 
+        "nuclear power plant warning", "volcano warning"
     ];
 
     const SEVERITY_SCORE = { 'Extreme': 4, 'Severe': 3, 'Moderate': 2, 'Minor': 1, 'Unknown': 0 };
@@ -371,6 +373,7 @@
         else if (e.includes("watch")) baseScore = 6000;
         else if (e.includes("advisory")) baseScore = 4000;
         else if (e.includes("statement")) baseScore = 2000;
+        else if (e.includes("outlook")) baseScore = 1500;
         else baseScore = 1000;
 
         return baseScore + (SEVERITY_SCORE[severityStr] || 0);
@@ -500,12 +503,12 @@
         if(!condition) return "Typical weather out there today.";
         const c = condition.toLowerCase();
         if (c.includes("rain") || c.includes("showers") || c.includes("drizzle")) return "Grab an umbrella, it's wet out there.";
-        if (c.includes("storm") || c.includes("thunder")) return "Stormy weather out there. Be careful of lightning strikes and stay alert for any severe weather warnings.";
+        if (c.includes("storm") || c.includes("thunder")) return "Stormy weather out there. Be careful of lightning strikes and stay alert if outside.";
         if (c.includes("snow") || c.includes("flurries")) return "Bundle up, snow is falling.";
         if (temp > 85) return "Stay hydrated! It's a hot one today.";
         if (temp < 40) return "Chilly outside—grab a heavy coat.";
         if (c.includes("clear") || c.includes("sun")) return "Beautiful skies—perfect time to be outside!";
-        if (c.includes("overcast") || c.includes("cloud")) return "Cloudy skies at the moment—good for anyone who loves the shade.";
+        if (c.includes("overcast") || c.includes("cloud")) return "Cloudy skies at the moment—good if you like the shade.";
         if (c.includes("fog") || c.includes("haze")) return "Low visibility. Drive safely.";
         return "Typical conditions out there right now.";
     }
