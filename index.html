@@ -417,7 +417,8 @@
         const isDay = (now > localRiseTime && now < localSetTime);
 
         if (isGoldenHourMorn || isGoldenHourEve) {
-            body.style.background = "linear-gradient(180deg, #ff7043 0%, #5e35b1 100%)";
+            // Transitions from a burnt orange horizon into the deep navy UI base
+            body.style.background = "linear-gradient(180deg, #e65100 0%, #07131d 100%)";
         } else if (isDay) {
             body.style.background = "linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)"; 
         } else {
