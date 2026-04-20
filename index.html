@@ -646,50 +646,75 @@
         } catch(e) { console.error("Alert Fetch Error:", e); }
     }
     
-    async function fetchComfortIndex() {
+    async function fetchSmartComfort() {
             try {
                 const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
                 const data = await res.json();
-                
+
                 const T = data.main.temp;
                 const H = data.main.humidity;
                 const W = data.wind.speed;
-                const dp = T - ((100 - H) / 5); 
+                const C = data.clouds.all;
+                const cond = data.weather[0].main.toLowerCase();
 
-                let score = (T > 70) ? (T + (0.55 * (H / 100) * (T - 58))) : T;
-                
-                let comfortDesc;
-                let comfortCol;
+                let word = "Fair";
+                let color = "#ffffff";
+                let reason = `${Math.round(T)}° / ${H}% Humid`;
 
-                if (dp > 70 || score > 90) {
-                    comfortDesc = "Oppressive";
-                    comfortCol = "#ff1744"; 
-                } else if (dp > 65 || score > 85) {
-                    comfortDesc = "Uncomfortable";
-                    comfortCol = "#ff9100";
-                } else if (dp > 60 || score > 75) {
-                    comfortDesc = "Sticky";
-                    comfortCol = "#ffeb3b";
-                } else if (T < 45) {
-                    comfortDesc = "Chilly";
-                    comfortCol = "#80deea";
-                } else {
-                    comfortDesc = "Pleasant";
-                    comfortCol = "#00e676";
-                }
+                // The Priority Ladder (Checks the most impactful factor first)
+        if (cond.includes("rain") || cond.includes("drizzle")) {
+            word = "Damp";
+            color = "#4fc3f7";
+            reason = "Active Rain Fall";
+        } else if (T < 30) {
+            word = "Frigid";
+            color = "#82b1ff";
+            reason = `${Math.round(T)}° Freezing Temp`;
+        } else if (T < 48 && W > 12) {
+            word = "Biting";
+            color = "#b0bec5";
+            reason = `${Math.round(W)}mph Wind Chill`;
+        } else if (T > 88 && H > 60) {
+            word = "Heavy";
+            color = "#ff5252";
+            reason = "High Heat & Humidity";
+        } else if (H > 80 && T > 70) {
+            word = "Muggy";
+            color = "#aed581";
+            reason = `${H}% Humidity Level`;
+        } else if (W > 25) {
+            word = "Blustery";
+            color = "#cfd8dc";
+            reason = `${Math.round(W)}mph Gusts`;
+        } else if (C > 85) {
+            word = "Gloomy";
+            color = "#90a4ae";
+            reason = "Heavy Cloud Cover";
+        } else if (T >= 68 && T <= 76 && H < 50 && W < 10) {
+            word = "Perfect";
+            color = "#00e676";
+            reason = "Ideal Conditions";
+        } else if (T < 50) {
+            word = "Chilly";
+            color = "#81d4fa";
+            reason = `${Math.round(T)}° Low Temp`;
+        } else {
+            word = "Pleasant";
+            color = "#b9f6ca";
+            reason = "Clear & Balanced";
+        }
 
-                // Display only the text label
-                document.getElementById('aqi-val').innerText = comfortDesc;
-                document.getElementById('aqi-val').style.color = comfortCol;
-                
-                // Clear the sub-description since the main text now handles it
-                document.getElementById('aqi-desc').innerText = "Comfort Level";
+                // Update UI
+                document.getElementById('aqi-val').innerText = word.toUpperCase();
+                document.getElementById('aqi-val').style.color = color;
+                document.getElementById('aqi-desc').innerText = reason;
 
+                // Update Header
                 const aqiHeader = document.querySelector('#specs-tab .toolkit-header span');
-                if (aqiHeader) aqiHeader.innerText = "📡 STATION INTEL";
+                if (aqiHeader) aqiHeader.innerText = "SMART COMFORT";
 
             } catch(e) { 
-                console.error("Comfort Index Error:", e); 
+                console.error("Smart Comfort Sync Error:", e); 
             }
         }
     
