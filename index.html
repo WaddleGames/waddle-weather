@@ -236,7 +236,7 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div class="toolkit-box" style="margin-bottom:0; text-align:center;">
-                <div class="toolkit-header" style="justify-content:center;"><span>AIR QUALITY</span></div>
+                <div class="toolkit-header" style="justify-content:center;"><span>COMFORT INDEX</span></div>
                 <div id="aqi-val" style="font-size:1.8em; font-weight:900; margin:10px 0;">--</div>
                 <div id="aqi-desc" style="font-size:0.75em; opacity:0.8;">Fetching...</div>
             </div>
@@ -538,7 +538,7 @@
         updateSPCMap();
         startSPCCountdown();
         
-        await Promise.all([fetchAlerts(), fetchPirate(), fetchOpenWeather(), fetchNWSChain(), fetchAQI()]);
+        await Promise.all([fetchAlerts(), fetchPirate(), fetchOpenWeather(), fetchNWSChain(), fetchComfortIndex()]);
         
         lastSyncTime = new Date();
         updateTimestamp();
@@ -643,40 +643,67 @@
         } catch(e) { console.error("Alert Fetch Error:", e); }
     }
     
-    async function fetchAQI() {
-        try {
-            // Using the primary weather node's humidity for a "Comfort Index"
-            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
-            const data = await res.json();
-            
-            const humidity = data.main.humidity;
-            // Simplified dew point calculation for the comfort label
-            const dewPoint = data.main.temp - ((100 - humidity) / 5); 
-            
-            let comfortDesc;
-            let comfortCol;
+    async function fetchComfortIndex() {
+            try {
+                const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
+                const data = await res.json();
+                
+                const T = data.main.temp;
+                const H = data.main.humidity;
+                const W = data.wind.speed;
+                
+                // Calculate Dew Point for comfort thresholds
+                const dp = T - ((100 - H) / 5); 
+                
+                let score;
+                let comfortDesc;
+                let comfortCol;
 
-            if (dewPoint < 50) {
-                comfortDesc = "Dry/Pleasant";
-                comfortCol = "#4fc3f7"; // Light Blue
-            } else if (dewPoint < 60) {
-                comfortDesc = "Comfortable";
-                comfortCol = "#00e676"; // Green
-            } else if (dewPoint < 65) {
-                comfortDesc = "Sticky";
-                comfortCol = "#ffd54f"; // Amber
-            } else {
-                comfortDesc = "Muggy/Oppressive";
-                comfortCol = "#ff5252"; // Red
+                // Simple Weighted Comfort Logic
+                // Factors: Humidity impact increases as Temp rises
+                if (T > 70) {
+                    // Heat Index focus
+                    score = T + (0.55 * (H / 100) * (T - 58));
+                } else if (T < 45) {
+                    // Wind Chill focus
+                    score = 35.74 + (0.6215 * T) - (35.75 * Math.pow(W, 0.16)) + (0.4275 * T * Math.pow(W, 0.16));
+                } else {
+                    // Mild weather baseline
+                    score = T;
+                }
+
+                // Determine Descriptive Label based on Dew Point & Apparent Temp
+                if (dp > 70 || score > 90) {
+                    comfortDesc = "Oppressive";
+                    comfortCol = "#ff1744"; // Danger Red
+                } else if (dp > 65 || score > 85) {
+                    comfortDesc = "Uncomfortable";
+                    comfortCol = "#ff9100"; // Orange
+                } else if (dp > 60 || score > 75) {
+                    comfortDesc = "Sticky/Warm";
+                    comfortCol = "#ffeb3b"; // Warning Yellow
+                } else if (dp < 30 && T < 50) {
+                    comfortDesc = "Brisk/Dry";
+                    comfortCol = "#80deea"; // Cyan
+                } else {
+                    comfortDesc = "Pleasant";
+                    comfortCol = "#00e676"; // Success Green
+                }
+
+                // Update the existing AQI slots in the Specs Tab
+                document.getElementById('aqi-val').innerText = `${Math.round(score)}°`;
+                document.getElementById('aqi-val').style.color = comfortCol;
+                document.getElementById('aqi-desc').innerText = comfortDesc;
+                
+                // Optional: Update the "AIR QUALITY" header to "COMFORT INDEX"
+                const aqiHeader = document.querySelector('#specs-tab .toolkit-header span');
+                if (aqiHeader && aqiHeader.innerText === "AIR QUALITY") {
+                    aqiHeader.innerText = "COMFORT INDEX";
+                }
+            } catch(e) { 
+                console.error("Comfort Index Error:", e); 
             }
-
-            document.getElementById('aqi-val').innerText = `${humidity}% Humidity`;
-            document.getElementById('aqi-val').style.color = comfortCol;
-            document.getElementById('aqi-desc').innerText = comfortDesc;
-        } catch(e) { 
-            console.error("Comfort Sync Error:", e); 
         }
-    }
     
     async function fetchPirate() {
         try {
