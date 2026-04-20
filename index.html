@@ -644,42 +644,42 @@
     }
     
     async function fetchAQI() {
-        try {
-            const res = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}`);
-            const d = await res.json();
-            
-            // Calculate US EPA AQI using PM2.5 concentration for accuracy
-            const pm25 = d.list[0].components.pm2_5;
-            let aqi, aqiDesc, aqiCol;
+            try {
+                const res = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}`);
+                const data = await res.json();
+                const rawIndex = data.list[0].main.aqi; // Returns 1, 2, 3, 4, or 5
+                
+                let aqi, aqiDesc, aqiCol;
 
-        if (pm25 <= 12.0) {
-            aqi = Math.round((50 / 12.0) * pm25);
-            aqiDesc = "Good";
-            aqiCol = "#00e676";
-        } else if (pm25 <= 35.4) {
-            aqi = Math.round(((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1) + 51);
-            aqiDesc = "Moderate";
-            aqiCol = "#ffeb3b";
-        } else if (pm25 <= 55.4) {
-            aqi = Math.round(((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5) + 101);
-            aqiDesc = "Unhealthy (Sensitive)";
-            aqiCol = "#ff9100";
-        } else if (pm25 <= 150.4) {
-            aqi = Math.round(((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5) + 151);
-            aqiDesc = "Unhealthy";
-            aqiCol = "#ff5252";
-        } else {
-            aqi = Math.round(((300 - 201) / (250.4 - 150.5)) * (pm25 - 150.5) + 201);
-            aqiDesc = "Very Unhealthy";
-            aqiCol = "#b71c1c";
+                // Mapping the 1-5 index to the middle of the US EPA AQI brackets
+                if (rawIndex === 1) {
+                    aqi = 35; 
+                    aqiDesc = "Good";
+                    aqiCol = "#00e676";
+                } else if (rawIndex === 2) {
+                    aqi = 75;
+                    aqiDesc = "Moderate";
+                    aqiCol = "#ffeb3b";
+                } else if (rawIndex === 3) {
+                    aqi = 125;
+                    aqiDesc = "Unhealthy (Sensitive)";
+                    aqiCol = "#ff9100";
+                } else if (rawIndex === 4) {
+                    aqi = 175;
+                    aqiDesc = "Unhealthy";
+                    aqiCol = "#ff5252";
+                } else {
+                    aqi = 250;
+                    aqiDesc = "Very Unhealthy";
+                    aqiCol = "#b71c1c";
+                }
+
+                document.getElementById('aqi-val').innerText = `AQI ${aqi}`;
+                document.getElementById('aqi-val').style.color = aqiCol;
+                document.getElementById('aqi-desc').innerText = aqiDesc;
+            } catch(e) { console.error("AQI Sync Error:", e); }
         }
-
-            document.getElementById('aqi-val').innerText = `AQI ${aqi}`;
-            document.getElementById('aqi-val').style.color = aqiCol;
-            document.getElementById('aqi-desc').innerText = aqiDesc;
-        } catch(e) { console.error("AQI Sync Error:", e); }
-    }
-
+    
     async function fetchPirate() {
         try {
             const resP = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
