@@ -303,6 +303,13 @@
     let liveWindSpd = 0;
     let livePrecipInt = 0;
     let themeOverride = 'auto';
+    let isNightAtStation = false;
+
+    function formatOffsetTime(unixSeconds, offsetSeconds) {
+        // Shifting the time by the offset and formatting as UTC perfectly matches the remote timezone
+        const d = new Date((unixSeconds + offsetSeconds) * 1000);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    }
 
     const ALERT_ICONS = {
         "tornado warning": "https://www.weather.gov/images/nws/newicons/ntor.png",
@@ -543,7 +550,9 @@
         updateSPCMap();
         startSPCCountdown();
         
-        await Promise.all([fetchAlerts(), fetchPirate(), fetchOpenWeather(), fetchNWSChain(), fetchSmartComfort()]);
+        // Fetch OpenWeather FIRST to establish timezones and day/night cycle
+        await fetchOpenWeather();
+        await Promise.all([fetchAlerts(), fetchPirate(), fetchNWSChain(), fetchSmartComfort()]);
         
         lastSyncTime = new Date();
         updateTimestamp();
@@ -655,6 +664,27 @@
 
                     let icon = "https://www.weather.gov/bundles/templating/images/top_news/important.png";
                     for (const key in ALERT_ICONS) { if (evt.includes(key)) { icon = ALERT_ICONS[key]; break; } }
+                    
+                    // Logic to handle Night Icon Swapping with a "Safety Check"
+                    if (isNightAtStation && icon.includes('/newicons/')) {
+                        const urlParts = icon.split('/');
+                        const file = urlParts.pop();
+                        
+                        if (!file.startsWith('n')) {
+                            const nightIconUrl = urlParts.join('/') + '/n' + file;
+                            
+                            // Create a "Preflight" image to check if the night version actually exists
+                            const imgCheck = new Image();
+                            imgCheck.src = nightIconUrl;
+                            
+                            // If it loads successfully, update the icon. 
+                            // If it fails (like hot.png), 'icon' stays as the daytime version.
+                            imgCheck.onload = () => {
+                                const cardImg = document.querySelector(`img[src="${icon}"]`);
+                                if (cardImg) cardImg.src = nightIconUrl;
+                            };
+                        }
+                    }
                     
                     if(evt.includes("tornado warning")) { 
                         highestTheme = "theme-tor"; 
@@ -820,9 +850,17 @@
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
-            localRiseTime = d.city.sunrise * 1000; localSetTime = d.city.sunset * 1000;
-            document.getElementById('riseVal').innerText = new Date(localRiseTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            document.getElementById('setVal').innerText = new Date(localSetTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            localRiseTime = d.city.sunrise * 1000; 
+            localSetTime = d.city.sunset * 1000;
+            
+            // Calculate if it's night for the remote location
+            const nowSec = Math.floor(Date.now() / 1000);
+            isNightAtStation = (nowSec < d.city.sunrise || nowSec > d.city.sunset);
+
+            // Use the station's exact timezone offset
+            const tzOffset = d.city.timezone;
+            document.getElementById('riseVal').innerText = formatOffsetTime(d.city.sunrise, tzOffset);
+            document.getElementById('setVal').innerText = formatOffsetTime(d.city.sunset, tzOffset);
             const cont = document.getElementById('forecast-container'); cont.innerHTML = "";
             d.list.forEach(f => {
                 const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : 0;
