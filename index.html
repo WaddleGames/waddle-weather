@@ -248,13 +248,16 @@
         </div>
 
         <div class="toolkit-box" style="text-align:center;">
-            <div class="toolkit-header" style="justify-content:center; margin-bottom: 15px;"><span>ASTRONOMY & ORBIT</span></div>
+            <div class="toolkit-header" style="justify-content:center; margin-bottom: 5px;"><span>ASTRONOMY & ORBIT</span></div>
+            
+            <div id="station-clock" style="font-family: monospace; font-size: 1.4em; color: var(--accent); margin-bottom: 15px; font-weight: bold; letter-spacing: 1px;">00:00:00</div>
             
             <div style="display:flex; justify-content:space-around; font-size: 0.85em; font-weight:bold; color: #aaa;">
                 <div>🌅 Sunrise: <br><span id="riseVal" style="color:var(--accent); font-size:1.2em;">--</span></div>
                 <div>🌙 Phase: <br><span id="moonVal" style="color:white; font-size:1.2em;">--</span></div>
                 <div>🌇 Sunset: <br><span id="setVal" style="color:#ff5252; font-size:1.2em;">--</span></div>
             </div>
+        </div>
 
             <div id="orbit-container">
                 <div class="orbit-arc"></div>
@@ -304,6 +307,7 @@
     let livePrecipInt = 0;
     let themeOverride = 'auto';
     let isNightAtStation = false;
+    let stationTzOffset = 0; // Stores the offset in seconds from UTC
 
     function formatOffsetTime(unixSeconds, offsetSeconds) {
         // Shifting the time by the offset and formatting as UTC perfectly matches the remote timezone
@@ -874,7 +878,28 @@
             if(d.daily?.data?.[0]) document.getElementById('moonVal').innerText = getMoonPhaseName(d.daily.data[0].moonPhase);
         } catch(e) {}
     }
+    
+    function updateStationClock() {
+        const clockElem = document.getElementById('station-clock');
+        if (!clockElem) return;
 
+        // Create a date object for the current moment, then shift it to UTC
+        const now = new Date();
+        const utcTimestamp = now.getTime() + (now.getTimezoneOffset() * 60000);
+        
+        // Shift by the station's specific offset and format as UTC to "lock" the display
+        const stationTime = new Date(utcTimestamp + (stationTzOffset * 1000));
+        
+        clockElem.innerText = stationTime.toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit',
+            timeZone: 'UTC' 
+        });
+    }
+
+    // Start the clock immediately and update every second
+    setInterval(updateStationClock, 1000);
     async function fetchOpenWeather() {
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
@@ -887,9 +912,10 @@
             isNightAtStation = (nowSec < d.city.sunrise || nowSec > d.city.sunset);
 
             // Use the station's exact timezone offset
-            const tzOffset = d.city.timezone;
-            document.getElementById('riseVal').innerText = formatOffsetTime(d.city.sunrise, tzOffset);
-            document.getElementById('setVal').innerText = formatOffsetTime(d.city.sunset, tzOffset);
+            stationTzOffset = d.city.timezone;
+        
+            document.getElementById('riseVal').innerText = formatOffsetTime(d.city.sunrise, stationTzOffset);
+            document.getElementById('setVal').innerText = formatOffsetTime(d.city.sunset, stationTzOffset);
             const cont = document.getElementById('forecast-container'); cont.innerHTML = "";
             d.list.forEach(f => {
                 const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : 0;
