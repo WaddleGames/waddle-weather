@@ -777,10 +777,10 @@
                 word = "DAMP";
                 color = "#4fc3f7";
                 reason = `Rain, ${Math.round(T)}°, ${H}% humidity`;
-            if (cond.includes("snow") || cond.includes("flurries")) {
+            } else if (cond.includes("snow") || cond.includes("flurries")) {
                 word = "SNOWY";
-                color = "#4fc3f7";
-                reason = `Snow`;
+                color = "#FFFFFF";
+                reason = `Rain, ${Math.round(T)}°`;
             } else if (T < 32) {
                 word = "FRIGID";
                 color = "#82b1ff";
