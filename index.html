@@ -717,87 +717,116 @@
     }
     
     async function fetchSmartComfort() {
-            try {
-                const owRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
-                const ow = await owRes.json();
+        try {
+            // 1. Primary Fetch: OpenWeather
+            const owRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
+            const ow = await owRes.json();
 
-                let T = ow.main?.temp;
-                let H = ow.main?.humidity;
-                let W = ow.wind?.speed;
-                let C = ow.clouds?.all;
-                let cond = ow.weather?.[0]?.main?.toLowerCase() ?? "clear";
+            let T = ow.main?.temp;
+            let H = ow.main?.humidity;
+            let W = ow.wind?.speed;
+            let C = ow.clouds?.all;
+            let cond = ow.weather?.[0]?.main?.toLowerCase() ?? "clear";
 
-                // NWS Fallback if OpenWeather is being flaky
-                if (T === undefined || W === undefined) {
-                    try {
-                        const pRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
-                        const pData = await pRes.json();
-                        const sRes = await fetch(pData.properties.observationStations);
-                        const sData = await sRes.json();
-                        const oRes = await fetch(`${sData.features[0].id}/observations/latest`);
-                        const o = await oRes.json();
-                        if (T === undefined) T = (o.properties.temperature.value * 9/5) + 32;
-                        if (W === undefined) W = o.properties.windSpeed.value * 0.621371;
-                    } catch (e) { console.warn("Fallback failed"); }
+            // 2. Redundancy Check: Use NWS Station if OpenWeather data is missing
+            if (T === undefined || W === undefined || H === undefined) {
+                try {
+                    const pointsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+                    const pointsData = await pointsRes.json();
+                    const stationUrl = pointsData.properties.observationStations;
+                    
+                    const stationRes = await fetch(stationUrl);
+                    const stationData = await stationRes.json();
+                    const latestObsRes = await fetch(`${stationData.features[0].id}/observations/latest`);
+                    const obs = await latestObsRes.json();
+                    const p = obs.properties;
+
+                    if (T === undefined) T = (p.temperature.value * 9/5) + 32;
+                    if (H === undefined) H = p.relativeHumidity.value;
+                    if (W === undefined) W = p.windSpeed.value * 0.621371; 
+                } catch (nwsErr) { 
+                    console.warn("NWS Fallback failed:", nwsErr); 
                 }
+            }
 
-                T = T ?? 70; H = H ?? 50; W = W ?? 0; C = C ?? 0;
-                let word = "Fair";
-                let color = "#ffffff";
-                let reason = "";
+            // 3. Absolute Safety Fallbacks
+            T = T ?? 70;
+            H = H ?? 50;
+            W = W ?? 0;
+            C = C ?? 0;
 
-                // The Smart Logic + Data Reporting
-        if (cond.includes("rain") || cond.includes("drizzle")) {
-            word = "DAMP";
-            color = "#4fc3f7";
-            reason = `Rain, ${Math.round(T)}°, ${H}% humidity`;
-        } else if (T < 32) {
-            word = "FRIGID";
-            color = "#82b1ff";
-            reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
-        } else if (T < 50 && W > 15) {
-            word = "BITING";
-            color = "#b0bec5";
-            reason = `${Math.round(W)}mph wind, ${Math.round(T)}°`;
-        } else if (T > 90 && H > 60) {
-            word = "HEAVY";
-            color = "#ff5252";
-            reason = `${Math.round(T)}°, ${H}% humidity`;
-        } else if (H > 80 && T > 72) {
-            word = "MUGGY";
-            color = "#aed581";
-            reason = `${H}% hum, ${Math.round(T)}°`;
-        } else if (W > 28) {
-            word = "BLUSTERY";
-            color = "#cfd8dc";
-            reason = `${Math.round(W)}mph wind, ${C}% clouds`;
-        } else if (C > 90) {
-            word = "GLOOMY";
-            color = "#90a4ae";
-            reason = `${C}% clouds, ${Math.round(T)}°`;
-        } else if (T >= 68 && T <= 78 && H < 45 && W < 12) {
-            word = "PERFECT";
-            color = "#00e676";
-            reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
-        } else if (T < 52) {
-            word = "CHILLY";
-            color = "#81d4fa";
-            reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
-        } else {
-            word = "PLEASANT";
-            color = "#b9f6ca";
-            reason = `${Math.round(T)}°, ${Math.round(W)}mph, ${H}% hum`;
+            let word = "FAIR";
+            let color = "#ffffff";
+            let reason = "";
+
+            // 4. Comfort Logic Engine
+            if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("thunderstorm")) {
+                word = "DAMP";
+                color = "#4fc3f7";
+                reason = `Rain, ${Math.round(T)}°, ${H}% humidity`;
+            } else if (T < 32) {
+                word = "FRIGID";
+                color = "#82b1ff";
+                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
+            } else if (T < 50 && W > 15) {
+                word = "BITING";
+                color = "#b0bec5";
+                reason = `${Math.round(W)}mph wind, ${Math.round(T)}°`;
+            } else if (T > 90 && H > 65) {
+                word = "OPPRESSIVE";
+                color = "#ff5252";
+                reason = `${Math.round(T)}°, ${H}% humidity`;
+            } else if (H > 80 && T > 72) {
+                word = "MUGGY";
+                color = "#aed581";
+                reason = `${H}% hum, ${Math.round(T)}°`;
+            } else if (W > 28) {
+                word = "BLUSTERY";
+                color = "#cfd8dc";
+                reason = `${Math.round(W)}mph wind, ${C}% clouds`;
+            } else if (C > 90 && T < 65) { 
+                word = "GLOOMY";
+                color = "#90a4ae";
+                reason = `${C}% clouds, ${Math.round(T)}°`;
+            } else if (T >= 68 && T <= 78 && H < 45 && W < 12) {
+                word = "PERFECT";
+                color = "#00e676";
+                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
+            } else if (T < 52) {
+                word = "CHILLY";
+                color = "#81d4fa";
+                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
+            } else if (T >= 65 && T <= 82) { 
+                word = "PLEASANT";
+                color = "#b9f6ca";
+                reason = `${Math.round(T)}°, ${C}% clouds`;
+            } else {
+                word = "FAIR";
+                color = "#b9f6ca";
+                reason = `${Math.round(T)}°, ${Math.round(W)}mph, ${H}% hum`;
+            }
+
+            // 5. Update UI
+            const valElem = document.getElementById('aqi-val');
+            const descElem = document.getElementById('aqi-desc');
+            
+            if (valElem) {
+                valElem.innerText = word;
+                valElem.style.color = color;
+            }
+            if (descElem) {
+                descElem.innerText = reason;
+            }
+
+            const header = document.querySelector('#specs-tab .toolkit-header span');
+            if (header) header.innerText = "SMART COMFORT";
+
+        } catch(e) { 
+            console.error("Smart Comfort Sync Error:", e);
+            const valElem = document.getElementById('aqi-val');
+            if (valElem) valElem.innerText = "OFFLINE";
         }
-
-                document.getElementById('aqi-val').innerText = word;
-                document.getElementById('aqi-val').style.color = color;
-                document.getElementById('aqi-desc').innerText = reason;
-
-                const header = document.querySelector('#specs-tab .toolkit-header span');
-                if (header) header.innerText = "SMART COMFORT";
-
-            } catch(e) { console.error("Sync Error:", e); }
-        }
+    }
     
     async function fetchPirate() {
         try {
