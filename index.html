@@ -606,7 +606,7 @@
         clearInterval(alertIntervalId);
 
         try {
-            const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
+            const res = await fetch(`https://raw.githubusercontent.com/WaddleGames/weather-alerts/refs/heads/main/alert.json`);
             const data = await res.json();
             stack.innerHTML = ""; document.body.className = ""; checklist.style.display = "none"; banner.style.display = "none"; banner.className = "";
 
