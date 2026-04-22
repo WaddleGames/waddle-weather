@@ -1,3 +1,4 @@
+HOHoold99!
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -815,8 +816,8 @@
             } else if (W > 28) {
                 word = "WINDY";
                 color = "#cfd8dc";
-                reason = `${Math.round(W)}mph wind, ${C}% clouds`;
-            } else if (C > 90 && T < 60) { 
+                reason = `${Math.round(W)}mph wind`;
+            } else if (C > 90 && T < 55) { 
                 word = "GLOOMY";
                 color = "#90a4ae";
                 reason = `${C}% clouds, ${Math.round(T)}°`;
@@ -827,7 +828,7 @@
             } else if (T < 52) {
                 word = "CHILLY";
                 color = "#81d4fa";
-                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
+                reason = `${Math.round(T)}°`;
             } else if (T >= 65 && T <= 82) { 
                 word = "PLEASANT";
                 color = "#b9f6ca";
