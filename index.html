@@ -708,10 +708,39 @@
                     
                     // 1. Civil/Life-Safety Override (Highest Priority)
                     if (isLocalEmergency) {
-                        highestTheme = "theme-tor"; // Dark magenta/PDS theme
-                        checklistText = evt.includes("evacuation") 
-                            ? "EVACUATE IMMEDIATELY! FOLLOW LOCAL GUIDANCE!" 
-                            : "CIVIL EMERGENCY! MONITOR LOCAL MEDIA FOR INSTRUCTIONS!";
+                        highestTheme = "theme-tor";
+
+                        if (evt.includes("evacuation")) {
+                            checklistText = "EVACUATE IMMEDIATELY! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("fire warning")) {
+                            checklistText = "WILDFIRE IN YOUR AREA! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("law enforcement warning")) {
+                            checklistText = "LAW ENFORCEMENT WARNING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("child abduction")) {
+                            checklistText = "CHILD ABDUCTION EMERGENCY! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("volcano warning")) {
+                            checklistText = "VOLCANO ERUPTING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("local area emergency")) {
+                            checklistText = "LOCAL AREA EMERGENCY! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("civil danger warning")) {
+                            checklistText = "CIVIL DANGER WARNING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("shelter in place warning")) {
+                            checklistText = "SHELTER IN PLACE NOW! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("radiological hazard warning")) {
+                            checklistText = "RADIOLOGICAL HAZARD WARNING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("hazardous materials warning")) {
+                            checklistText = "HAZARDOUS MATERIALS WARNING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("blue alert")) {
+                            checklistText = "BLUE ALERT ISSUED! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("avalanche warning")) {
+                            checklistText = "AN AVALANCHE MAY BE OCCURING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("nuclear power plant warning")) {
+                            checklistText = "NUCLEAR POWER PLANT WARNING! FOLLOW LOCAL GUIDANCE!";
+                        } else if (evt.includes("911")) {
+                            checklistText = "911 OUTAGE! FOLLOW LOCAL GUIDANCE!";
+                        } else {
+                            checklistText = "CIVIL EMERGENCY! MONITOR LOCAL MEDIA FOR INSTRUCTIONS!";
+                        }
                     }
                     // 2. Weather Priorities
                     else if (evt.includes("tornado warning")) { 
