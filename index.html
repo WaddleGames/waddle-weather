@@ -317,12 +317,15 @@
     let particles = [];
     
     // Live Data Trackers
+    let lastPressureMb = null; // Renamed from Pa to Mb to match Pirate
     let lastSyncTime = null;
     let liveWindSpd = 0;
     let livePrecipInt = 0;
+    let liveFeelsLike = 0; // NEW: For Smart Comfort
+    let liveUV = 0;        // NEW: For Smart Comfort
     let themeOverride = 'auto';
     let isNightAtStation = false;
-    let stationTzOffset = 0; // Stores the offset in seconds from UTC
+    let stationTzOffset = 0;
 
     function formatOffsetTime(unixSeconds, offsetSeconds) {
         // Shifting the time by the offset and formatting as UTC perfectly matches the remote timezone
@@ -572,7 +575,20 @@
         
         // Fetch OpenWeather FIRST to establish timezones and day/night cycle
         await fetchOpenWeather();
+        
+        // WAIT for both APIs to finish pushing data to the DOM
         await Promise.all([fetchAlerts(), fetchPirate(), fetchNWSChain()]);
+        
+        // --- POST-FETCH SYNC ---
+        // Now that NWS gave us the text and Pirate gave us the numbers, run the engines
+        const uiTemp = parseInt(document.getElementById('tempVal').innerText);
+        const uiHum = parseInt(document.getElementById('humVal').innerText);
+        const condition = document.getElementById('conditionText').innerText;
+        
+        if (!isNaN(uiTemp)) {
+            document.getElementById('vibeCheck').innerText = generateVibeCheck(uiTemp, condition);
+            updateSmartComfort(uiTemp, liveFeelsLike, uiHum, liveWindSpd, condition, liveUV);
+        }
         
         lastSyncTime = new Date();
         updateTimestamp();
@@ -777,39 +793,43 @@
         } catch(e) { console.error("Alert Fetch Error:", e); }
     }
     
-    function updateSmartComfort(T, H, W, cond) {
+    function updateSmartComfort(T, feelsLike, H, W, cond, uv) {
         try {
-            // 1. Safety Fallbacks (Handle "--" or missing data)
-            T = (T !== "--" && T != null) ? Number(T) : 70;
-            H = (H !== "--" && H != null) ? Number(H) : 50;
-            W = (W !== "--" && W != null) ? Number(W) : 0;
+            // 1. Safety Fallbacks
+            T = (T !== "--" && !isNaN(T)) ? Number(T) : 70;
+            H = (H !== "--" && !isNaN(H)) ? Number(H) : 50;
+            W = (W !== "--" && !isNaN(W)) ? Number(W) : 0;
             cond = cond ? cond.toLowerCase() : "clear";
 
             let word = "FAIR";
             let color = "#ffffff";
             let reason = "";
 
-            // 2. Comfort Logic Engine (Now using NWS condition text instead of OpenWeather clouds)
-            if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("thunderstorm")) {
+            // 2. Upgraded Pirate Logic Engine (Uses Apparent Temp and UV)
+            if (uv > 7) {
+                word = "INTENSE";
+                color = "#ff7043";
+                reason = `High UV (${uv}), Sunscreen Required`;
+            } else if (feelsLike > 95) {
+                word = "OPPRESSIVE";
+                color = "#ff5252";
+                reason = `Heat Index ${Math.round(feelsLike)}°, Stay Hydrated`;
+            } else if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("thunderstorm")) {
                 word = "DAMP";
                 color = "#4fc3f7";
-                reason = `Rain, ${Math.round(T)}°, ${Math.round(H)}% humidity`;
+                reason = `Rain, ${Math.round(H)}% humidity`;
+            } else if (feelsLike < 32) {
+                word = "BITING";
+                color = "#b0bec5";
+                reason = `Wind Chill ${Math.round(feelsLike)}°`;
+            } else if (T >= 68 && T <= 78 && H < 60) {
+                word = "PERFECT";
+                color = "#00e676";
+                reason = `${Math.round(T)}°, Ideal Conditions`;
             } else if (cond.includes("snow") || cond.includes("flurries")) {
                 word = "SNOWY";
                 color = "#FFFFFF";
                 reason = `Snow, ${Math.round(T)}°`;
-            } else if (T < 32) {
-                word = "FRIGID";
-                color = "#82b1ff";
-                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
-            } else if (T < 30 && W > 15) {
-                word = "BITING";
-                color = "#b0bec5";
-                reason = `${Math.round(W)}mph wind, ${Math.round(T)}°`;
-            } else if (T > 90 && H > 65) {
-                word = "OPPRESSIVE";
-                color = "#ff5252";
-                reason = `${Math.round(T)}°, ${Math.round(H)}% humidity`;
             } else if (H > 80 && T > 72) {
                 word = "MUGGY";
                 color = "#aed581";
@@ -822,10 +842,6 @@
                 word = "GLOOMY";
                 color = "#90a4ae";
                 reason = `Cloudy, ${Math.round(T)}°`;
-            } else if (T >= 68 && T <= 78 && H < 65 && W < 12) {
-                word = "PERFECT";
-                color = "#00e676";
-                reason = `${Math.round(T)}°, ${Math.round(W)}mph wind`;
             } else if (T < 52) {
                 word = "CHILLY";
                 color = "#81d4fa";
@@ -866,8 +882,31 @@
         try {
             const resP = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await resP.json();
+            const curr = d.currently;
             
-            // Re-introduced Precipitation Accumulation
+            // --- HOME PAGE METRIC OVERRIDE ---
+            document.getElementById('tempVal').innerText = Math.round(curr.temperature) + "\xB0";
+            liveFeelsLike = curr.apparentTemperature; // Stored for comfort engine
+            liveUV = curr.uvIndex || 0;               // Stored for comfort engine
+            
+            liveWindSpd = Math.round(curr.windSpeed);
+            let windHtml = liveWindSpd + " mph";
+            if (curr.windBearing !== null && liveWindSpd > 0) {
+                windHtml += ` <span style="display:inline-block; transform:rotate(${curr.windBearing}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
+            }
+            document.getElementById('windVal').innerHTML = windHtml;
+            
+            document.getElementById('humVal').innerText = Math.round(curr.humidity * 100) + "%";
+            
+            const presIn = (curr.pressure * 0.02953).toFixed(2);
+            let trend = "➡️";
+            if (lastPressureMb !== null && curr.pressure !== null) {
+                if (curr.pressure > lastPressureMb + 1) trend = "↗️"; 
+                else if (curr.pressure < lastPressureMb - 1) trend = "↘️"; 
+            }
+            lastPressureMb = curr.pressure;
+            document.getElementById('presVal').innerHTML = `${presIn} in <span style="font-size:0.75em; opacity:0.8;">${trend}</span>`;
+            
             const precip1h = d.currently?.precipAccumulation || 0;
             const precip24h = d.daily?.data?.[0]?.precipAccumulation || 0;
             document.getElementById('precip1h').innerText = `1h: ${precip1h.toFixed(2)}"`;
@@ -1007,53 +1046,28 @@
             const elevMeters = primaryStation.properties.elevation.value;
             document.getElementById('meta-elev').innerText = elevMeters ? Math.round(elevMeters * 3.28084) + " ft" : "N/A";
 
+            // ... (Your existing code up to setting 'meta-elev') ...
+
             const condition = obs.properties.textDescription || "--";
             document.getElementById('conditionText').innerText = condition;
             document.getElementById('weatherIcon').src = obs.properties.icon;
             document.getElementById('weatherIcon').style.display = "block";
 
-            const tempC = obs.properties.temperature.value;
-            const tempF = tempC !== null ? Math.round(tempC * 9/5 + 32) : "--";
-            document.getElementById('tempVal').innerText = tempF !== "--" ? tempF + "\xB0" : "--";
-            
-            const windDir = obs.properties.windDirection.value;
-            const windSpd = obs.properties.windSpeed.value !== null ? Math.round(obs.properties.windSpeed.value * 0.621) : "--";
-            liveWindSpd = windSpd !== "--" ? windSpd : 0; // Save for physics engine
-            
-            let windHtml = windSpd + " mph";
-            if (windDir !== null && windSpd !== "--") {
-                windHtml += ` <span style="display:inline-block; transform:rotate(${windDir}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
-            }
-            document.getElementById('windVal').innerHTML = windHtml;
-
-            document.getElementById('humVal').innerText = obs.properties.relativeHumidity.value !== null ? Math.round(obs.properties.relativeHumidity.value) + "%" : "--";
-            
-            const presPa = obs.properties.barometricPressure.value;
-            let trend = "➡️";
-            if (lastPressurePa !== null && presPa !== null) {
-                if (presPa > lastPressurePa + 34) trend = "↗️"; 
-                else if (presPa < lastPressurePa - 34) trend = "↘️"; 
-            }
-            lastPressurePa = presPa;
-            const presIn = presPa !== null ? (presPa / 3386.389).toFixed(2) : "--";
-            document.getElementById('presVal').innerHTML = presIn !== "--" ? `${presIn} in <span style="font-size:0.75em; opacity:0.8;">${trend}</span>` : "--";
-
-            document.getElementById('vibeCheck').innerText = generateVibeCheck(tempF, condition);
-
-            updateSmartComfort(tempF, obs.properties.relativeHumidity.value, liveWindSpd, condition);
+            // All Temp, Wind, Hum, and Pres UI updates have been removed here.
+            // VibeCheck and updateSmartComfort calls have been removed here (handled in loadAll).
 
             const afdList = await (await fetch(`https://api.weather.gov/products/types/AFD/locations/${wfo}`)).json();
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
             document.getElementById('nws-text').innerText = afd.productText;
             
-            // Start the Dynamic FX mapping after all live vars are fetched
+            // Start the Dynamic FX mapping
             startWeatherFX(condition);
 
         } catch(e) { 
             console.error("NWS Fetch Error:", e); 
         }
     }
-
+    
     function drawOrbit() {
         if(!localRiseTime || !localSetTime) return;
         const now = new Date().getTime(); const body = document.getElementById('celestial-body');
