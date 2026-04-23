@@ -128,6 +128,16 @@
         .nav-item { color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-size: 1.1em; transition: 0.3s; }
         .nav-item span { font-size: 0.5em; text-transform: uppercase; margin-top: 4px; }
         .nav-item.active { color: var(--primary); }
+        /* Radar pulse animation for active storms */
+        @keyframes radar-pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        .active-blip::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%; border: 2px solid var(--danger);
+            animation: radar-pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
@@ -197,15 +207,30 @@
         </details>
     </div>
 
-    <div id="severe-tab" class="tab-content">
-        <div id="safety-checklist"></div>
-        <div id="alert-stack" style="margin-bottom:20px;"></div>
-        
-        <div class="toolkit-box">
-            <div class="toolkit-header"><span>⚡ ESTIMATED LIGHTNING DENSITY</span> <span style="opacity:0.5; font-size:0.8em;">(25mi Radius)</span></div>
-            <div style="display:flex; align-items:center; gap:20px;">
-                <div id="lightning-count" class="strike-counter">0</div>
-                <div style="font-size:0.8em; color:#aaa;">Estimated lightning density in the last 15 minutes.</div>
+    <div class="toolkit-box" style="position: relative; overflow: hidden;">
+            <div class="toolkit-header">
+                <span>📡 LIVE STORM PROXIMITY & TRACKING</span>
+                <span id="storm-status-tag" style="background: rgba(0, 230, 118, 0.2); color: var(--success); padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">CLEAR SCAN</span>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                <div style="position: relative; width: 100px; height: 100px; background: rgba(0,0,0,0.3); border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <div style="position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                    <div style="position: absolute; width: 1px; height: 100%; background: rgba(255,255,255,0.1);"></div>
+                    <div id="radar-blip" style="position: absolute; width: 12px; height: 12px; background: var(--danger); border-radius: 50%; box-shadow: 0 0 10px var(--danger); opacity: 0; transition: all 1.5s ease-out;"></div>
+                    <div style="width: 4px; height: 4px; background: var(--primary); border-radius: 50%;"></div>
+                    <span style="position: absolute; top: 2px; font-size: 0.5em; color: #666;">N</span>
+                </div>
+
+                <div style="flex-grow: 1; text-align: right;">
+                    <div id="storm-dist-val" style="font-size: 2.2em; font-weight: 900; color: var(--accent); line-height: 1;">-- <span style="font-size: 0.4em; opacity: 0.6;">mi</span></div>
+                    <div id="storm-dir-val" style="font-size: 0.9em; font-weight: bold; color: #fff; margin-bottom: 5px;">STATIONARY</div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="font-size: 0.7em; color: #aaa;">EST. ARRIVAL: <span id="storm-toa" style="color: var(--primary); font-weight: bold;">N/A</span></div>
+                        <div style="font-size: 0.7em; color: #aaa;">LIGHTNING DENSITY: <span id="lightning-count" style="color: var(--warning); font-weight: bold;">0</span> <span style="opacity:0.5;">strikes/15m</span></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -878,6 +903,33 @@
         }
     }
     
+    // Convert degrees to cardinal directions
+    function getCompassDirection(bearing) {
+        const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+        return directions[Math.round(bearing / 45) % 8];
+    }
+
+    // Calculate Position for the Radar UI
+    function updateRadarUI(dist, bearing) {
+        const blip = document.getElementById('radar-blip');
+        if (!dist || dist > 50) {
+            blip.style.opacity = "0";
+            blip.classList.remove('active-blip');
+            return;
+        }
+        
+        blip.style.opacity = "1";
+        blip.classList.add('active-blip');
+        
+        const radius = Math.min(dist * 0.9, 45); 
+        const angleRad = (bearing - 90) * (Math.PI / 180);
+        
+        const x = radius * Math.cos(angleRad);
+        const y = radius * Math.sin(angleRad);
+        
+        blip.style.transform = `translate(${x}px, ${y}px)`;
+    }
+    
     async function fetchPirate() {
         try {
             const resP = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
@@ -933,7 +985,47 @@
                     timeline.appendChild(bar);
                 });
             }
+            // --- LIVE STORM TRACKING & RADAR LOGIC ---
+            const stormDist = d.currently?.nearestStormDistance;
+            const stormBearing = d.currently?.nearestStormBearing;
+            
+            // Keep your cool randomized lightning math based on live precipitation intensity
             const strikes = highestIntensity > 0.1 ? Math.floor(highestIntensity * 150) + Math.floor(Math.random() * 10) : 0;
+            
+            // 1. Update Distance & Direction
+            if (stormDist !== undefined && stormDist > 0) {
+                const cardinal = getCompassDirection(stormBearing);
+                document.getElementById('storm-dist-val').innerHTML = `${stormDist} <span style="font-size: 0.4em; opacity: 0.6;">mi</span>`;
+                document.getElementById('storm-dir-val').innerText = `APPROACHING FROM THE ${cardinal.toUpperCase()}`;
+                document.getElementById('storm-status-tag').innerText = "CELL DETECTED";
+                document.getElementById('storm-status-tag').style.background = "rgba(255, 23, 68, 0.2)";
+                document.getElementById('storm-status-tag').style.color = "var(--danger)";
+                
+                // 2. Calculate TOA based on live wind speed
+                if (liveWindSpd > 2) {
+                    const minutesToArrival = Math.round((stormDist / liveWindSpd) * 60);
+                    const arrivalTime = new Date(new Date().getTime() + minutesToArrival * 60000);
+                    const timeStr = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    document.getElementById('storm-toa').innerText = `${minutesToArrival}m (~${timeStr})`;
+                } else {
+                    document.getElementById('storm-toa').innerText = "STATIONARY / SLOW";
+                }
+            } else if (stormDist === 0) {
+                document.getElementById('storm-dist-val').innerHTML = `0 <span style="font-size: 0.4em; opacity: 0.6;">mi</span>`;
+                document.getElementById('storm-dir-val').innerText = `STORM CELL OVERHEAD`;
+                document.getElementById('storm-toa').innerText = "IMMEDIATE";
+            } else {
+                document.getElementById('storm-dist-val').innerHTML = `-- <span style="font-size: 0.4em; opacity: 0.6;">mi</span>`;
+                document.getElementById('storm-dir-val').innerText = `NO STORMS IN RANGE`;
+                document.getElementById('storm-status-tag').innerText = "CLEAR SCAN";
+                document.getElementById('storm-status-tag').style.background = "rgba(0, 230, 118, 0.2)";
+                document.getElementById('storm-status-tag').style.color = "var(--success)";
+                document.getElementById('storm-toa').innerText = "N/A";
+            }
+
+            // 3. Update Visual Radar & Lightning
+            updateRadarUI(stormDist, stormBearing);
             document.getElementById('lightning-count').innerText = strikes;
             const uv = d.currently?.uvIndex || 0;
             document.getElementById('uv-val').innerText = uv;
