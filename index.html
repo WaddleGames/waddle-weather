@@ -572,7 +572,7 @@
         
         // Fetch OpenWeather FIRST to establish timezones and day/night cycle
         await fetchOpenWeather();
-        await Promise.all([fetchAlerts(), fetchPirate(), fetchNWSChain(), fetchSmartComfort()]);
+        await Promise.all([fetchAlerts(), fetchPirate(), fetchNWSChain()]);
         
         lastSyncTime = new Date();
         updateTimestamp();
@@ -744,54 +744,23 @@
         } catch(e) { console.error("Alert Fetch Error:", e); }
     }
     
-    async function fetchSmartComfort() {
+    function updateSmartComfort(T, H, W, cond) {
         try {
-            // 1. Primary Fetch: OpenWeather
-            const owRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
-            const ow = await owRes.json();
-
-            let T = ow.main?.temp;
-            let H = ow.main?.humidity;
-            let W = ow.wind?.speed;
-            let C = ow.clouds?.all;
-            let cond = ow.weather?.[0]?.main?.toLowerCase() ?? "clear";
-
-            // 2. Redundancy Check: Use NWS Station if OpenWeather data is missing
-            if (T === undefined || W === undefined || H === undefined) {
-                try {
-                    const pointsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
-                    const pointsData = await pointsRes.json();
-                    const stationUrl = pointsData.properties.observationStations;
-                    
-                    const stationRes = await fetch(stationUrl);
-                    const stationData = await stationRes.json();
-                    const latestObsRes = await fetch(`${stationData.features[0].id}/observations/latest`);
-                    const obs = await latestObsRes.json();
-                    const p = obs.properties;
-
-                    if (T === undefined) T = (p.temperature.value * 9/5) + 32;
-                    if (H === undefined) H = p.relativeHumidity.value;
-                    if (W === undefined) W = p.windSpeed.value * 0.621371; 
-                } catch (nwsErr) { 
-                    console.warn("NWS Fallback failed:", nwsErr); 
-                }
-            }
-
-            // 3. Absolute Safety Fallbacks
-            T = T ?? 70;
-            H = H ?? 50;
-            W = W ?? 0;
-            C = C ?? 0;
+            // 1. Safety Fallbacks (Handle "--" or missing data)
+            T = (T !== "--" && T != null) ? Number(T) : 70;
+            H = (H !== "--" && H != null) ? Number(H) : 50;
+            W = (W !== "--" && W != null) ? Number(W) : 0;
+            cond = cond ? cond.toLowerCase() : "clear";
 
             let word = "FAIR";
             let color = "#ffffff";
             let reason = "";
 
-            // 4. Comfort Logic Engine
+            // 2. Comfort Logic Engine (Now using NWS condition text instead of OpenWeather clouds)
             if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("thunderstorm")) {
                 word = "DAMP";
                 color = "#4fc3f7";
-                reason = `Rain, ${Math.round(T)}°, ${H}% humidity`;
+                reason = `Rain, ${Math.round(T)}°, ${Math.round(H)}% humidity`;
             } else if (cond.includes("snow") || cond.includes("flurries")) {
                 word = "SNOWY";
                 color = "#FFFFFF";
@@ -807,19 +776,19 @@
             } else if (T > 90 && H > 65) {
                 word = "OPPRESSIVE";
                 color = "#ff5252";
-                reason = `${Math.round(T)}°, ${H}% humidity`;
+                reason = `${Math.round(T)}°, ${Math.round(H)}% humidity`;
             } else if (H > 80 && T > 72) {
                 word = "MUGGY";
                 color = "#aed581";
-                reason = `${H}% hum, ${Math.round(T)}°`;
+                reason = `${Math.round(H)}% hum, ${Math.round(T)}°`;
             } else if (W > 28) {
                 word = "WINDY";
                 color = "#cfd8dc";
                 reason = `${Math.round(W)}mph wind`;
-            } else if (C > 90 && T < 55) { 
+            } else if ((cond.includes("cloud") || cond.includes("overcast")) && T < 55) { 
                 word = "GLOOMY";
                 color = "#90a4ae";
-                reason = `${C}% clouds, ${Math.round(T)}°`;
+                reason = `Cloudy, ${Math.round(T)}°`;
             } else if (T >= 68 && T <= 78 && H < 65 && W < 12) {
                 word = "PERFECT";
                 color = "#00e676";
@@ -831,14 +800,14 @@
             } else if (T >= 65 && T <= 82) { 
                 word = "PLEASANT";
                 color = "#b9f6ca";
-                reason = `${Math.round(T)}°, ${H}% hum`;
+                reason = `${Math.round(T)}°, ${Math.round(H)}% hum`;
             } else {
                 word = "FAIR";
                 color = "#b9f6ca";
-                reason = `${Math.round(T)}°, ${Math.round(W)}mph, ${H}% hum`;
+                reason = `${Math.round(T)}°, ${Math.round(W)}mph, ${Math.round(H)}% hum`;
             }
 
-            // 5. Update UI
+            // 3. Update UI
             const valElem = document.getElementById('aqi-val');
             const descElem = document.getElementById('aqi-desc');
             
@@ -1037,6 +1006,8 @@
             document.getElementById('presVal').innerHTML = presIn !== "--" ? `${presIn} in <span style="font-size:0.75em; opacity:0.8;">${trend}</span>` : "--";
 
             document.getElementById('vibeCheck').innerText = generateVibeCheck(tempF, condition);
+
+            updateSmartComfort(tempF, obs.properties.relativeHumidity.value, liveWindSpd, condition);
 
             const afdList = await (await fetch(`https://api.weather.gov/products/types/AFD/locations/${wfo}`)).json();
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
