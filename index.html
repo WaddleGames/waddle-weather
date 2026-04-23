@@ -755,6 +755,10 @@
                         highestTheme = "theme-ffw"; 
                         checklistText = isPDS ? "FLASH FLOOD EMERGENCY! SEEK HIGHER GROUND NOW!" : "SEEK HIGHER GROUND NOW!"; 
                     }
+                    else if (evt. includes("dust storm warning") && !highestTheme) {
+                        highestTheme = "theme-svr";
+                        checklistText = "PULL ASIDE STAY ALIVE!";
+                    }
 
                     const displayName = isPDS ? `PDS ${p.event}` : p.event;
                     let bgColor = '#e65100'; 
