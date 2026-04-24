@@ -12,7 +12,7 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: linear-gradient(180deg, var(--bg) 0%, #112233 100%);
             background-attachment: fixed; color: white; margin: 0; 
-            padding: 20px 20px 100px 20px; transition: background 1.5s ease;
+            padding: 20px 20px 100px 20px; transition: background 1.5 ease;
         }
 
         /* DYNAMIC ATMOSPHERE THEMES */
@@ -687,7 +687,7 @@
                 
                 let topEventName = topP.event.toUpperCase();
                 if (isTopTorEmergency && evtLower.includes("tornado")) {
-                    topEventName = `🚨 TORNADO EMERGENCY 🚨`;
+                    topEventName = `TORNADO EMERGENCY`;
                 } else if (isTopPDS) {
                     topEventName = `PDS ${topP.event.toUpperCase()}`;
                 }
