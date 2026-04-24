@@ -364,7 +364,7 @@
     let isNightAtStation = false;
     let stationTzOffset = 0;
     // STORM TRACKING MEMORY // Use localStorage so the math survives a page refresh!
-    let lastStormCall = JSON.parse(localStorage.getItem('waddle_storm_mem')) || { time: null, dist: null };
+    let lastStormCall = JSON.parse(localStorage.getItem('waddle_storm_mem')) || { time: null, dist: null, speed: null, motion: "STATIONARY", isApproaching: false, etaText: "N/A" };
     
     function formatOffsetTime(unixSeconds, offsetSeconds) {
         // Shifting the time by the offset and formatting as UTC perfectly matches the remote timezone
@@ -1017,53 +1017,64 @@
                     timeline.appendChild(bar);
                 });
             }
-            // --- LIVE STORM TRACKING & RADAR LOGIC ---
+// --- LIVE STORM TRACKING & RADAR LOGIC ---
             const stormDist = d.currently?.nearestStormDistance;
             const stormBearing = d.currently?.nearestStormBearing;
             const currentTime = Date.now();
             
             // 1. Logic Engine
-            let radialSpeed = 0;
-            let relativeMotion = "STATIONARY";
-            let etaText = "CALCULATING..."; // Default for the very first ping ever
-            let isApproaching = false;
+            let relativeMotion = lastStormCall.motion || "STATIONARY";
+            let etaText = lastStormCall.etaText || "CALCULATING..."; 
+            let isApproaching = lastStormCall.isApproaching || false;
 
-            if (lastStormCall.time && lastStormCall.dist !== null && stormDist !== undefined) {
-                const timeDeltaHours = (currentTime - lastStormCall.time) / (1000 * 60 * 60);
-                const distDelta = lastStormCall.dist - stormDist; 
-
-                // Only do math if time has actually passed and the distance has changed
-                if (timeDeltaHours > 0.01) { 
-                    radialSpeed = Math.abs(distDelta) / timeDeltaHours;
-
-                    if (radialSpeed > 80) {
-                        relativeMotion = "NEW CELL DETECTED";
-                        etaText = "TRACKING...";
-                    } else if (distDelta > 0.4) { // Clearly getting closer
-                        relativeMotion = "APPROACHING";
-                        isApproaching = true;
-                    } else if (distDelta < -0.4) { // Clearly moving away
-                        relativeMotion = "MOVING AWAY";
-                        etaText = "RECEDING";
-                    } else {
-                        relativeMotion = "STATIONARY";
-                        etaText = "N/A"; // Fix: Stop showing "CALCULATING" if it's not moving
-                    }
-
-                    // Calculate ETA if it's coming for us
-                    if (isApproaching && radialSpeed > 1) {
-                        const etaHours = stormDist / radialSpeed;
-                        const minutesToArrival = Math.round(etaHours * 60);
-                        const arrivalTime = new Date(currentTime + (minutesToArrival * 60000));
-                        const timeStr = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        etaText = `${minutesToArrival}mins (~${timeStr})`;
-                    }
-                }
-            }
-
-            // Save data to localStorage so it survives a refresh!
             if (stormDist !== undefined) {
-                lastStormCall = { time: currentTime, dist: stormDist };
+                // Only update the mathematical baseline if the distance actually changes!
+                if (lastStormCall.dist === null || lastStormCall.dist !== stormDist) {
+                    if (lastStormCall.time !== null && lastStormCall.dist !== null) {
+                        const timeDeltaHours = (currentTime - lastStormCall.time) / (1000 * 60 * 60);
+                        const distDelta = lastStormCall.dist - stormDist; // Positive if getting closer
+                        
+                        if (timeDeltaHours > 0) {
+                            const radialSpeed = Math.abs(distDelta) / timeDeltaHours;
+                            lastStormCall.speed = radialSpeed;
+                            
+                            if (radialSpeed > 80) { // Speed too high, probably a new cell jumped in
+                                relativeMotion = "NEW CELL DETECTED";
+                                etaText = "TRACKING...";
+                                isApproaching = false;
+                            } else if (distDelta > 0) {
+                                relativeMotion = "APPROACHING";
+                                isApproaching = true;
+                            } else if (distDelta < 0) {
+                                relativeMotion = "MOVING AWAY";
+                                etaText = "RECEDING";
+                                isApproaching = false;
+                            } else {
+                                relativeMotion = "STATIONARY";
+                                etaText = "N/A";
+                                isApproaching = false;
+                            }
+                        }
+                    }
+                    
+                    // Save new baseline
+                    lastStormCall.time = currentTime;
+                    lastStormCall.dist = stormDist;
+                    lastStormCall.motion = relativeMotion;
+                    lastStormCall.isApproaching = isApproaching;
+                }
+
+                // If approaching, actively recalculate ETA based on CURRENT time & distance using stored speed
+                if (isApproaching && lastStormCall.speed > 1) {
+                    const etaHours = stormDist / lastStormCall.speed;
+                    const minutesToArrival = Math.round(etaHours * 60);
+                    const arrivalTime = new Date(currentTime + (minutesToArrival * 60000));
+                    const timeStr = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    etaText = `${minutesToArrival}mins (~${timeStr})`;
+                }
+
+                // Push state to localStorage
+                lastStormCall.etaText = etaText;
                 localStorage.setItem('waddle_storm_mem', JSON.stringify(lastStormCall));
             }
 
@@ -1080,7 +1091,6 @@
                 } else if (relativeMotion === "STATIONARY") {
                     dirValEl.innerText = `STATIONARY (BEARING: ${cardinal.toUpperCase()})`;
                     dirValEl.style.color = "#fff";
-                    if (lastStormCall.time) etaText = "N/A"; // Ensure it doesn't say calculating if we have data
                 } else {
                     dirValEl.innerText = `${relativeMotion} FROM THE ${cardinal.toUpperCase()}`;
                     dirValEl.style.color = isApproaching ? "var(--danger)" : "var(--success)";
@@ -1109,7 +1119,9 @@
 
             // Update the radar dot
             updateRadarUI(stormDist, stormBearing);
-            document.getElementById('lightning-count').innerText = strikes;
+            
+            // FIX: Removed the undefined 'strikes' variable that was crashing the script!
+            document.getElementById('lightning-count').innerText = "N/A";
             const uv = d.currently?.uvIndex || 0;
             document.getElementById('uv-val').innerText = uv;
             let uvDesc = "Low (No burn risk)"; let uvCol = "#00e676";
