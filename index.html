@@ -1037,7 +1037,7 @@
                     const arrivalTime = new Date(new Date().getTime() + minutesToArrival * 60000);
                     const timeStr = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     
-                    document.getElementById('storm-toa').innerText = `${minutesToArrival}m (~${timeStr})`;
+                    document.getElementById('storm-toa').innerText = `${minutesToArrival}mins (~${timeStr})`;
                 } else {
                     document.getElementById('storm-toa').innerText = "STATIONARY / SLOW";
                 }
