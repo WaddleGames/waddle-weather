@@ -1026,7 +1026,7 @@
             if (stormDist !== undefined && stormDist > 0) {
                 const cardinal = getCompassDirection(stormBearing);
                 document.getElementById('storm-dist-val').innerHTML = `${stormDist} <span style="font-size: 0.4em; opacity: 0.6;">mi</span>`;
-                document.getElementById('storm-dir-val').innerText = `APPROACHING FROM THE ${cardinal.toUpperCase()}`;
+                document.getElementById('storm-dir-val').innerText = `GENERAL STORM MOTION: ${cardinal.toUpperCase()}`;
                 document.getElementById('storm-status-tag').innerText = "CELL DETECTED";
                 document.getElementById('storm-status-tag').style.background = "rgba(255, 23, 68, 0.2)";
                 document.getElementById('storm-status-tag').style.color = "var(--danger)";
