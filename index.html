@@ -207,7 +207,9 @@
         </details>
     </div>
 
-    <div class="toolkit-box" style="position: relative; overflow: hidden;">
+    <div id="severe-tab" class="tab-content">
+
+        <div class="toolkit-box" style="position: relative; overflow: hidden;">
             <div class="toolkit-header">
                 <span>📡 LIVE STORM PROXIMITY & TRACKING</span>
                 <span id="storm-status-tag" style="background: rgba(0, 230, 118, 0.2); color: var(--success); padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">CLEAR SCAN</span>
@@ -232,9 +234,9 @@
                     </div>
                 </div>
             </div>
-        </div> 
+        </div>
 
-        <iframe id="radar-frame" width="100%" height="450" src="" frameborder="0" style="border-radius:12px; margin-top:20px;"></iframe>
+        <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:20px; background: #000; margin-bottom:20px;"></iframe>
         
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
             <div style="font-weight:bold; color:var(--primary);">SPC DAY 1 CONVECTIVE OUTLOOK</div>
@@ -245,6 +247,7 @@
                 <img id="spc-map" style="width: 100%; display:block; min-height:200px;">
             </div>
         </a>
+
     </div>
 
     <div id="specs-tab" class="tab-content">
