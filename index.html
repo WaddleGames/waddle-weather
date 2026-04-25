@@ -996,6 +996,7 @@
         await fetchOpenWeather();
         await fetchAlerts();
         await fetchRiskLevels();
+        await renderSPCHomeBanner();
         
         await Promise.all([fetchPirate(), fetchNWSChain()]);
         
