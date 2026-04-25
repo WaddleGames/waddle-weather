@@ -573,9 +573,19 @@
         return baseScore + (SEVERITY_SCORE[severityStr] || 0);
     }
 
+    const SPC_LABELS = {
+        TSTM: "General Thunderstorms",
+        MRGL: "Marginal Risk",
+        SLGT: "Slight Risk",
+        ENH: "Enhanced Risk",
+        MDT: "Moderate Risk",
+        HIGH: "High Risk"
+    };
+
     async function fetchRiskLevels() {
         const container = document.getElementById('active-risks-container');
         const box = document.getElementById('active-risks-box');
+        renderSPCDetail(r);
         
         if (!container || !box) return;
 
@@ -602,15 +612,28 @@
         
         if (spcData && spcData.label && spcData.label !== "TSTM" && spcData.label !== "General Thunderstorms") {
             hasRisk = true;
+
             const r = spcData.label;
+            const full = SPC_LABELS[r] || r;
+
             let bg = "#7BB07B"; // Default MRGL
-            if (r === "SLGT" || r === "Slight") bg = "#F6F67B";
-            else if (r === "ENH" || r === "Enhanced") bg = "#E6B87B";
-            else if (r === "MDT" || r === "Moderate") bg = "#E67B7B";
-            else if (r === "HIGH" || r === "High") bg = "#FF7BFF";
+            if (r === "SLGT") bg = "#F6F67B";
+            else if (r === "ENH") bg = "#E6B87B";
+            else if (r === "MDT") bg = "#E67B7B";
+            else if (r === "HIGH") bg = "#FF7BFF";
             
             let textColor = (bg === "#F6F67B") ? "#000" : "#fff";
-            container.innerHTML += `<div style="background: ${bg}; color: ${textColor}; padding: 6px 12px; border-radius: 8px; font-weight: 900; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px;">SPC: ${r} RISK</div>`;
+
+            container.innerHTML += `
+                <div style="background: ${bg}; color: ${textColor}; padding: 6px 12px; border-radius: 8px; font-weight: 900; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px;">
+                    SPC: ${r} RISK
+                </div>
+            `;
+
+            // 🔥 HOMEPAGE BANNER (ENH+ ONLY)
+            if (r === "ENH" || r === "MDT" || r === "HIGH") {
+                renderSPCHomeBanner(r, full);
+            }
         }
 
         // 2. Active Mesoscale Discussions
@@ -626,6 +649,65 @@
         box.style.display = hasRisk ? "block" : "none";
     }
 
+    function renderSPCHomeBanner(raw, full) {
+        let stack = document.getElementById('alert-stack');
+        if (!stack) return;
+
+        let color = "#b45309"; // ENH
+        if (raw === "MDT") color = "#b91c1c";
+        if (raw === "HIGH") color = "#7f1d1d";
+
+        const el = document.createElement("div");
+        el.style.background = color;
+        el.style.color = "#fff";
+        el.style.padding = "12px";
+        el.style.borderRadius = "10px";
+        el.style.fontWeight = "800";
+        el.style.textAlign = "center";
+        el.style.marginTop = "10px";
+        el.style.cursor = "pointer";
+        el.style.textTransform = "uppercase";
+        el.style.letterSpacing = "1px";
+
+        el.innerText = `⚠️ SPC ${full}`;
+
+        // 👉 CLICK → SEVERE TAB + SCROLL
+        el.onclick = () => {
+            const severeBtn = document.querySelector('.nav-item[onclick*="severe"]');
+            if (severeBtn) severeBtn.click();
+
+            setTimeout(() => {
+                const target = document.getElementById("spc-section");
+                if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 300);
+        };
+
+        stack.appendChild(el);
+    }
+
+    function renderSPCDetail(raw) {
+        const el = document.getElementById("spc-section");
+        if (!el) return;
+
+        if (!raw || !["ENH", "MDT", "HIGH"].includes(raw)) {
+            el.innerHTML = "";
+            return;
+        }
+
+        const full = SPC_LABELS[raw] || raw;
+
+        el.innerHTML = `
+            <div style="background:#111; padding:15px; border-radius:12px; border:1px solid #333;">
+                <div style="font-weight:900; font-size:1.1em; margin-bottom:6px;">
+                    ⚠️ ${full}
+                </div>
+                <div style="opacity:0.8; font-size:0.9em;">
+                    Severe storms expected today. Stay weather aware.
+                </div>
+            </div>
+        `;
+    }
+    
     // Live Sync Timer Display
     function updateTimestamp() {
         if (!lastSyncTime) return;
