@@ -571,13 +571,17 @@
     }
     setInterval(updateTimestamp, 1000);
 
-    function toggleThemeMode() {
+        function toggleThemeMode() {
         if (themeOverride === 'auto') themeOverride = 'dark';
         else if (themeOverride === 'dark') themeOverride = 'light';
         else themeOverride = 'auto';
         
         document.getElementById('theme-toggle').innerText = `THEME: ${themeOverride.toUpperCase()}`;
-        updateAtmosphereTheme();
+
+        // 👇 CRITICAL FIX
+        setTimeout(() => {
+            updateAtmosphereTheme();
+        }, 0);
     }
 
     function toggleSettingsWindow() {
