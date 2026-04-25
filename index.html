@@ -1060,7 +1060,7 @@
                 // --- PHASE 1: NOT ENOUGH DATA (INSTANT RESPONSE) ---
                 if (stormHistory.length < 2) {
 
-                    dirValEl.innerText = `STORM WITHIN 50 MI (${cardinal.toUpperCase()})`;
+                    dirValEl.innerText = `STORM WITHIN 50 MI, HEADING ${cardinal.toUpperCase()}`;
                     dirValEl.style.color = "var(--warning)";
 
                     document.getElementById('storm-status-tag').innerText = "STORM POSSIBLE";
@@ -1119,7 +1119,7 @@
                     // --- PHASE 3: MOVING AWAY ---
                     } else if (increasing && validSpeed) {
 
-                        dirValEl.innerText = `MOVING AWAY (${cardinal.toUpperCase()})`;
+                        dirValEl.innerText = `MOVING AWAY, HEADING ${cardinal.toUpperCase()}`;
                         dirValEl.style.color = "var(--success)";
 
                         document.getElementById('storm-status-tag').innerText = "RECEDING";
