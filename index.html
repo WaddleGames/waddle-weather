@@ -632,7 +632,7 @@
                 `;
 
                 if (r === "ENH" || r === "MDT" || r === "HIGH") {
-                        renderSPCHomeBanner(raw, full);
+                        renderSPCHomeBanner(r, full);
                 }
         }
 
@@ -654,6 +654,7 @@
     function renderSPCHomeBanner(raw, full) {
         let stack = document.getElementById('alert-stack');
         if (!stack) return;
+        console.log("SPC banner trigger:", raw);
 
         let color = "#b45309"; // ENH
         if (raw === "MDT") color = "#b91c1c";
