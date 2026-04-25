@@ -138,20 +138,25 @@
             border-radius: 50%; border: 2px solid var(--danger);
             animation: radar-pulse 2s infinite;
         }
-        /* --- CITY MODE GRID FIX --- */
-        #city-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
+        /* --- CITY MODE 1:1 MATCH --- */
+        .city-mode-container {
+                display: flex;
+                flex-direction: column;
                 gap: 5px;
-                width: 100%;
         }
 
         #cityInput {
-                grid-column: span 2;
                 width: 100%;
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid #223344;
+                color: white;
+                padding: 10px;
                 box-sizing: border-box;
+                border-radius: 4px;
+                font-family: inherit;
         }
-        
+
+        /* --- SETTINGS WINDOW --- */
         #settings-window {
                 display: none;
                 position: fixed;
@@ -163,7 +168,7 @@
                 border-radius: 15px;
                 border: 1px solid #223344;
                 z-index: 3000;
-                box-shadow: 0 0 50px rgba(0,0,0,0.9);
+                box-shadow: 0 0 50px rgba(0,0,0,1);
                 min-width: 280px;
         }
 
@@ -577,11 +582,11 @@
                 <button class="btn-action btn-gps" onclick="getLocation()">📍 GPS</button>
             `;
         } else {
-            // Using the grid to prevent stretching/overlap
+            // Matching your "Amazing" layout exactly
             panel.innerHTML = `
-                <div id="city-grid">
-                    <input type="text" id="cityInput" placeholder="City or Zip...">
-                    <button class="btn-action" onclick="runCitySearch()">SYNC</button>
+                <div class="city-mode-container">
+                    <input type="text" id="cityInput" placeholder="Enter City or Zip...">
+                    <button class="btn-action" onclick="runCitySearch()">SYNC CITY</button>
                     <button class="btn-action btn-gps" onclick="getLocation()">📍 GPS</button>
                 </div>
             `;
@@ -602,13 +607,14 @@
         } catch (e) { console.error(e); }
     }
 
-    // This calls your ORIGINAL theme function to ensure it actually works
     function triggerThemeCycle() {
-        toggleThemeMode(); // This is the function already in your script
-        const btn = document.getElementById('theme-btn-display');
+        // Your script cycles: auto -> dark -> light
+        // We just call your existing function that handles the canvas/BG
+        toggleThemeMode(); 
         
-        // Update the text in settings to match whatever the script just changed it to
-        if (typeof themeMode !== 'undefined') {
+        // Update the button text to show the NEW state
+        const btn = document.getElementById('theme-btn-display');
+        if (btn && typeof themeMode !== 'undefined') {
             btn.innerText = "THEME: " + themeMode.toUpperCase();
         }
     }
