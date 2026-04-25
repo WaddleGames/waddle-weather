@@ -594,6 +594,11 @@
     async function fetchRiskLevels() {
         const container = document.getElementById('active-risks-container');
         const box = document.getElementById('active-risks-box');
+        const banner = document.getElementById('spc-banner');
+        if (banner) {
+            banner.style.display = "none";
+            banner.onclick = null;
+        }
         
         if (!container || !box) return;
 
@@ -996,7 +1001,6 @@
         await fetchOpenWeather();
         await fetchAlerts();
         await fetchRiskLevels();
-        await renderSPCHomeBanner();
         
         await Promise.all([fetchPirate(), fetchNWSChain()]);
         
