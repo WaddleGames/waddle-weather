@@ -796,7 +796,6 @@
         }
         
         saveLoc(); 
-        fetchRiskLevels(lat, lon);
 
         document.getElementById('stationName').innerText = "LOADING LOCATION...";
         document.getElementById('conditionText').innerText = "--";
@@ -819,7 +818,6 @@
             navigator.geolocation.getCurrentPosition(p => {
                 lat = p.coords.latitude.toFixed(4); 
                 lon = p.coords.longitude.toFixed(4);
-                fetchRiskLevels(lat, lon);
                 
                 const latBox = document.getElementById('latInput');
                 const lonBox = document.getElementById('lonInput');
