@@ -772,6 +772,9 @@
     function setInputView(mode) {
         const panel = document.getElementById('coords-panel');
 
+        // ✅ SAVE MODE
+        localStorage.setItem('input_mode', mode);
+
         // Fix: toggle class without breaking layout
         panel.classList.toggle('city-mode', mode === 'city');
 
@@ -1836,6 +1839,12 @@
     
     // Adjusted interval to 60000 (1 minute) for live-updating feel
     setInterval(loadAll, 60000);
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedMode = localStorage.getItem('input_mode') || 'city';
+        setInputView(savedMode);
+    });
+    
     window.onload = () => { 
         loadLoc(); 
         loadAll(); 
