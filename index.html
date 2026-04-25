@@ -140,20 +140,13 @@
         }
         /* --- CITY MODE 1:1 MATCH --- */
         .city-mode-container {
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
+            margin-bottom: 25px; background: rgba(255, 255, 255, 0.05); display: inline-flex; 
+            align-items: center; padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); gap: 12px; flex-wrap: wrap;
+            position: relative; z-index: 10;
         }
-
         #cityInput {
-                width: 100%;
-                background: rgba(0, 0, 0, 0.3);
-                border: 1px solid #223344;
-                color: white;
-                padding: 10px;
-                box-sizing: border-box;
-                border-radius: 4px;
-                font-family: inherit;
+            background: none; border: none; border-bottom: 1px solid var(--primary);
+            color: white; padding: 5px; width: 80px; text-align: center; outline: none;
         }
 
         /* --- SETTINGS WINDOW --- */
