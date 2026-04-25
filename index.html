@@ -88,10 +88,11 @@
             color: white; padding: 5px; width: 80px; text-align: center; outline: none;
         }
         #coords-panel.city-mode {
-            background: none;
-            border: none;
-            padding: 0;
+                background: none;
+                border: none;
+                padding: 0;
          }
+        
         .btn-action { background: var(--primary); color: #07131d; border: none; padding: 6px 12px; border-radius: 15px; font-weight: bold; cursor: pointer; }
         .btn-gps { background: rgba(255,255,255,0.1); color: white; }
 
@@ -147,12 +148,16 @@
         .city-mode-container {
                 margin-bottom: 24px;
                 background: rgba(255, 255, 255, 0.05);
-                display: flex; /* Changed from inline-flex to match coordinates row */
+                display: flex; 
+                width: 550px;
+                max-width: 100%;
+                box-sizing: border-box;
                 align-items: center;
-                padding: 8px 16px;
-                border-radius: 24px;
+                justify-content: center;
+                padding: 10px 20px; /* Matched to coords */
+                border-radius: 50px; /* Matched to coords */
                 border: 1px solid rgba(255, 255, 255, 0.1);
-                gap: 12px; /* Increased slightly to match typical coordinates spacing */
+                gap: 12px;
                 flex-wrap: wrap;
                 position: relative;
                 z-index: 10;
@@ -166,7 +171,8 @@
                 border-bottom: 1px solid var(--primary);
                 color: white;
                 padding: 4px 8px;
-                width: 250px; /* Increased from 80px to match coordinate input length */
+                width: auto;
+                flex-grow: 1; /* This stretches the input bar */
                 text-align: center;
                 outline: none;
         }
