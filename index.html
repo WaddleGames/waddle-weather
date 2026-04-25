@@ -852,8 +852,13 @@
     function setDataComplexity(mode) {
         localStorage.setItem('data_complexity', mode);
 
-        document.getElementById('opt-data-normal').classList.toggle('active', mode === 'normal');
-        document.getElementById('opt-data-specific').classList.toggle('active', mode === 'specific');
+        const normalBtn = document.getElementById('opt-data-normal');
+        const specificBtn = document.getElementById('opt-data-specific');
+
+        if (normalBtn && specificBtn) {
+            normalBtn.classList.toggle('active', mode === 'normal');
+            specificBtn.classList.toggle('active', mode === 'specific');
+        }
     }
     
     function updateAtmosphereTheme() {
@@ -1893,7 +1898,10 @@
         setInputView(savedMode);
 
         const savedComplexity = localStorage.getItem('data_complexity') || 'normal';
-        setDataComplexity(savedComplexity);
+
+        setTimeout(() => {
+            setDataComplexity(savedComplexity);
+        }, 0);
     });
     
     window.onload = () => { 
