@@ -1498,9 +1498,9 @@
                     const validSpeed = speed >= 2 && speed <= 60;
 
                     // --- PHASE 2: CONFIRMED APPROACH ---
-                    if (decreasing && validSpeed && stormHistory.length >= 3) {
+                    if (decreasing && stormHistory.length >= 2) {
 
-                        dirValEl.innerText = `APPROACHING FROM THE ${cardinal.toUpperCase()}`;
+                        dirValEl.innerText = `GENERAL STORM DIRECTION: ${cardinal.toUpperCase()}`;
                         dirValEl.style.color = "var(--danger)";
 
                         document.getElementById('storm-status-tag').innerText = "APPROACHING";
