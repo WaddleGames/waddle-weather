@@ -1498,6 +1498,10 @@
                     timeline.appendChild(bar);
                 });
             }
+            if ((localStorage.getItem('data_complexity') || 'normal') !== 'advanced') {
+                updateRadarUI(null, null);
+                return;
+            }
             // --- LIVE STORM TRACKING & RADAR LOGIC ---
             const stormDist = d.currently?.nearestStormDistance;
             const stormBearing = d.currently?.nearestStormBearing;
