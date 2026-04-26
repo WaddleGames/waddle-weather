@@ -1498,10 +1498,7 @@
                     timeline.appendChild(bar);
                 });
             }
-            if ((localStorage.getItem('data_complexity') || 'normal') !== 'advanced') {
-                updateRadarUI(null, null);
-                return;
-            }
+            if ((localStorage.getItem('data_complexity') || 'normal') === 'advanced') {
             // --- LIVE STORM TRACKING & RADAR LOGIC ---
             const stormDist = d.currently?.nearestStormDistance;
             const stormBearing = d.currently?.nearestStormBearing;
@@ -1646,6 +1643,9 @@
                 }
 
                 updateRadarUI(stormDist, stormBearing);
+            }
+            } else {
+                updateRadarUI(null, null);
             }
             
             // FIX: Removed the undefined 'strikes' variable that was crashing the script!
