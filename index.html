@@ -1064,8 +1064,10 @@
 
     async function fetchWUData(lat, lon) {
         try {
+            const latFixed = Number(lat).toFixed(4);
+            const lonFixed = Number(lon).toFixed(4);
             const locRes = await fetch(
-                `https://api.weather.com/v3/location/near?geocode=${lat},${lon}&product=pws&format=json&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
+                `https://api.weather.com/v3/location/near?geocode=${latFixed},${lonFixed}&product=pws&format=json&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
             );
             const locData = await locRes.json();
 
