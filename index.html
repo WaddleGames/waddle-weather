@@ -305,6 +305,15 @@
             <div class="detail-item"><div class="detail-label">Humidity</div><div id="humVal" class="detail-val">--</div></div>
             <div class="detail-item"><div class="detail-label">Pressure</div><div id="presVal" class="detail-val">--</div></div>
         </div>
+        <div id="wuStation" style="
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 6px;
+            padding-left: 2px;
+            display: none;
+        ">
+            Observed at <a id="wuLink" target="_blank" style="color: var(--accent); text-decoration: none;"></a>
+        </div>
 
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
             <div>
@@ -1081,6 +1090,7 @@
             const obs = obsData.observations[0];
 
             return {
+                stationId: stationId,
                 temp: obs.imperial?.temp,
                 humidity: obs.humidity,
                 windSpeed: obs.imperial?.windSpeed,
@@ -1518,6 +1528,18 @@
                 wu.temp !== null &&
                 wu.humidity !== null &&
                 wu.windSpeed !== null;
+
+            const wuStationEl = document.getElementById('wuStation');
+            const wuLinkEl = document.getElementById('wuLink');
+
+            if (useWU && wu.stationId) {
+                wuLinkEl.innerText = wu.stationId;
+                wuLinkEl.href = `https://www.wunderground.com/dashboard/pws/${wu.stationId}`;
+                wuStationEl.style.display = "block";
+            } else {
+                wuStationEl.style.display = "none";
+            }
+
             const curr = d.currently;
             
             // --- HOME PAGE METRIC OVERRIDE ---
@@ -1567,9 +1589,10 @@
 
                 document.getElementById('precip24h').innerText =
                     `${wu.precipTotal.toFixed(2)}" today`;
+            } else {
+                document.getElementById('precip1h').innerText = `1h: ${precip1h.toFixed(2)}"`;
+                document.getElementById('precip24h').innerText = `24h: ${precip24h.toFixed(2)}"`;
             }
-            document.getElementById('precip1h').innerText = `1h: ${precip1h.toFixed(2)}"`;
-            document.getElementById('precip24h').innerText = `24h: ${precip24h.toFixed(2)}"`;
             
             // Set live data value for FX Background intensity mapped to real physical conditions
             livePrecipInt = d.currently?.precipIntensity || 0;
