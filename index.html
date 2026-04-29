@@ -837,6 +837,12 @@
                 lat = parseFloat(data[0].lat);
                 lon = parseFloat(data[0].lon);
 
+                const latBox = document.getElementById('latInput');
+                const lonBox = document.getElementById('lonInput');
+
+                if (latBox) latBox.value = lat;
+                if (lonBox) lonBox.value = lon;
+
                 // 2. Remember the city name in localStorage
                 localStorage.setItem('waddle_city', query);
 
@@ -960,9 +966,9 @@
         const lonBox = document.getElementById('lonInput');
         
         // Only override lat/lon if the boxes currently exist on screen
-        if (latBox && lonBox) {
-            lat = latBox.value; 
-            lon = lonBox.value; 
+        if (latBox && lonBox && latBox.value && lonBox.value) {
+            lat = parseFloat(latBox.value); 
+            lon = parseFloat(lonBox.value); 
         }
         
         saveLoc(); 
@@ -1064,10 +1070,8 @@
 
     async function fetchWUData(lat, lon) {
         try {
-            const latFixed = Number(lat).toFixed(4);
-            const lonFixed = Number(lon).toFixed(4);
             const locRes = await fetch(
-                `https://api.weather.com/v3/location/near?geocode=${latFixed},${lonFixed}&product=pws&format=json&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
+                `https://api.weather.com/v3/location/near?geocode=${lat},${lon}&product=pws&format=json&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
             );
             const locData = await locRes.json();
 
