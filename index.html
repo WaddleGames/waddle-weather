@@ -834,8 +834,8 @@
             
             if (data && data.length > 0) {
                 // 1. Convert the API strings to numbers and update globals
-                lat = parseFloat(data[0].lat);
-                lon = parseFloat(data[0].lon);
+                lat = parseFloat(data[0].lat).toFixed(4);
+                lon = parseFloat(data[0].lon).toFixed(4);
 
                 const latBox = document.getElementById('latInput');
                 const lonBox = document.getElementById('lonInput');
