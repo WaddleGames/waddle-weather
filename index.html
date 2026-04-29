@@ -1525,7 +1525,7 @@
                 const stormHours = d.hourly.data.slice(0, 24);
 
                 let closest = null;
-                let trend = null;
+                let trend = "STATIONARY";
 
                 stormHours.forEach((h, i) => {
                     if (h.nearestStormDistance !== undefined) {
@@ -1550,9 +1550,13 @@
 
                 const statusTag = document.getElementById('storm-status-tag');
                 const dirVal = document.getElementById('storm-dir-val');
+                const distVal = document.getElementById('storm-dist-val');
+                const toaVal = document.getElementById('storm-toa');
+                const lightningVal = document.getElementById('lightning-count');
 
                 if (closest) {
-                    statusTag.innerText = trend.toUpperCase();
+                    // FIX 1: Change statusTag to stop "APPROACHING" from printing twice
+                    statusTag.innerText = "STORM DETECTED";
                     statusTag.style.color = closest.distance < 20 ? "var(--danger)" : "var(--warning)";
 
                     dirVal.innerText =
@@ -1562,9 +1566,29 @@
                         ? "MOVING AWAY"
                         : "NO SIGNIFICANT MOTION";
 
+                    // FIX 2: Bind the distance value and append " miles"
+                    distVal.innerText = closest.distance + " miles";
+
+                    // FIX 3: Calculate Est Arrival and Lightning
+                    if (trend === "approaching" && closest.distance > 0) {
+                        let stormSpeedMph = 30; // Fallback speed assumption
+                        let minutesAway = Math.round((closest.distance / stormSpeedMph) * 60);
+
+                        let arrivalTime = new Date();
+                        arrivalTime.setMinutes(arrivalTime.getMinutes() + minutesAway);
+                        toaVal.innerText = arrivalTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        lightningVal.innerText = minutesAway + " mins";
+                    } else {
+                        toaVal.innerText = "N/A";
+                        lightningVal.innerText = "0";
+                    }
+
                 } else {
                     statusTag.innerText = "NO STORMS";
                     dirVal.innerText = "CLEAR";
+                    distVal.innerText = "--";
+                    toaVal.innerText = "N/A";
+                    lightningVal.innerText = "0";
                 }
             }
             
