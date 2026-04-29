@@ -1052,6 +1052,48 @@
         spcIntervalId = setInterval(updateSPC, 1000);
     }
 
+    async function fetchWUData(lat, lon) {
+        try {
+            const locRes = await fetch(
+                `https://api.weather.com/v3/location/near?geocode=${lat},${lon}&product=pws&format=json&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
+            );
+            const locData = await locRes.json();
+
+            if (
+                !locData.location ||
+                !locData.location.stationId ||
+                !locData.location.stationId.length
+            ) {
+                return null;
+            }
+
+            const stationId = locData.location.stationId[0];
+
+            const obsRes = await fetch(
+                `https://api.weather.com/v2/pws/observations/current?stationId=${stationId}&format=json&units=e&apiKey=c51cf47ac5b04c389cf47ac5b0bc3857`
+            );
+            const obsData = await obsRes.json();
+
+            if (!obsData.observations || !obsData.observations.length) {
+                return null;
+            }
+
+            const obs = obsData.observations[0];
+
+            return {
+                temp: obs.imperial?.temp,
+                humidity: obs.humidity,
+                windSpeed: obs.imperial?.windSpeed,
+                windDir: obs.winddir,
+                precipRate: obs.imperial?.precipRate,
+                precipTotal: obs.imperial?.precipTotal
+            };
+        } catch (err) {
+            console.error("WU error:", err);
+            return null;
+        }
+    }
+
     async function loadAll() {
         const indicator = document.getElementById('sync-indicator');
         indicator.style.opacity = "1";
@@ -1469,21 +1511,38 @@
         try {
             const resP = await fetch(`https://api.pirateweather.net/forecast/${PIRATE_API_KEY}/${lat},${lon}?units=us`);
             const d = await resP.json();
+            const wu = await fetchWUData(lat, lon);
+
+            const useWU =
+                wu &&
+                wu.temp !== null &&
+                wu.humidity !== null &&
+                wu.windSpeed !== null;
             const curr = d.currently;
             
             // --- HOME PAGE METRIC OVERRIDE ---
-            document.getElementById('tempVal').innerText = Math.round(curr.temperature) + "\xB0";
+            const temp = (useWU && wu.temp !== null) ? wu.temp : curr.temperature;
+            document.getElementById('tempVal').innerText = Math.round(temp) + "\xB0";
             liveFeelsLike = curr.apparentTemperature; // Stored for comfort engine
             liveUV = curr.uvIndex || 0;               // Stored for comfort engine
             
-            liveWindSpd = Math.round(curr.windSpeed);
+            const windSpeed = (useWU && wu.windSpeed !== null) ? wu.windSpeed : curr.windSpeed;
+            const windDir = (useWU && wu.windDir !== null) ? wu.windDir : curr.windBearing;
+
+            liveWindSpd = Math.round(windSpeed);
+
             let windHtml = liveWindSpd + " mph";
-            if (curr.windBearing !== null && liveWindSpd > 0) {
-                windHtml += ` <span style="display:inline-block; transform:rotate(${curr.windBearing}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
+            if (windDir !== null && liveWindSpd > 0) {
+                windHtml += ` <span style="display:inline-block; transform:rotate(${windDir}deg); color:var(--accent); font-weight:900;">&darr;</span>`;
             }
+
             document.getElementById('windVal').innerHTML = windHtml;
             
-            document.getElementById('humVal').innerText = Math.round(curr.humidity * 100) + "%";
+            const humidity = (useWU && wu.humidity !== null)
+                ? wu.humidity
+                : curr.humidity * 100;
+
+            document.getElementById('humVal').innerText = Math.round(humidity) + "%";
             
             const presIn = (curr.pressure * 0.02953).toFixed(2);
             let trend = "➡️";
@@ -1496,6 +1555,19 @@
             
             const precip1h = d.currently?.precipAccumulation || 0;
             const precip24h = d.daily?.data?.[0]?.precipAccumulation || 0;
+            const wuPrecipValid =
+                useWU &&
+                wu.precipRate !== null &&
+                wu.precipTotal !== null &&
+                (wu.precipRate > 0 || wu.precipTotal > 0);
+
+            if (wuPrecipValid) {
+                document.getElementById('precip1h').innerText =
+                    `${wu.precipRate.toFixed(2)}"/hr`;
+
+                document.getElementById('precip24h').innerText =
+                    `${wu.precipTotal.toFixed(2)}" today`;
+            }
             document.getElementById('precip1h').innerText = `1h: ${precip1h.toFixed(2)}"`;
             document.getElementById('precip24h').innerText = `24h: ${precip24h.toFixed(2)}"`;
             
