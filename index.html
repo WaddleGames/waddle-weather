@@ -1552,7 +1552,7 @@
                 const dirVal = document.getElementById('storm-dir-val');
 
                 if (closest) {
-                    statusTag.innerText = `${Math.round(closest.distance)}mi • ${trend || "steady"}`;
+                    statusTag.innerText = trend.toUpperCase();
                     statusTag.style.color = closest.distance < 20 ? "var(--danger)" : "var(--warning)";
 
                     dirVal.innerText =
