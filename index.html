@@ -1890,15 +1890,10 @@
             const elevMeters = primaryStation.properties.elevation.value;
             document.getElementById('meta-elev').innerText = elevMeters ? Math.round(elevMeters * 3.28084) + " ft" : "N/A";
 
-            // ... (Your existing code up to setting 'meta-elev') ...
-
             const condition = obs.properties.textDescription || "--";
             document.getElementById('conditionText').innerText = condition;
             document.getElementById('weatherIcon').src = obs.properties.icon;
             document.getElementById('weatherIcon').style.display = "block";
-
-            // All Temp, Wind, Hum, and Pres UI updates have been removed here.
-            // VibeCheck and updateSmartComfort calls have been removed here (handled in loadAll).
 
             const afdList = await (await fetch(`https://api.weather.gov/products/types/AFD/locations/${wfo}`)).json();
             const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
@@ -2045,7 +2040,7 @@
         fxAnimationId = requestAnimationFrame(draw);
     }
     
-    // Adjusted interval to 60000 (1 minute) for live-updating feel
+    // Information updates every 60 seconds, (live updating feel)
     setInterval(loadAll, 60000);
     
     window.addEventListener('DOMContentLoaded', () => {
