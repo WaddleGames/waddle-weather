@@ -1882,7 +1882,7 @@
                     const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
 
                     html += `
-                        <div class="forecast-card" style="min-width: 140px; display: flex; flex-direction: column;">
+                        <div class="forecast-card" style="min-width: 140px; flex: 0 0 auto; display: flex; flex-direction: column;">
                             <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">
                                 ${new Date(f.dt*1000).toLocaleTimeString([], {hour:'numeric'})}
                             </div>
