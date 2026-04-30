@@ -1923,11 +1923,25 @@
                 btn.className = "hourly-tab";
                 btn.innerText = new Date(key).toLocaleDateString([], { weekday: 'short' });
 
+                btn.style.padding = "8px 18px";
+                btn.style.borderRadius = "8px";
+                btn.style.cursor = "pointer";
+                btn.style.whiteSpace = "nowrap";
+                btn.style.flex = "0 0 auto";
+                btn.style.background = "rgba(255,255,255,0.1)";
+                btn.style.color = "#fff";
+
                 if (i === 0) btn.classList.add("active");
 
                 btn.onclick = () => {
-                    document.querySelectorAll('.hourly-tab').forEach(t => t.classList.remove('active'));
-                    btn.classList.add('active');
+                    [...tabRow.children].forEach(t => {
+                        t.style.background = "rgba(255,255,255,0.1)";
+                        t.style.color = "#fff";
+                    });
+
+                    btn.style.background = "var(--accent)";
+                    btn.style.color = "#000";
+
                     renderDay(key);
                 };
 
