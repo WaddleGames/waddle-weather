@@ -335,6 +335,9 @@
 
         <details open id="openweather-section">
             <summary style="color:var(--primary);">3-HOURLY FORECAST (OPENWEATHER)</summary>
+            
+            <div id="ow-day-tabs" style="display:flex; gap:8px; overflow-x:auto; margin:10px 0;"></div>
+            
             <div class="forecast-scroll" id="forecast-container" style="margin-top:15px;"></div>
         </details>
 
@@ -1842,6 +1845,7 @@
 
             const days = {};
 
+            // Grouping data by date for the tabs
             d.list.forEach(f => {
                 const dt = new Date(f.dt * 1000);
                 const key = dt.toDateString();
@@ -1853,6 +1857,7 @@
             const dayKeys = Object.keys(days);
             if (!dayKeys.length) return;
 
+            // Container for the day-selector buttons
             const tabRow = document.createElement('div');
             tabRow.className = "hourly-tabs";
             tabRow.style.display = "flex";
@@ -1861,6 +1866,7 @@
             tabRow.style.flexWrap = "nowrap";
             tabRow.style.overflowX = "auto";
 
+            // Container for the actual forecast cards
             const forecastRow = document.createElement('div');
             forecastRow.className = "hourly-row";
             forecastRow.style.display = "flex";
@@ -1873,9 +1879,7 @@
             cont.appendChild(forecastRow);
 
             function renderDay(dayKey) {
-                let html = "";
-                
-                                forecastRow.innerHTML = "";
+                forecastRow.innerHTML = "";
 
                 days[dayKey].forEach(f => {
                     const popPct = Math.round(f.pop * 100);
@@ -1934,14 +1938,19 @@
                 btn.style.background = "rgba(255,255,255,0.1)";
                 btn.style.color = "#fff";
 
-                if (i === 0) btn.classList.add("active");
+                if (i === 0) {
+                    btn.style.background = "var(--accent)";
+                    btn.style.color = "#000";
+                }
 
                 btn.onclick = () => {
+                    // Reset all tabs
                     [...tabRow.children].forEach(t => {
                         t.style.background = "rgba(255,255,255,0.1)";
                         t.style.color = "#fff";
                     });
 
+                    // Highlight active tab
                     btn.style.background = "var(--accent)";
                     btn.style.color = "#000";
 
@@ -1951,13 +1960,14 @@
                 tabRow.appendChild(btn);
             });
 
+            // Initial render of today
             renderDay(dayKeys[0]);
 
         } catch (e) {
             console.error("OpenWeather error:", e);
         }
     }
-
+    
     async function fetchNWSChain() {
         try {
             const p = await (await fetch(`https://api.weather.gov/points/${lat},${lon}`)).json();
