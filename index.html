@@ -1850,25 +1850,37 @@
                 days[key].push(f);
             });
 
-            Object.keys(days).forEach(key => {
+            const dayKeys = Object.keys(days);
 
-                const header = document.createElement('div');
-                header.style.fontSize = "0.75em";
-                header.style.opacity = "0.6";
-                header.style.margin = "10px 0 4px 0";
-                header.style.fontWeight = "bold";
-                header.innerText = new Date(key).toLocaleDateString([], { weekday: 'long' }).toUpperCase();
+            if (!dayKeys.length) return;
 
-                cont.appendChild(header);
+            let activeDay = dayKeys[0];
 
-                days[key].forEach(f => {
+            const tabBar = document.createElement('div');
+            tabBar.style.display = "flex";
+            tabBar.style.gap = "6px";
+            tabBar.style.marginBottom = "10px";
+
+            cont.appendChild(tabBar);
+
+            const cardsContainer = document.createElement('div');
+            cardsContainer.style.display = "flex";
+            cardsContainer.style.gap = "10px";
+            cardsContainer.style.overflowX = "auto";
+
+            cont.appendChild(cardsContainer);
+
+            function renderDay(dayKey) {
+                let html = "";
+
+                days[dayKey].forEach(f => {
                     const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : 0;
                     const rainVol = rainInches > 0 ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${rainInches} in</div>` : '';
                     const popPct = Math.round(f.pop * 100);
                     const gustInfo = f.wind.gust ? `<div><b>Gusts:</b> ${Math.round(f.wind.gust)} mph</div>` : '';
                     const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
 
-                    cont.innerHTML += `
+                    cardsContainer.innerHTML += `
                         <div class="forecast-card" style="min-width: 140px; display: flex; flex-direction: column;">
                             <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">
                                 ${new Date(f.dt*1000).toLocaleTimeString([], {hour:'numeric'})}
@@ -1900,8 +1912,36 @@
                         </div>
                     `;
                 });
+            }
 
+            dayKeys.forEach((key, index) => {
+                const btn = document.createElement('button');
+                btn.innerText = new Date(key).toLocaleDateString([], { weekday: 'short' });
+
+                btn.style.padding = "6px 12px";
+                btn.style.borderRadius = "6px";
+                btn.style.border = "none";
+                btn.style.cursor = "pointer";
+                btn.className = index === 0 ? "active-tab" : "inactive-tab";
+
+                btn.onclick = () => {
+                    activeDay = key;
+
+                    [...tabBar.children].forEach(b => {
+                        b.style.background = "rgba(255,255,255,0.1)";
+                        b.style.color = "#fff";
+                    });
+
+                    btn.style.background = "var(--accent)";
+                    btn.style.color = "#000";
+
+                    renderDay(key);
+                };
+
+                tabBar.appendChild(btn);
             });
+
+            renderDay(activeDay);
 
         } catch (e) {
             console.error("OpenWeather error:", e);
