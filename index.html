@@ -1829,138 +1829,140 @@
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
 
-            localRiseTime = d.city.sunrise * 1000; 
-            localSetTime = d.city.sunset * 1000;
-
-            const nowSec = Math.floor(Date.now() / 1000);
-            isNightAtStation = (nowSec < d.city.sunrise || nowSec > d.city.sunset);
-
-            stationTzOffset = d.city.timezone;
-
-            document.getElementById('riseVal').innerText = formatOffsetTime(d.city.sunrise, stationTzOffset);
-            document.getElementById('setVal').innerText = formatOffsetTime(d.city.sunset, stationTzOffset);
+            // Set Sun/Moon times
+            document.getElementById('riseVal').innerText = formatOffsetTime(d.city.sunrise, d.city.timezone);
+            document.getElementById('setVal').innerText = formatOffsetTime(d.city.sunset, d.city.timezone);
 
             const cont = document.getElementById('forecast-container'); 
             cont.innerHTML = "";
+            // Ensure the main container allows vertical stacking
+            cont.style.display = "flex";
+            cont.style.flexDirection = "column";
 
             const days = {};
-
-            // Grouping data by date for the tabs
             d.list.forEach(f => {
-                const dt = new Date(f.dt * 1000);
-                const key = dt.toDateString();
-
-                if (!days[key]) days[key] = [];
-                days[key].push(f);
+                const date = new Date(f.dt * 1000).toDateString();
+                if (!days[date]) days[date] = [];
+                days[date].push(f);
             });
 
             const dayKeys = Object.keys(days);
-            if (!dayKeys.length) return;
 
-            // Container for the day-selector buttons
+            // 1. Create the Tab Row (Top)
             const tabRow = document.createElement('div');
             tabRow.className = "hourly-tabs";
-            tabRow.style.display = "flex";
-            tabRow.style.gap = "6px";
-            tabRow.style.marginBottom = "10px";
-            tabRow.style.flexWrap = "nowrap";
-            tabRow.style.overflowX = "auto";
+            tabRow.style.cssText = `
+                display: flex;
+                gap: 8px;
+                margin-bottom: 15px;
+                overflow-x: auto;
+                padding-bottom: 5px;
+                flex-shrink: 0;
+            `;
 
-            // Container for the actual forecast cards
+            // 2. Create the Forecast Display Area (Bottom)
             const forecastRow = document.createElement('div');
             forecastRow.className = "hourly-row";
-            forecastRow.style.display = "flex";
-            forecastRow.style.flexDirection = "row";
-            forecastRow.style.gap = "10px";
-            forecastRow.style.overflowX = "auto";
-            forecastRow.style.width = "100%";
+            forecastRow.style.cssText = `
+                display: flex;
+                flex-direction: row;
+                gap: 12px;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                width: 100%;
+                align-items: flex-start;
+            `;
 
             cont.appendChild(tabRow);
             cont.appendChild(forecastRow);
 
             function renderDay(dayKey) {
                 forecastRow.innerHTML = "";
+                // Scroll back to start when switching days
+                forecastRow.scrollLeft = 0; 
 
                 days[dayKey].forEach(f => {
                     const popPct = Math.round(f.pop * 100);
                     const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : null;
-                    const gustInfo = f.wind.gust ? `<div><b>Gusts:</b> ${Math.round(f.wind.gust)} mph</div>` : '';
                     const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
 
                     const card = document.createElement('div');
                     card.className = "forecast-card";
+                    // Explicitly prevent the card from shrinking
+                    card.style.flex = "0 0 auto"; 
+                    card.style.minWidth = "120px";
 
                     card.innerHTML = `
-                        <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">
+                        <div style="font-size:0.85em; color:var(--primary); font-weight:bold; margin-bottom:5px;">
                             ${new Date(f.dt*1000).toLocaleTimeString([], {hour:'numeric'})}
                         </div>
-                        <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 2px auto;">
-                        <div style="font-size:0.7em; opacity:0.8; margin-bottom:5px; text-transform:capitalize;">
+                        <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:45px; display:block; margin: 0 auto;">
+                        <div style="font-size:0.75em; opacity:0.9; margin: 5px 0; text-transform:capitalize; min-height:2.4em; display:flex; align-items:center; justify-content:center;">
                             ${f.weather[0].description}
                         </div>
-                        <div style="font-size:1.2em; font-weight:bold; color:var(--accent);">
+                        <div style="font-size:1.3em; font-weight:bold; color:var(--accent);">
                             ${Math.round(f.main.temp)}&deg;
                         </div>
-                        <div style="font-size:0.75em; margin-top:5px; color:#ddd;">
+                        <div style="font-size:0.75em; margin-top:8px; color:#aaa;">
                             💧 ${popPct}% PoP
                         </div>
                         ${rainInches ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${rainInches} in</div>` : ''}
 
-                        <details style="background:transparent; border:none; padding:5px 0 0 0; margin:10px 0 0 0; border-top:1px solid rgba(255,255,255,0.1); border-radius:0;">
-                            <summary style="font-size:0.7em; padding-bottom:0; color:#aaa; font-weight:normal; text-align:center;">
-                                More Info
-                            </summary>
-                            <div style="font-size:0.75em; text-align:left; color:#ccc; line-height:1.5; margin-top:8px;">
-                                <div><b>Feels Like:</b> ${Math.round(f.main.feels_like)}&deg;</div>
-                                <div><b>Humidity:</b> ${f.main.humidity}%</div>
-                                <div><b>Wind:</b> ${Math.round(f.wind.speed)} mph</div>
-                                ${gustInfo}
-                                <div><b>Clouds:</b> ${f.clouds.all}%</div>
-                                <div><b>Pressure:</b> ${pressInHg} inHg</div>
+                        <details style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
+                            <summary style="font-size:0.7em; cursor:pointer; padding:5px; color:#888;">More Info</summary>
+                            <div style="font-size:0.75em; text-align:left; color:#ccc; padding:5px; background:rgba(0,0,0,0.2); border-radius:4px;">
+                                <div><b>Feels:</b> ${Math.round(f.main.feels_like)}&deg;</div>
+                                <div><b>Wind:</b> ${Math.round(f.wind.speed)}m</div>
+                                <div><b>Hum:</b> ${f.main.humidity}%</div>
+                                <div><b>Pres:</b> ${pressInHg}in</div>
                             </div>
                         </details>
                     `;
-
                     forecastRow.appendChild(card);
                 });
             }
 
+            // Create Tabs
             dayKeys.forEach((key, i) => {
                 const btn = document.createElement('div');
                 btn.className = "hourly-tab";
-                btn.innerText = new Date(key).toLocaleDateString([], { weekday: 'short' });
+                const dObj = new Date(key);
+                btn.innerText = dObj.toLocaleDateString([], { weekday: 'short' });
 
-                btn.style.padding = "8px 18px";
-                btn.style.borderRadius = "8px";
-                btn.style.cursor = "pointer";
-                btn.style.whiteSpace = "nowrap";
-                btn.style.flex = "0 0 auto";
-                btn.style.background = "rgba(255,255,255,0.1)";
-                btn.style.color = "#fff";
+                // Base styling
+                Object.assign(btn.style, {
+                    padding: "10px 20px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "#fff",
+                    textAlign: "center",
+                    flex: "1 1 auto",
+                    minWidth: "60px",
+                    transition: "all 0.2s ease"
+                });
 
                 if (i === 0) {
                     btn.style.background = "var(--accent)";
                     btn.style.color = "#000";
+                    btn.style.fontWeight = "bold";
                 }
 
                 btn.onclick = () => {
-                    // Reset all tabs
-                    [...tabRow.children].forEach(t => {
-                        t.style.background = "rgba(255,255,255,0.1)";
+                    Array.from(tabRow.children).forEach(t => {
+                        t.style.background = "rgba(255,255,255,0.05)";
                         t.style.color = "#fff";
+                        t.style.fontWeight = "normal";
                     });
-
-                    // Highlight active tab
                     btn.style.background = "var(--accent)";
                     btn.style.color = "#000";
-
+                    btn.style.fontWeight = "bold";
                     renderDay(key);
                 };
 
                 tabRow.appendChild(btn);
             });
 
-            // Initial render of today
             renderDay(dayKeys[0]);
 
         } catch (e) {
