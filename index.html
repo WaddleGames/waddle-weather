@@ -1821,7 +1821,7 @@
 
     // Start the clock immediately and update every second
     setInterval(updateStationClock, 1000);
-        async function fetchOpenWeather() {
+    async function fetchOpenWeather() {
         try {
             const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OW_API_KEY}&units=imperial`);
             const d = await res.json();
