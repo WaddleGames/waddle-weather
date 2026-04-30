@@ -1884,37 +1884,39 @@
                 days[dayKey].forEach(f => {
                     const popPct = Math.round(f.pop * 100);
                     const rainInches = f.rain && f.rain['3h'] ? (f.rain['3h'] * 0.0393701).toFixed(2) : null;
+                    const gustInfo = f.wind.gust ? `<div><b>Gusts:</b> ${Math.round(f.wind.gust)} mph</div>` : '';
                     const pressInHg = (f.main.pressure * 0.02953).toFixed(2);
 
                     const card = document.createElement('div');
                     card.className = "forecast-card";
-                    // Explicitly prevent the card from shrinking
-                    card.style.flex = "0 0 auto"; 
-                    card.style.minWidth = "120px";
 
                     card.innerHTML = `
-                        <div style="font-size:0.85em; color:var(--primary); font-weight:bold; margin-bottom:5px;">
+                        <div style="font-size:0.75em; color:var(--primary); font-weight:bold;">
                             ${new Date(f.dt*1000).toLocaleTimeString([], {hour:'numeric'})}
                         </div>
-                        <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:45px; display:block; margin: 0 auto;">
-                        <div style="font-size:0.75em; opacity:0.9; margin: 5px 0; text-transform:capitalize; min-height:2.4em; display:flex; align-items:center; justify-content:center;">
+                        <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png" style="width:40px; margin: 2px auto;">
+                        <div style="font-size:0.7em; opacity:0.8; margin-bottom:5px; text-transform:capitalize;">
                             ${f.weather[0].description}
                         </div>
-                        <div style="font-size:1.3em; font-weight:bold; color:var(--accent);">
+                        <div style="font-size:1.2em; font-weight:bold; color:var(--accent);">
                             ${Math.round(f.main.temp)}&deg;
                         </div>
-                        <div style="font-size:0.75em; margin-top:8px; color:#aaa;">
+                        <div style="font-size:0.75em; margin-top:5px; color:#ddd;">
                             💧 ${popPct}% PoP
                         </div>
                         ${rainInches ? `<div style="color:#4fc3f7; font-size:0.75em; font-weight:bold;">${rainInches} in</div>` : ''}
 
-                        <details style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1);">
-                            <summary style="font-size:0.7em; cursor:pointer; padding:5px; color:#888;">More Info</summary>
-                            <div style="font-size:0.75em; text-align:left; color:#ccc; padding:5px; background:rgba(0,0,0,0.2); border-radius:4px;">
-                                <div><b>Feels:</b> ${Math.round(f.main.feels_like)}&deg;</div>
-                                <div><b>Wind:</b> ${Math.round(f.wind.speed)}m</div>
-                                <div><b>Hum:</b> ${f.main.humidity}%</div>
-                                <div><b>Pres:</b> ${pressInHg}in</div>
+                        <details style="background:transparent; border:none; padding:5px 0 0 0; margin:10px 0 0 0; border-top:1px solid rgba(255,255,255,0.1); border-radius:0;">
+                            <summary style="font-size:0.7em; padding-bottom:0; color:#aaa; font-weight:normal; text-align:center;">
+                                More Info
+                            </summary>
+                            <div style="font-size:0.75em; text-align:left; color:#ccc; line-height:1.5; margin-top:8px;">
+                                <div><b>Feels Like:</b> ${Math.round(f.main.feels_like)}&deg;</div>
+                                <div><b>Humidity:</b> ${f.main.humidity}%</div>
+                                <div><b>Wind:</b> ${Math.round(f.wind.speed)} mph</div>
+                                ${gustInfo}
+                                <div><b>Clouds:</b> ${f.clouds.all}%</div>
+                                <div><b>Pressure:</b> ${pressInHg} inHg</div>
                             </div>
                         </details>
                     `;
