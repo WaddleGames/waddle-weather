@@ -1009,7 +1009,9 @@
     let fxAnimationId = null;
     let particles = [];
     let lastPressureMb = null;
-    let lastSyncTime = null;
+    // Restore last sync time once at startup so the timer shows "X ago" immediately
+    var _sm_init_ts = localStorage.getItem('sm_last_sync');
+    let lastSyncTime = _sm_init_ts ? new Date(+_sm_init_ts) : null;
     let _isOffline = false;
     let liveWindSpd = 0;
     let livePrecipInt = 0;
@@ -7563,10 +7565,6 @@
     // ─────────────────────────────────────────────────────────────────────────────
 
     async function loadAll() {
-        // Restore persisted sync time so the timer reflects the actual last data fetch,
-        // not just when this page session started. Overwritten below on successful online sync.
-        var _sm_saved_ts = localStorage.getItem('sm_last_sync');
-        lastSyncTime = _sm_saved_ts ? new Date(+_sm_saved_ts) : new Date();
         twcMaxFeelsLike = null;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
         window.isBeachLocation = false;
@@ -7652,6 +7650,11 @@
             }
             if (document.getElementById('reporting-tab') && document.getElementById('reporting-tab').classList.contains('active')) {
                 loadReportingMapData();
+            }
+            // Update sync timestamp on every successful online refresh (auto or manual)
+            if (!_isOffline) {
+                lastSyncTime = new Date();
+                localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
             }
         } catch(e) {}
         window._syncPending = window._syncPending || 0;
