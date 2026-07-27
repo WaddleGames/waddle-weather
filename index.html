@@ -6657,10 +6657,10 @@
                 if (status) { status.textContent = '\u2713 Report submitted! Thank you.'; status.style.color = 'var(--success)'; setTimeout(function() { status.style.display = 'none'; }, 4000); }
                 setTimeout(loadReportingMapData, 1500);
             } else {
-                if (status) { status.textContent = 'Failed to submit. Check REPORTS_WORKER_URL.'; status.style.color = 'var(--danger)'; }
+                if (status) { status.textContent = 'Report failed. Please try again.'; status.style.color = 'var(--danger)'; }
             }
         } catch(e) {
-            if (status) { status.textContent = 'Worker not configured \u2014 update REPORTS_WORKER_URL in the code.'; status.style.color = 'var(--warning)'; }
+            if (status) { status.textContent = _isOffline ? 'You cannot send reports when offline.' : 'Report failed. Please try again.'; status.style.color = 'var(--warning)'; }
         }
         if (btn) { btn.textContent = 'SUBMIT REPORT'; btn.disabled = false; }
     }
