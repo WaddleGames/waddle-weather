@@ -3318,9 +3318,30 @@
             } else {
                 stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>";
             }
-            // Cache alert state for offline restore
-            SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: stack.innerHTML, bannerDisplay: banner.style.display, bannerText: banner.innerText, bannerBg: banner.style.background, bannerClass: banner.className, checklistText: checklist.style.display === 'block' ? checklist.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
+            // Cache alert state for offline restore — convert alert icon <img> srcs to
+            // data URLs so they display without network access in offline mode.
+            (async function(_stk, _ban, _chk) {
+                var _div = document.createElement('div');
+                _div.innerHTML = _stk.innerHTML;
+                var _imgs = _div.querySelectorAll('img[src]');
+                var _urlMap = {};
+                var _toDataUrl = async function(url) {
+                    if (_urlMap[url]) return _urlMap[url];
+                    try {
+                        var _r = await fetch(url); var _b = await _r.blob();
+                        var _d = await new Promise(function(rs) { var fr = new FileReader(); fr.onloadend = function() { rs(fr.result); }; fr.readAsDataURL(_b); });
+                        _urlMap[url] = _d; return _d;
+                    } catch(e2) { return url; }
+                };
+                await Promise.all(Array.from(_imgs).map(async function(img) {
+                    var _s = img.getAttribute('src');
+                    if (_s && !_s.startsWith('data:')) img.setAttribute('src', await _toDataUrl(_s));
+                }));
+                SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: _div.innerHTML, bannerDisplay: _ban.style.display, bannerText: _ban.innerText, bannerBg: _ban.style.background, bannerClass: _ban.className, checklistText: _chk.style.display === 'block' ? _chk.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
+            })(stack, banner, checklist);
             if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+            // Save outdoor score now — alerts are active so alert-override descriptions are correct
+            SkyDB.set(SkyDB.S.weather, 'outdoor_score', { ts: Date.now(), val: (document.getElementById('outdoor-score-val') || {}).innerText || null, desc: (document.getElementById('outdoor-score-desc') || {}).innerText || null, boxDisplay: (document.getElementById('outdoor-score-box') || {}).style.display || null });
             computeFloodOutlook();
         } catch(e) {}
     }
@@ -3700,8 +3721,21 @@
                     if (!h || !h.data || !h.data.length) return;
                     window.pirateHourlyData = h.data;
                     window.pirateTimezoneOffset = h.tzOffset || 0;
-                    computeOutdoorScore(h.data);
+                    // Do NOT call computeOutdoorScore here — alerts are not restored yet,
+                    // so alert-override descriptions (heat advisory, etc.) would be wrong.
+                    // The saved outdoor_score snapshot (captured after alerts ran online) is
+                    // restored below and reflects the correct alert-aware state.
                     renderPirateHourly(h.data, h.tzOffset || 0, null);
+                });
+                // Restore outdoor score exactly as it was when last computed online (with alerts)
+                SkyDB.get(SkyDB.S.weather, 'outdoor_score').then(function(os) {
+                    if (!os) return;
+                    var _osBox = document.getElementById('outdoor-score-box');
+                    var _osVal = document.getElementById('outdoor-score-val');
+                    var _osDesc = document.getElementById('outdoor-score-desc');
+                    if (_osBox && os.boxDisplay != null) _osBox.style.display = os.boxDisplay;
+                    if (_osVal && os.val != null) _osVal.innerText = os.val;
+                    if (_osDesc && os.desc != null) _osDesc.innerText = os.desc;
                 });
                 // Restore flood outlook inputs and re-compute display
                 SkyDB.get(SkyDB.S.weather, 'flood_inputs').then(function(fi) {
@@ -3741,6 +3775,20 @@
                     }
                     if (_chk && a.checklistText) { _chk.innerText = a.checklistText; _chk.style.display = 'block'; }
                     if (a.bodyTheme) document.body.classList.add(a.bodyTheme);
+                });
+                // Restore threat level exactly as computed online (correct tier, description, factors)
+                SkyDB.get(SkyDB.S.weather, 'threat_level').then(function(tl) {
+                    if (!tl) return;
+                    var _tlBox  = document.getElementById('threat-level-box');
+                    var _tlBadge = document.getElementById('threat-badge');
+                    var _tlDesc  = document.getElementById('threat-desc');
+                    var _tlFac   = document.getElementById('threat-factors');
+                    var _tlUpd   = document.getElementById('threat-updated');
+                    if (_tlBox   && tl.boxClass)     _tlBox.className       = tl.boxClass;
+                    if (_tlBadge && tl.badgeText)    _tlBadge.textContent   = tl.badgeText;
+                    if (_tlBadge && tl.badgeColor)   _tlBadge.style.color   = tl.badgeColor;
+                    if (_tlDesc  && tl.descText)     _tlDesc.textContent    = tl.descText;
+                    if (_tlFac   && tl.factorsHtml != null) _tlFac.innerHTML = tl.factorsHtml;
                 });
                 // Restore AQI / Air Quality section
                 SkyDB.get(SkyDB.S.weather, 'aqi').then(function(q) {
@@ -4654,7 +4702,14 @@
                 wuStationVisible: (document.getElementById('wuStation') || {}).style.display !== 'none',
                 comfortVal:   (document.getElementById('aqi-val') || {}).innerText || null,
                 comfortDesc:  (document.getElementById('aqi-desc') || {}).innerText || null,
-                comfortColor: (document.getElementById('aqi-val') || {}).style.color || null
+                comfortColor: (document.getElementById('aqi-val') || {}).style.color || null,
+                // Authoritative live values — may differ from PirateWeather baseline when NWS
+                // obs or a trusted PWS overwrote them. Restored offline so the display exactly
+                // matches what was shown online at the time of the last successful sync.
+                liveTemp:      (function(){ var el=document.getElementById('tempVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })(),
+                liveFeelsLike: (function(){ var el=document.getElementById('feelsVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })(),
+                liveWindSpd:   (function(){ var el=document.getElementById('windVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })(),
+                liveHumidity:  (function(){ var el=document.getElementById('humVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })()
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
         } catch(e) {
@@ -4741,6 +4796,29 @@
                 // Restore NWS-chain comfort (overrides PirateWeather save with authoritative value)
                 if (c.comfortVal) { var _cvEl = document.getElementById('aqi-val'); if (_cvEl) { _cvEl.innerText = c.comfortVal; if (c.comfortColor) _cvEl.style.color = c.comfortColor; } }
                 if (c.comfortDesc) { var _cdEl = document.getElementById('aqi-desc'); if (_cdEl) _cdEl.innerText = c.comfortDesc; }
+                // Restore authoritative temp/feels-like/wind/humidity — these were written by
+                // the NWS obs or trusted PWS branch and may differ from the PirateWeather values
+                // that last_conditions captured. Applying them here ensures offline shows exactly
+                // what was on screen at the time of the last successful sync.
+                if (c.liveTemp != null) {
+                    window.liveTemp = c.liveTemp;
+                    var _nwsTe = document.getElementById('tempVal');
+                    if (_nwsTe) { _nwsTe.innerText = _isMetric() ? Math.round((c.liveTemp-32)*5/9)+'\u00b0' : c.liveTemp+'\u00b0'; _nwsTe.style.color = colorFeelsLike(c.liveTemp); }
+                }
+                if (c.liveFeelsLike != null) {
+                    liveFeelsLike = c.liveFeelsLike;
+                    var _nwsFe = document.getElementById('feelsVal');
+                    if (_nwsFe) { _nwsFe.innerText = _isMetric() ? Math.round((c.liveFeelsLike-32)*5/9)+'\u00b0' : c.liveFeelsLike+'\u00b0'; _nwsFe.style.color = colorFeelsLike(c.liveFeelsLike); }
+                }
+                if (c.liveWindSpd != null) {
+                    liveWindSpd = c.liveWindSpd;
+                    var _nwsWe = document.getElementById('windVal');
+                    if (_nwsWe) _nwsWe.innerText = _isMetric() ? Math.round(c.liveWindSpd*1.60934)+' km/h' : c.liveWindSpd+' mph';
+                }
+                if (c.liveHumidity != null) {
+                    var _nwsHe = document.getElementById('humVal');
+                    if (_nwsHe) { _nwsHe.innerText = c.liveHumidity+'%'; _nwsHe.style.color = colorHumidity(c.liveHumidity); }
+                }
                 // Show Weather Story offline placeholder using cached WFO
                 if (c.wfo && c.wfo !== '--' && c.wfo !== 'N/A (Outside US)') updateWeatherStory(c.wfo);
             });
@@ -5580,7 +5658,23 @@
                     temperatureWindChill:  _dp.temperatureWindChill
                 }] : d.daypart
             };
-            SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
+            // Fetch and cache icon SVGs as data URLs so they display correctly offline
+            (async function() {
+                var _iconCodes = (_dp.iconCode || []).filter(function(c) { return c != null; });
+                var _uniqueCodes = Array.from(new Set(_iconCodes.map(String)));
+                var _iconDataUrls = {};
+                await Promise.all(_uniqueCodes.map(async function(code) {
+                    try {
+                        var _ir = await fetch('https://www.wunderground.com/static/i/c/v4/' + code + '.svg');
+                        var _ib = await _ir.blob();
+                        _iconDataUrls[code] = await new Promise(function(rs) {
+                            var fr = new FileReader(); fr.onloadend = function() { rs(fr.result); }; fr.readAsDataURL(_ib);
+                        });
+                    } catch(e2) {}
+                }));
+                _slimTwc.iconDataUrls = _iconDataUrls;
+                SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
+            })();
         } catch(e) {
             SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
                 if (cached && cached.data) renderTWCForecast(cached.data);
@@ -5757,8 +5851,11 @@
             const precipAmt = ((daypart.qpf?.[baseIdx] ?? 0) + (daypart.qpf?.[baseIdx + 1] ?? 0));
             const card = document.createElement('div'); card.className = 'forecast-card'; card.style.cursor = 'pointer'; card.style.position = 'relative';
             card.onclick = (function(idx) { return function() { openTWCDetailModal(data, idx); }; })(i);
-            // Offline: use emoji fallback since Wunderground SVGs require network
-            const iconHtml = _isOffline
+            // Offline: use cached data URL if available, emoji fallback otherwise
+            const _cachedIconUrl = (_isOffline && data.iconDataUrls) ? (data.iconDataUrls[String(iconNum)] || null) : null;
+            const iconHtml = _cachedIconUrl
+                ? '<img src="' + _cachedIconUrl + '" alt="icon" style="width:48px;display:block;margin:auto;">'
+                : _isOffline
                 ? '<div style="font-size:2em;text-align:center;line-height:1.2;margin:4px auto;">' + _twcIconEmoji(iconNum) + '</div>'
                 : '<img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';">';
             card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div>' + iconHtml + '<div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
@@ -6799,6 +6896,8 @@
             widget.style.display = 'block';
             // Re-run threat level now that nearby reports are known
             computeThreatLevel();
+            // Save upgraded threat level so offline restore gets the reports-aware tier
+            (function() { var _b=document.getElementById('threat-level-box'),_g=document.getElementById('threat-badge'),_d=document.getElementById('threat-desc'),_f=document.getElementById('threat-factors'); if(_b&&_g) SkyDB.set(SkyDB.S.weather,'threat_level',{ts:Date.now(),boxClass:_b.className||null,badgeText:_g.textContent||null,badgeColor:_g.style.color||null,descText:(_d||{}).textContent||null,factorsHtml:(_f||{}).innerHTML||null}); })();
         } catch(e) { widget.style.display = 'none'; }
     }
 
@@ -7641,6 +7740,8 @@
                 else startWPCCountdown(activeSPCDay);
             }
             computeThreatLevel();
+            // Save threat level immediately after the definitive post-alerts computation
+            (function() { var _b=document.getElementById('threat-level-box'),_g=document.getElementById('threat-badge'),_d=document.getElementById('threat-desc'),_f=document.getElementById('threat-factors'); if(_b&&_g) SkyDB.set(SkyDB.S.weather,'threat_level',{ts:Date.now(),boxClass:_b.className||null,badgeText:_g.textContent||null,badgeColor:_g.style.color||null,descText:(_d||{}).textContent||null,factorsHtml:(_f||{}).innerHTML||null}); })();
             fetchNearbyReportsForHome();
             fetchTropicalStorms();
             updateLightningEstimate();
