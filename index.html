@@ -2703,6 +2703,9 @@
             window.nwsPopValues = (data.properties && data.properties.probabilityOfPrecipitation && data.properties.probabilityOfPrecipitation.values) || [];
         } catch(e) { window.nwsQPFValues = []; window.nwsPopValues = []; }
         computeFloodOutlook();
+        // Always cache QPF immediately after it resolves — fetchRiskLevels may save flood_inputs
+        // before this async call finishes, leaving QPF empty in the offline cache.
+        SkyDB.set(SkyDB.S.weather, 'flood_inputs', { ts: Date.now(), eroDay1: window.wpcERODay1 || null, eroDay2: window.wpcERODay2 || null, eroDay3: window.wpcERODay3 || null, qpfValues: window.nwsQPFValues || [], popValues: window.nwsPopValues || [], precip1h: (window.nwsObsPrecip1h !== undefined ? window.nwsObsPrecip1h : null), precip3h: (window.nwsObsPrecip3h !== undefined ? window.nwsObsPrecip3h : null), precip6h: (window.nwsObsPrecip6h !== undefined ? window.nwsObsPrecip6h : null) });
     }
 
     function onScoreModeChange() { /* no-op — outdoor and flood are now separate boxes */ }
@@ -3755,6 +3758,10 @@
                     if (_actEl) _actEl.style.display = q.actionDay ? '' : 'none';
                     _renderAQIDial(q.aqi, q.cat, q.color);
                 });
+                // Restore daily forecast icons from cache
+                SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
+                    if (cached && cached.data) renderTWCForecast(cached.data);
+                });
             }
         }
     }
@@ -4641,7 +4648,9 @@
                 metaName:    (document.getElementById('meta-name') || {}).innerText || null,
                 wuStationId:      (document.getElementById('wuLink') || {}).innerText || null,
                 wuStationHref:    (document.getElementById('wuLink') || {}).href || null,
-                wuStationVisible: (document.getElementById('wuStation') || {}).style.display !== 'none'
+                wuStationVisible: (document.getElementById('wuStation') || {}).style.display !== 'none',
+                comfortVal:  (document.getElementById('aqi-val') || {}).innerText || null,
+                comfortDesc: (document.getElementById('aqi-desc') || {}).innerText || null
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
         } catch(e) {
@@ -4725,6 +4734,11 @@
                     if (_wuLnk) { _wuLnk.innerText = c.wuStationId; _wuLnk.href = c.wuStationHref || '#'; }
                     if (_wuSt)  _wuSt.style.display = 'block';
                 }
+                // Restore NWS-chain comfort (overrides PirateWeather save with authoritative value)
+                if (c.comfortVal) { var _cvEl = document.getElementById('aqi-val'); if (_cvEl) { _cvEl.innerText = c.comfortVal; } }
+                if (c.comfortDesc) { var _cdEl = document.getElementById('aqi-desc'); if (_cdEl) _cdEl.innerText = c.comfortDesc; }
+                // Show Weather Story offline placeholder using cached WFO
+                if (c.wfo && c.wfo !== '--' && c.wfo !== 'N/A (Outside US)') updateWeatherStory(c.wfo);
             });
             // If tempVal is still '--' (chain threw before any temp write), restore
             // from PirateWeather so the user doesn't see a permanently empty display.
@@ -5364,17 +5378,7 @@
         // Show/clear offline notice inside the analytics section
         var _aSec = document.getElementById('analytics-section');
         if (_aSec) {
-            var _aOffNote = _aSec.querySelector('.sm-analytics-offline-note');
-            if (_isOffline && !_aOffNote) {
-                var _aNote = document.createElement('div');
-                _aNote.className = 'sm-analytics-offline-note';
-                _aNote.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.8em;color:#64748b;letter-spacing:0.3px;';
-                _aNote.innerHTML = '&#128225; <strong style="color:#94a3b8;">Advanced Analytics are not available offline.</strong> Displaying cached data.';
-                _aSec.insertBefore(_aNote, _aSec.children[1] || _aSec.firstChild);
-            } else if (!_isOffline && _aOffNote) {
-                _aOffNote.remove();
             }
-        }
         const hrs = window.pirateHourlyData.slice(0, 12);
         const tzOff = (window.pirateTimezoneOffset || 0) * 3600;
         const labels = hrs.map(function(h) { return new Date((h.time + tzOff) * 1000).toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' }); });
@@ -5419,6 +5423,10 @@
 
     // ——— SPC RISK LEVELS ———
     async function fetchRiskLevels() {
+        // When offline, the cached risks were already restored in the PirateWeather
+        // fallback block. Running the fetches here would just overwrite that cache
+        // with empty results (all ArcGIS requests fail silently when offline).
+        if (_isOffline) return;
         const container = document.getElementById('active-risks-container');
         const box = document.getElementById('active-risks-box');
         const banner = document.getElementById('spc-banner');
