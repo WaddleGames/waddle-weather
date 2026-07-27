@@ -3417,7 +3417,7 @@
     async function fetchPirate() {
         const now = Date.now();
         const locationChanged = (lat !== _lastPirateLat || lon !== _lastPirateLon);
-        if (!locationChanged && now - _lastPirateFetch < 300000) return; // throttle to 5 min
+        if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         _lastPirateFetch = now;
         _lastPirateLat = lat;
         _lastPirateLon = lon;
@@ -5758,7 +5758,7 @@
             // Offline: use emoji fallback since Wunderground SVGs require network
             const iconHtml = _isOffline
                 ? '<div style="font-size:2em;text-align:center;line-height:1.2;margin:4px auto;">' + _twcIconEmoji(iconNum) + '</div>'
-                : '<img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.parentElement.querySelector(\'img\')&&(this.outerHTML=\'<div style=\\\"font-size:2em;text-align:center;line-height:1.2;margin:4px auto;\\\">\'+_twcIconEmoji(' + iconNum + ')+\'</div>\');">';
+                : '<img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';">';
             card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div>' + iconHtml + '<div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
             const dayNarr = (daypart.narrative?.[baseIdx] || '').toLowerCase();
             const nightNarr = (daypart.narrative?.[baseIdx + 1] || '').toLowerCase();
