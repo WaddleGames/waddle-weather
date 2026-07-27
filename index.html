@@ -813,7 +813,7 @@
         </div>
 
         <div id="afd-section">
-            <details style="background:transparent; border:none; padding:0; margin-bottom:20px;">
+            <details style="background:transparent; border:none; padding:0; margin-bottom:20px;" ontoggle="if(this.open && _isOffline){ alert('The Area Forecast Discussion cannot be viewed offline.'); this.open=false; }">
                 <summary style="list-style:none; display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#f1f5f9; font-size:0.92em; letter-spacing:0.2px; cursor:pointer; margin-bottom:0; padding-bottom:0; outline:none;">
                     Area Forecast Discussion <span style="color:#4b5563; font-size:0.85em; flex-shrink:0; margin-left:8px;">&#9660;</span>
                 </summary>
@@ -822,7 +822,7 @@
         </div>
 
         <div id="hwo-section">
-            <details style="background:transparent; border:none; padding:0; margin-bottom:20px;">
+            <details style="background:transparent; border:none; padding:0; margin-bottom:20px;" ontoggle="if(this.open && _isOffline){ alert('The Hazardous Weather Outlook cannot be viewed offline.'); this.open=false; }">
                 <summary style="list-style:none; display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#f1f5f9; font-size:0.92em; letter-spacing:0.2px; cursor:pointer; margin-bottom:0; padding-bottom:0; outline:none;">
                     Hazardous Weather Outlook <span style="color:#4b5563; font-size:0.85em; flex-shrink:0; margin-left:8px;">&#9660;</span>
                 </summary>
@@ -1703,6 +1703,22 @@
         const countdown = document.getElementById('spc-countdown');
         if (!img) return;
 
+        // Offline: show a placeholder instead of attempting to fetch images
+        if (_isOffline) {
+            if (!img.parentElement.querySelector('.sm-offline-img-note')) {
+                img.style.display = 'none';
+                var _note = document.createElement('div');
+                _note.className = 'sm-offline-img-note';
+                _note.style.cssText = 'padding:52px 20px;text-align:center;color:#64748b;font-size:0.85em;letter-spacing:0.3px;line-height:1.8;';
+                _note.innerHTML = '&#128225; <strong style="color:#94a3b8;">Images cannot be viewed offline.</strong><br><span style="opacity:0.65;font-size:0.92em;">Connect to the internet and refresh to load outlook maps.</span>';
+                img.parentElement.appendChild(_note);
+            }
+            return;
+        }
+        img.style.display = '';
+        var _oldNote = img.parentElement.querySelector('.sm-offline-img-note');
+        if (_oldNote) _oldNote.remove();
+
         if (center === 'wpc') {
             const WPC_URLS = {
                 1: 'www.wpc.ncep.noaa.gov/qpf/94ewbg.gif',
@@ -1785,6 +1801,22 @@
     async function updateWeatherStory(wfo) {
         const storyImg = document.getElementById('wxstory-img');
         const storyLink = document.getElementById('wxstory-link');
+        if (_isOffline) {
+            const _wxSecOff = document.getElementById('wxstory-section');
+            if (_wxSecOff) {
+                _wxSecOff.style.display = '';
+                const _wxImgWrap = storyImg ? storyImg.parentElement : null;
+                if (_wxImgWrap && !_wxImgWrap.querySelector('.sm-offline-img-note')) {
+                    if (storyImg) storyImg.style.display = 'none';
+                    const _wxNote = document.createElement('div');
+                    _wxNote.className = 'sm-offline-img-note';
+                    _wxNote.style.cssText = 'padding:52px 20px;text-align:center;color:#64748b;font-size:0.85em;letter-spacing:0.3px;line-height:1.8;';
+                    _wxNote.innerHTML = '&#127780;&#65039; <strong style="color:#94a3b8;">Images cannot be viewed offline.</strong><br><span style="opacity:0.65;font-size:0.92em;">Connect to the internet and refresh to view weather stories.</span>';
+                    _wxImgWrap.appendChild(_wxNote);
+                }
+            }
+            return;
+        }
         try {
             const res = await fetch('https://withered-band-ecbf.skymonitor-account.workers.dev/?wfo=' + wfo);
             const data = await res.json();
@@ -3280,6 +3312,8 @@
             } else {
                 stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>";
             }
+            // Cache alert state for offline restore
+            SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: stack.innerHTML, bannerDisplay: banner.style.display, bannerText: banner.innerText, bannerBg: banner.style.background, bannerClass: banner.className, checklistText: checklist.style.display === 'block' ? checklist.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
             if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
             computeFloodOutlook();
         } catch(e) {}
@@ -3585,6 +3619,7 @@
                 });
                 window.pirateHourlyData = _rawHourly;
                 window.pirateTimezoneOffset = d.offset || 0;
+                SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: _rawHourly, tzOffset: d.offset || 0 });
                 computeOutdoorScore(window.pirateHourlyData);
                 computeFloodOutlook();
                 // Silently patch any bad sentinel values from Open-Meteo
@@ -3603,9 +3638,19 @@
                 temp: Math.round(temp), humidity: Math.round(humidity),
                 feelsLike: Math.round(liveFeelsLike), wind: liveWindSpd,
                 condition: curr.summary || '', uv: liveUV,
-                pressure: curr.pressure ? (curr.pressure * 0.02953).toFixed(2) : null
+                pressure: curr.pressure ? (curr.pressure * 0.02953).toFixed(2) : null,
+                pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
+                uvCol: (document.getElementById('uv-val') || {}).style.color || null,
+                uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
+                minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
+                vibeCheck: (document.getElementById('vibeCheck') || {}).innerText || null,
+                moonPhase: moonPhaseVal,
+                moonPhaseName: (document.getElementById('moonVal') || {}).innerText || null,
+                comfortVal: (document.getElementById('aqi-val') || {}).innerText || null,
+                comfortDesc: (document.getElementById('aqi-desc') || {}).innerText || null
             });
             _isOffline = false;
+            lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
         } catch(e) {
             // PirateWeather failed — try Open-Meteo as a live backup
             try {
@@ -3618,9 +3663,97 @@
                     (function(){ var _tv = c.temp; var _te = document.getElementById('tempVal'); _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); })();
                     (function(){ var _hv = c.humidity; var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
                     (function(){ var _fv = c.feelsLike; var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
-                    document.getElementById('windVal').innerText  = _isMetric() ? Math.round(c.wind * 1.60934) + ' km/h' : c.wind + ' mph'; setWindCompass(null);
-                    if (c.pressure) document.getElementById('presVal').innerText = _isMetric() ? Math.round(parseFloat(c.pressure) * 33.8639) + ' hPa' : c.pressure + ' inHg';
-                    document.getElementById('uv-val').innerText = c.uv || '--';
+                    document.getElementById('windVal').innerText = _isMetric() ? Math.round(c.wind * 1.60934) + ' km/h' : c.wind + ' mph'; setWindCompass(null);
+                    // Pressure with saved trend arrow (innerHTML preserves the emoji span)
+                    var _presEl = document.getElementById('presVal');
+                    if (c.pressureHTML) { _presEl.innerHTML = c.pressureHTML; }
+                    else if (c.pressure) { _presEl.innerText = _isMetric() ? Math.round(parseFloat(c.pressure) * 33.8639) + ' hPa' : c.pressure + ' inHg'; }
+                    // UV index with color
+                    var _uvEl = document.getElementById('uv-val');
+                    if (_uvEl) { _uvEl.innerText = c.uv != null ? c.uv : '--'; if (c.uvCol) _uvEl.style.color = c.uvCol; }
+                    var _uvDescEl = document.getElementById('uv-desc');
+                    if (_uvDescEl && c.uvDesc) _uvDescEl.innerText = c.uvDesc;
+                    // Minutely summary
+                    var _minEl = document.getElementById('minuteSummary');
+                    if (_minEl && c.minuteSummary) _minEl.innerText = c.minuteSummary;
+                    // Vibe check (green italic day summary below station name)
+                    var _vbEl = document.getElementById('vibeCheck');
+                    if (_vbEl && c.vibeCheck) _vbEl.innerText = c.vibeCheck;
+                    // Moon phase
+                    if (c.moonPhaseName) { var _mEl = document.getElementById('moonVal'); if (_mEl) _mEl.innerText = c.moonPhaseName; }
+                    if (c.moonPhase != null) { moonPhaseVal = c.moonPhase; startSkyFX(c.moonPhase); }
+                    // Comfort index
+                    var _cValEl = document.getElementById('aqi-val');
+                    var _cDescEl = document.getElementById('aqi-desc');
+                    if (_cValEl && c.comfortVal) _cValEl.innerText = c.comfortVal;
+                    if (_cDescEl && c.comfortDesc) _cDescEl.innerText = c.comfortDesc;
+                    if (c.comfortVal != null || c.comfortDesc != null) updateSmartComfort(c.temp, c.feelsLike, c.humidity, c.wind, c.condition, c.uv, 0);
+                });
+                // Restore hourly data → enables hourly strip, comfort modal, UV modal, analytics
+                SkyDB.get(SkyDB.S.weather, 'hourly_data').then(function(h) {
+                    if (!h || !h.data || !h.data.length) return;
+                    window.pirateHourlyData = h.data;
+                    window.pirateTimezoneOffset = h.tzOffset || 0;
+                    computeOutdoorScore(h.data);
+                    renderPirateHourly(h.data, h.tzOffset || 0, null);
+                });
+                // Restore flood outlook inputs and re-compute display
+                SkyDB.get(SkyDB.S.weather, 'flood_inputs').then(function(fi) {
+                    if (!fi) return;
+                    window.wpcERODay1 = fi.eroDay1; window.wpcERODay2 = fi.eroDay2; window.wpcERODay3 = fi.eroDay3;
+                    window.nwsQPFValues = fi.qpfValues || []; window.nwsPopValues = fi.popValues || [];
+                    window.nwsObsPrecip1h = fi.precip1h; window.nwsObsPrecip3h = fi.precip3h; window.nwsObsPrecip6h = fi.precip6h;
+                    computeFloodOutlook();
+                });
+                // Restore active risk badges
+                SkyDB.get(SkyDB.S.weather, 'active_risks').then(function(r) {
+                    if (!r) return;
+                    var _rBox  = document.getElementById('active-risks-box');
+                    var _rCont = document.getElementById('active-risks-container');
+                    if (_rCont) _rCont.innerHTML = r.html || '';
+                    if (_rBox)  _rBox.style.display = r.hasRisk ? 'block' : 'none';
+                    var _sBanner = document.getElementById('spc-banner');
+                    if (_sBanner && r.bannerDisplay === 'block') {
+                        _sBanner.style.display = 'block';
+                        _sBanner.innerText = r.bannerText || '';
+                        if (r.bannerBg) _sBanner.style.background = r.bannerBg;
+                    }
+                });
+                // Restore NWS alerts stack + banner
+                SkyDB.get(SkyDB.S.weather, 'alerts').then(function(a) {
+                    if (!a) return;
+                    var _stk = document.getElementById('alert-stack');
+                    var _ban = document.getElementById('alert-banner');
+                    var _chk = document.getElementById('safety-checklist');
+                    if (_stk) _stk.innerHTML = a.stackHtml || '';
+                    if (_ban && a.bannerDisplay === 'block') {
+                        _ban.style.display = 'block';
+                        _ban.innerText = a.bannerText || '';
+                        if (a.bannerBg) _ban.style.background = a.bannerBg;
+                        if (a.bannerClass) _ban.className = a.bannerClass;
+                        _ban.style.color = '#fff';
+                    }
+                    if (_chk && a.checklistText) { _chk.innerText = a.checklistText; _chk.style.display = 'block'; }
+                    if (a.bodyTheme) document.body.classList.add(a.bodyTheme);
+                });
+                // Restore AQI / Air Quality section
+                SkyDB.get(SkyDB.S.weather, 'aqi').then(function(q) {
+                    if (!q || q.aqi == null) return;
+                    var _sec     = document.getElementById('aqi-section');
+                    var _numEl   = document.getElementById('air-num');
+                    var _catEl   = document.getElementById('air-cat');
+                    var _pollEl  = document.getElementById('air-poll');
+                    var _hlthEl  = document.getElementById('air-health');
+                    var _crdEl   = document.getElementById('aqi-forecast-cards');
+                    var _actEl   = document.getElementById('air-action-day');
+                    if (_sec) _sec.style.display = '';
+                    if (_numEl)  { _numEl.innerText = Math.round(q.aqi); _numEl.style.color = q.color || ''; }
+                    if (_catEl)  { _catEl.innerText = q.cat || ''; _catEl.style.color = q.color || ''; }
+                    if (_pollEl) _pollEl.innerText = q.pollutant ? (q.pollutant.startsWith('Source:') ? q.pollutant : 'Dominant: ' + q.pollutant + (q.area ? '  \u00b7  ' + q.area : '')) : '';
+                    if (_hlthEl) _hlthEl.innerText = q.health || '';
+                    if (_crdEl && q.cardsHtml) _crdEl.innerHTML = q.cardsHtml;
+                    if (_actEl) _actEl.style.display = q.actionDay ? '' : 'none';
+                    _renderAQIDial(q.aqi, q.cat, q.color);
                 });
             }
         }
@@ -3943,11 +4076,29 @@
             });
         }
         window.pirateHourlyData = hourlyRows;
+        SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
         computeOutdoorScore(hourlyRows);
         computeFloodOutlook();
         updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, fakeCurr.summary, liveUV, (fakeCurr.precipIntensity || 0) * 100);
+        SkyDB.set(SkyDB.S.weather, 'last_conditions', {
+            ts: Date.now(),
+            temp: Math.round(temp), humidity: Math.round(humidity),
+            feelsLike: Math.round(liveFeelsLike), wind: liveWindSpd,
+            condition: fakeCurr.summary || '', uv: liveUV,
+            pressure: presIn || null,
+            pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
+            uvCol: (document.getElementById('uv-val') || {}).style.color || null,
+            uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
+            minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
+            vibeCheck: (document.getElementById('vibeCheck') || {}).innerText || null,
+            moonPhase: moonPhaseVal,
+            moonPhaseName: (document.getElementById('moonVal') || {}).innerText || null,
+            comfortVal: (document.getElementById('aqi-val') || {}).innerText || null,
+            comfortDesc: (document.getElementById('aqi-desc') || {}).innerText || null
+        });
 
         _isOffline = false;
+        lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
     }
 
     function renderPirateHourly(hourlyData, timezoneOffset, targetCont) {
@@ -4486,7 +4637,11 @@
                 condition:   currentCondition,
                 iconSrc:     document.getElementById('weatherIcon').src,
                 iconVisible: document.getElementById('weatherIcon').style.display !== 'none',
-                wfo:         document.getElementById('wfo-label').innerText
+                wfo:         document.getElementById('wfo-label').innerText,
+                metaName:    (document.getElementById('meta-name') || {}).innerText || null,
+                wuStationId:      (document.getElementById('wuLink') || {}).innerText || null,
+                wuStationHref:    (document.getElementById('wuLink') || {}).href || null,
+                wuStationVisible: (document.getElementById('wuStation') || {}).style.display !== 'none'
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
         } catch(e) {
@@ -4554,6 +4709,7 @@
                 document.getElementById('meta-id').innerText    = c.stationId   || '';
                 document.getElementById('meta-elev').innerText  = c.stationElev || '';
                 document.getElementById('wfo-label').innerText  = c.wfo         || '';
+                if (c.metaName) { var _mnEl = document.getElementById('meta-name'); if (_mnEl) _mnEl.innerText = c.metaName; }
                 if (c.condition) {
                     currentCondition = c.condition;
                     document.getElementById('conditionText').innerText = c.condition;
@@ -4561,6 +4717,13 @@
                 if (c.iconSrc && c.iconVisible) {
                     document.getElementById('weatherIcon').src = c.iconSrc;
                     document.getElementById('weatherIcon').style.display = 'block';
+                }
+                // Restore "Observed at [PWS id]" personal weather station label
+                if (c.wuStationId && c.wuStationVisible) {
+                    var _wuLnk = document.getElementById('wuLink');
+                    var _wuSt  = document.getElementById('wuStation');
+                    if (_wuLnk) { _wuLnk.innerText = c.wuStationId; _wuLnk.href = c.wuStationHref || '#'; }
+                    if (_wuSt)  _wuSt.style.display = 'block';
                 }
             });
             // If tempVal is still '--' (chain threw before any temp write), restore
@@ -5198,6 +5361,20 @@
     function renderAnalytics() {
         if (!window.pirateHourlyData || !window.pirateHourlyData.length) return;
         if (typeof Chart === 'undefined') return;
+        // Show/clear offline notice inside the analytics section
+        var _aSec = document.getElementById('analytics-section');
+        if (_aSec) {
+            var _aOffNote = _aSec.querySelector('.sm-analytics-offline-note');
+            if (_isOffline && !_aOffNote) {
+                var _aNote = document.createElement('div');
+                _aNote.className = 'sm-analytics-offline-note';
+                _aNote.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.8em;color:#64748b;letter-spacing:0.3px;';
+                _aNote.innerHTML = '&#128225; <strong style="color:#94a3b8;">Advanced Analytics are not available offline.</strong> Displaying cached data.';
+                _aSec.insertBefore(_aNote, _aSec.children[1] || _aSec.firstChild);
+            } else if (!_isOffline && _aOffNote) {
+                _aOffNote.remove();
+            }
+        }
         const hrs = window.pirateHourlyData.slice(0, 12);
         const tzOff = (window.pirateTimezoneOffset || 0) * 3600;
         const labels = hrs.map(function(h) { return new Date((h.time + tzOff) * 1000).toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' }); });
@@ -5342,6 +5519,9 @@
         // Set DOM once — prevents interleaving when two loadAll() calls race on first load
         container.innerHTML = riskHtml;
         box.style.display = hasRisk ? 'block' : 'none';
+        // Cache risks + flood inputs for offline display
+        SkyDB.set(SkyDB.S.weather, 'active_risks', { ts: Date.now(), html: riskHtml, hasRisk: hasRisk, bannerDisplay: banner ? banner.style.display : 'none', bannerText: banner ? banner.innerText : '', bannerBg: banner ? banner.style.background : '' });
+        SkyDB.set(SkyDB.S.weather, 'flood_inputs', { ts: Date.now(), eroDay1: window.wpcERODay1 || null, eroDay2: window.wpcERODay2 || null, eroDay3: window.wpcERODay3 || null, qpfValues: window.nwsQPFValues || [], popValues: window.nwsPopValues || [], precip1h: (window.nwsObsPrecip1h !== undefined ? window.nwsObsPrecip1h : null), precip3h: (window.nwsObsPrecip3h !== undefined ? window.nwsObsPrecip3h : null), precip6h: (window.nwsObsPrecip6h !== undefined ? window.nwsObsPrecip6h : null) });
     }
 
     function switchSPCDay(day, element) { switchOutlookDay(day, element); }
@@ -5540,7 +5720,7 @@
             const precipAmt = ((daypart.qpf?.[baseIdx] ?? 0) + (daypart.qpf?.[baseIdx + 1] ?? 0));
             const card = document.createElement('div'); card.className = 'forecast-card'; card.style.cursor = 'pointer'; card.style.position = 'relative';
             card.onclick = (function(idx) { return function() { openTWCDetailModal(data, idx); }; })(i);
-            card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;"><div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
+            card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';"><div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
             const dayNarr = (daypart.narrative?.[baseIdx] || '').toLowerCase();
             const nightNarr = (daypart.narrative?.[baseIdx + 1] || '').toLowerCase();
             const severeKeywords = ['tornado', 'damaging wind', 'large hail'];
@@ -5609,7 +5789,7 @@
                 cloudCover[part] ? '<span style="opacity:0.55">\u2601\uFE0F Sky</span><span>' + cloudCover[part] + '</span>' : null,
                 (snowQpf[part] != null && snowQpf[part] > 0) ? '<span style="opacity:0.55">\u2744\uFE0F Snow</span><span>' + (_isMetric() ? (snowQpf[part] * 25.4).toFixed(1) + ' mm' : snowQpf[part] + '"') + '</span>' : null
             ].filter(Boolean);
-            html += '<div style="margin-top:13px; text-align:center;"><div style="font-size:1.15em;font-weight:bold; color:' + (part === 0 ? '#ffd54f' : '#bbb') + '">' + titles[part] + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (icons[part] ? icons[part] : '50') + '.svg" style="width:64px;height:64px;margin:0 auto;"><div style="font-size:1.5em; margin:0.25em 0; color:' + (part === 0 ? 'var(--accent)' : '#ffffff') + ';font-weight:bold;">' + (part === 0 ? 'High: ' + (_isMetric() && lohi[0] !== '--' ? Math.round((lohi[0]-32)*5/9) + '\u00b0' : lohi[0] + '\u00b0') : 'Low: ' + (_isMetric() && lohi[1] !== '--' ? Math.round((lohi[1]-32)*5/9) + '\u00b0' : lohi[1] + '\u00b0')) + '</div><div style="font-size:1.05em; margin-bottom:9px;">' + escapeHtml(_convertNarrativeToMetric(narratives[part] ?? '--')) + '</div><div style="font-size:.9em;opacity:.85;"><strong>Precip Chance:</strong> ' + (precip[part] !== undefined ? precip[part] + '%' : '--') + (qpf[part] != null && qpf[part] > 0 ? ' &nbsp;&middot;&nbsp; <strong>Amount:</strong> ' + (_isMetric() ? (qpf[part] * 25.4).toFixed(1) + ' mm' : qpf[part] + '"') : '') + '</div>' + (detailRows.length ? '<div style="font-size:0.82em;text-align:left;margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;">' + detailRows.join('') + '</div>' : '') + '</div>';
+            html += '<div style="margin-top:13px; text-align:center;"><div style="font-size:1.15em;font-weight:bold; color:' + (part === 0 ? '#ffd54f' : '#bbb') + '">' + titles[part] + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (icons[part] ? icons[part] : '50') + '.svg" style="width:64px;height:64px;margin:0 auto;" onerror="this.onerror=null;this.style.display=\'none\';"><div style="font-size:1.5em; margin:0.25em 0; color:' + (part === 0 ? 'var(--accent)' : '#ffffff') + ';font-weight:bold;">' + (part === 0 ? 'High: ' + (_isMetric() && lohi[0] !== '--' ? Math.round((lohi[0]-32)*5/9) + '\u00b0' : lohi[0] + '\u00b0') : 'Low: ' + (_isMetric() && lohi[1] !== '--' ? Math.round((lohi[1]-32)*5/9) + '\u00b0' : lohi[1] + '\u00b0')) + '</div><div style="font-size:1.05em; margin-bottom:9px;">' + escapeHtml(_convertNarrativeToMetric(narratives[part] ?? '--')) + '</div><div style="font-size:.9em;opacity:.85;"><strong>Precip Chance:</strong> ' + (precip[part] !== undefined ? precip[part] + '%' : '--') + (qpf[part] != null && qpf[part] > 0 ? ' &nbsp;&middot;&nbsp; <strong>Amount:</strong> ' + (_isMetric() ? (qpf[part] * 25.4).toFixed(1) + ' mm' : qpf[part] + '"') : '') + '</div>' + (detailRows.length ? '<div style="font-size:0.82em;text-align:left;margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;">' + detailRows.join('') + '</div>' : '') + '</div>';
         }
         html += '<div id="twc-hourly-section"><hr style="margin:14px 0;"><div style="margin:0;margin-top:-5px;font-weight:bold;">Hourly Forecast</div></div><div id="twc-hourly-placeholder"><em>Loading...</em></div>';
         document.getElementById('twc-modal-inner').innerHTML = html;
@@ -6969,6 +7149,7 @@
         if (healthEl) { healthEl.innerText = info.health; }
 
         _renderAQIDial(curAQI, info.cat, info.color);
+        SkyDB.set(SkyDB.S.weather, 'aqi', { ts: Date.now(), aqi: curAQI, cat: info.cat, color: info.color, health: info.health, pollutant: 'Source: Open-Meteo', area: '', cardsHtml: '', actionDay: false, source: 'openmeteo' });
     }
 
     function _renderAQIData(obsData, fcstData) {
@@ -7074,6 +7255,7 @@
         if (healthEl) healthEl.innerText = info.health;
 
         _renderAQIDial(curAQI, info.cat, info.color);
+        SkyDB.set(SkyDB.S.weather, 'aqi', { ts: Date.now(), aqi: curAQI, cat: info.cat, color: info.color, health: info.health, pollutant: pollutant, area: area, cardsHtml: (cardsEl ? cardsEl.innerHTML : ''), actionDay: !!(actionEl && actionEl.style.display !== 'none'), source: 'airnow' });
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -7342,7 +7524,10 @@
     // ─────────────────────────────────────────────────────────────────────────────
 
     async function loadAll() {
-        lastSyncTime = new Date();
+        // Restore persisted sync time so the timer reflects the actual last data fetch,
+        // not just when this page session started. Overwritten below on successful online sync.
+        var _sm_saved_ts = localStorage.getItem('sm_last_sync');
+        lastSyncTime = _sm_saved_ts ? new Date(+_sm_saved_ts) : new Date();
         twcMaxFeelsLike = null;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
         window.isBeachLocation = false;
