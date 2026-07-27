@@ -1261,6 +1261,7 @@
         const cityEl = document.getElementById('cityInput');
         const query = cityEl ? cityEl.value.trim() : '';
         if (!query) return;
+        if (_isOffline) { alert('You cannot search while offline.'); return; }
         try {
             const res = await fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(query)));
             const data = await res.json();
@@ -4649,8 +4650,9 @@
                 wuStationId:      (document.getElementById('wuLink') || {}).innerText || null,
                 wuStationHref:    (document.getElementById('wuLink') || {}).href || null,
                 wuStationVisible: (document.getElementById('wuStation') || {}).style.display !== 'none',
-                comfortVal:  (document.getElementById('aqi-val') || {}).innerText || null,
-                comfortDesc: (document.getElementById('aqi-desc') || {}).innerText || null
+                comfortVal:   (document.getElementById('aqi-val') || {}).innerText || null,
+                comfortDesc:  (document.getElementById('aqi-desc') || {}).innerText || null,
+                comfortColor: (document.getElementById('aqi-val') || {}).style.color || null
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
         } catch(e) {
@@ -4735,7 +4737,7 @@
                     if (_wuSt)  _wuSt.style.display = 'block';
                 }
                 // Restore NWS-chain comfort (overrides PirateWeather save with authoritative value)
-                if (c.comfortVal) { var _cvEl = document.getElementById('aqi-val'); if (_cvEl) { _cvEl.innerText = c.comfortVal; } }
+                if (c.comfortVal) { var _cvEl = document.getElementById('aqi-val'); if (_cvEl) { _cvEl.innerText = c.comfortVal; if (c.comfortColor) _cvEl.style.color = c.comfortColor; } }
                 if (c.comfortDesc) { var _cdEl = document.getElementById('aqi-desc'); if (_cdEl) _cdEl.innerText = c.comfortDesc; }
                 // Show Weather Story offline placeholder using cached WFO
                 if (c.wfo && c.wfo !== '--' && c.wfo !== 'N/A (Outside US)') updateWeatherStory(c.wfo);
@@ -5368,7 +5370,11 @@
         factors.innerHTML = factorList.map(function(f) {
             return '<span style="background:' + f.color + '22;color:' + f.color + ';border:1px solid ' + f.color + '44;padding:3px 8px;border-radius:6px;font-size:0.7em;font-weight:bold;">' + escapeHtml(f.label) + '</span>';
         }).join('');
-        if (updated) updated.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (updated) {
+            // Offline: freeze timestamp at last successful sync so it doesn't show "now"
+            var _threatTs = (_isOffline && lastSyncTime) ? lastSyncTime : new Date();
+            updated.textContent = (_isOffline && lastSyncTime ? 'As of ' : '') + _threatTs.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
     }
 
     // ——— ANALYTICS (v1.0.4: only shown in Advanced mode) ———
@@ -5695,6 +5701,27 @@
         return s2 ? s1 + ' ' + s2 : s1;
     }
 
+    // Map TWC icon codes → weather emoji for offline fallback (no network needed)
+    function _twcIconEmoji(code) {
+        var c = Number(code);
+        if (c <= 3 || c === 37 || c === 38 || c === 47) return '\u26C8\uFE0F';   // tornado/thunderstorm
+        if (c >= 4  && c <= 10) return '\u26C8\uFE0F';   // thunderstorms
+        if (c === 11 || c === 12 || c === 39 || c === 40) return '\uD83C\uDF27\uFE0F'; // rain
+        if (c === 13 || c === 14 || c === 15 || c === 16 || c === 41 || c === 42 || c === 43 || c === 46) return '\u2744\uFE0F'; // snow
+        if (c === 17) return '\uD83C\uDF28\uFE0F';  // hail
+        if (c === 18 || c === 25) return '\uD83C\uDF28\uFE0F'; // sleet/freezing rain
+        if (c >= 19 && c <= 22) return '\uD83D\uDCA8'; // wind
+        if (c === 23 || c === 24) return '\uD83C\uDF2B\uFE0F'; // fog
+        if (c === 26 || c === 27 || c === 28) return '\u2601\uFE0F'; // cloudy
+        if (c === 29 || c === 33) return '\uD83C\uDF19'; // mostly clear night
+        if (c === 30 || c === 34) return '\u26C5'; // partly cloudy
+        if (c === 31) return '\uD83C\uDF19'; // clear night
+        if (c === 32 || c === 36) return '\u2600\uFE0F'; // sunny/hot
+        if (c === 44) return '\u26C5'; // partly cloudy
+        if (c === 45) return '\u26C8\uFE0F'; // thundershowers
+        return '\uD83C\uDF24\uFE0F'; // default: partly sunny
+    }
+
     function renderTWCForecast(data) {
         const cont = document.getElementById('twc-daily-forecast'); cont.innerHTML = '';
         if (!data || !Array.isArray(data.dayOfWeek) || !data.dayOfWeek.length || !data.daypart || !Array.isArray(data.daypart[0].iconCode)) {
@@ -5728,7 +5755,11 @@
             const precipAmt = ((daypart.qpf?.[baseIdx] ?? 0) + (daypart.qpf?.[baseIdx + 1] ?? 0));
             const card = document.createElement('div'); card.className = 'forecast-card'; card.style.cursor = 'pointer'; card.style.position = 'relative';
             card.onclick = (function(idx) { return function() { openTWCDetailModal(data, idx); }; })(i);
-            card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';"><div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
+            // Offline: use emoji fallback since Wunderground SVGs require network
+            const iconHtml = _isOffline
+                ? '<div style="font-size:2em;text-align:center;line-height:1.2;margin:4px auto;">' + _twcIconEmoji(iconNum) + '</div>'
+                : '<img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.parentElement.querySelector(\'img\')&&(this.outerHTML=\'<div style=\\\"font-size:2em;text-align:center;line-height:1.2;margin:4px auto;\\\">\'+_twcIconEmoji(' + iconNum + ')+\'</div>\');">';
+            card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div>' + iconHtml + '<div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
             const dayNarr = (daypart.narrative?.[baseIdx] || '').toLowerCase();
             const nightNarr = (daypart.narrative?.[baseIdx + 1] || '').toLowerCase();
             const severeKeywords = ['tornado', 'damaging wind', 'large hail'];
@@ -7747,8 +7778,20 @@
             ptr_pulling = false; ptrActive = true;
             ptrIndicator.innerText = '\u21BB Refreshing...';
             loadAll().then(function() {
-                ptrIndicator.innerText = '\u2713 Refreshed';
-                setTimeout(function() { ptrIndicator.classList.remove('visible'); ptrActive = false; ptrIndicator.innerText = '\u21BB Release to refresh'; }, 1200);
+                if (_isOffline) {
+                    ptrIndicator.innerText = '\u2717 Refresh failed';
+                    ptrIndicator.style.background = 'rgba(255,82,82,0.2)';
+                    ptrIndicator.style.borderColor = '#ff5252';
+                    ptrIndicator.style.color = '#ff5252';
+                    setTimeout(function() {
+                        ptrIndicator.classList.remove('visible'); ptrActive = false;
+                        ptrIndicator.innerText = '\u21BB Release to refresh';
+                        ptrIndicator.style.background = ''; ptrIndicator.style.borderColor = ''; ptrIndicator.style.color = '';
+                    }, 1800);
+                } else {
+                    ptrIndicator.innerText = '\u2713 Refreshed';
+                    setTimeout(function() { ptrIndicator.classList.remove('visible'); ptrActive = false; ptrIndicator.innerText = '\u21BB Release to refresh'; }, 1200);
+                }
             });
         }
     }, { passive: true });
