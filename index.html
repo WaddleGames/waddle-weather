@@ -7577,27 +7577,25 @@
             html += '</div>';
             html += '<div style="font-size:0.7em;color:#94a3b8;line-height:1.4;">' + escapeHtml(condDesc) + '</div>';
 
+            html += '</div>';
+            html += '</div>'; // end conditions bar
+
+            // ── Alert banners (own divs, below conditions bar) ────────────────
             // ── Thunder warning ──────────────────────────────────────────────
-            // Use TWC's thunderCategory field (today daytime + tonight dayparts).
             // window._twcThunderToday is set by fetchTWCForecast() when it resolves;
             // the beach section is re-rendered after fetchAlerts() in loadAll() by
             // which point TWC has always resolved, so this is reliably populated.
             if (window._twcThunderToday) {
-                html += '<div style="font-size:0.68em;color:#fbbf24;margin-top:5px;font-weight:600;">&#9889; Thunderstorms possible today &mdash; exit the water if lightning is seen or thunder is heard.</div>';
+                html += '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#fbbf24;letter-spacing:0.2px;">&#9889; Thunderstorms possible today &mdash; exit the water if lightning is seen or thunder is heard.</div>';
             }
-
-            html += '</div>';
-            html += '</div>'; // end conditions bar
-
-            // ── Alert banners (own div, below conditions bar) ─────────────────
             var _alerts = window.activeAlertEvents || [];
             var _hasBHS = _alerts.some(function(e) { return e.toLowerCase().includes('beach hazard'); });
             var _hasRip = _alerts.some(function(e) { return e.toLowerCase().includes('rip current'); });
             if (_hasBHS) {
-                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect &mdash; hazardous conditions reported for this area.</div>';
+                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect &mdash; hazardous swimming conditions expected.</div>';
             }
             if (_hasRip) {
-                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Rip Current Statement in effect &mdash; dangerous rip currents possible, swim near a lifeguard.</div>';
+                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Rip Current Statement in effect &mdash; dangerous rip currents expected, swim near a lifeguard.</div>';
             }
 
             // GLF lake forecast discussion (collapsible)
