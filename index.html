@@ -5660,13 +5660,15 @@
                 }] : d.daypart
             };
             // Cache today's thunder flag globally so _renderBeach() can read it
-            // synchronously without an async SkyDB lookup.
-            // thunderCategory[0] = today daytime, [1] = tonight — either non-null
-            // and not "No Thunder" means thunder is possible today.
-            var _tc = (_slimTwc.daypart && _slimTwc.daypart[0] && _slimTwc.daypart[0].thunderCategory) || [];
-            window._twcThunderToday = [_tc[0], _tc[1]].some(function(v) {
-                return v && v !== 'No Thunder';
-            });
+            // synchronously. Use wxPhraseLong[0] (today's daytime phrase) — it only
+            // says "Thunderstorm" / "T-Storms" when thunder is the primary expected
+            // condition, so it never produces the false positives that thunderCategory
+            // "Thunder Possible" does on otherwise clear days. Daytime-only (index 0)
+            // because beach safety warnings are only relevant during daylight hours.
+            var _todayPhrase = ((_slimTwc.daypart && _slimTwc.daypart[0] &&
+                                 _slimTwc.daypart[0].wxPhraseLong &&
+                                 _slimTwc.daypart[0].wxPhraseLong[0]) || '').toLowerCase();
+            window._twcThunderToday = /thunder|t-storm|tstm/.test(_todayPhrase);
             // Icons are now hosted locally at icons/wu/{n}.svg and pre-cached by the
             // service worker during install — no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
@@ -7585,7 +7587,7 @@
             // loadAll() re-calls fetchBeachForecast after fetchAlerts() so this
             // check always reflects the latest alert state.
             var _hasBHS = (window.activeAlertEvents || []).some(function(e) {
-                return e === 'Beach Hazards Statement';
+                return e.toLowerCase().includes('beach hazard');
             });
             if (_hasBHS) {
                 html += '<div style="font-size:0.68em;color:#f87171;margin-top:5px;font-weight:700;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect.</div>';
@@ -7744,8 +7746,14 @@
             await fetchAlerts();
             // Re-render beach section now that alerts are resolved — fetchBeachForecast
             // fires before fetchAlerts() so the BHS banner needs a second pass to show.
-            var _beachSec = document.getElementById('beach-section');
-            if (_beachSec && _beachSec.style.display !== 'none') fetchBeachForecast(lat, lon);
+            // Check location flags, not display state: the NDBC fetch inside
+            // fetchBeachForecast may still be in flight when fetchAlerts resolves,
+            // leaving beach-section hidden even though we're at a beach.
+            var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
+            if (window.isBeachLocation || window.isWaterLocation ||
+                _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
+                fetchBeachForecast(lat, lon);
+            }
             await fetchRiskLevels();
             if (activeOutlookCenter === 'nhc') {
                 updateOutlookMap('nhc', null);
