@@ -7589,6 +7589,16 @@
             html += '</div>';
             html += '</div>'; // end conditions bar
 
+            // ── Alert banners (own div, below conditions bar) ─────────────────
+            var _alerts = window.activeAlertEvents || [];
+            var _hasBHS = _alerts.some(function(e) { return e.toLowerCase().includes('beach hazard'); });
+            var _hasRip = _alerts.some(function(e) { return e.toLowerCase().includes('rip current'); });
+            if (_hasBHS) {
+                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect &mdash; hazardous conditions reported for this area.</div>';
+            }
+            if (_hasRip) {
+                html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Rip Current Statement in effect &mdash; dangerous rip currents possible, swim near a lifeguard.</div>';
+            }
 
             // GLF lake forecast discussion (collapsible)
             if (glfText) {
