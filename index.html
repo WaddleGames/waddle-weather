@@ -5655,9 +5655,18 @@
                     cloudCoverPhrase:      _dp.cloudCoverPhrase,
                     qpfSnow:               _dp.qpfSnow,
                     temperatureHeatIndex:  _dp.temperatureHeatIndex,
-                    temperatureWindChill:  _dp.temperatureWindChill
+                    temperatureWindChill:  _dp.temperatureWindChill,
+                    thunderCategory:       _dp.thunderCategory
                 }] : d.daypart
             };
+            // Cache today's thunder flag globally so _renderBeach() can read it
+            // synchronously without an async SkyDB lookup.
+            // thunderCategory[0] = today daytime, [1] = tonight — either non-null
+            // and not "No Thunder" means thunder is possible today.
+            var _tc = (_slimTwc.daypart && _slimTwc.daypart[0] && _slimTwc.daypart[0].thunderCategory) || [];
+            window._twcThunderToday = [_tc[0], _tc[1]].some(function(v) {
+                return v && v !== 'No Thunder';
+            });
             // Icons are now hosted locally at icons/wu/{n}.svg and pre-cached by the
             // service worker during install — no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
@@ -7560,6 +7569,28 @@
             html += '<span>' + dots + '</span>';
             html += '</div>';
             html += '<div style="font-size:0.7em;color:#94a3b8;line-height:1.4;">' + escapeHtml(condDesc) + '</div>';
+
+            // ── Thunder warning ──────────────────────────────────────────────
+            // Use TWC's thunderCategory field (today daytime + tonight dayparts).
+            // window._twcThunderToday is set by fetchTWCForecast() when it resolves;
+            // the beach section is re-rendered after fetchAlerts() in loadAll() by
+            // which point TWC has always resolved, so this is reliably populated.
+            if (window._twcThunderToday) {
+                html += '<div style="font-size:0.68em;color:#fbbf24;margin-top:5px;font-weight:600;">&#9889; Thunderstorms possible today &mdash; exit the water if lightning is seen or thunder is heard.</div>';
+            }
+
+            // ── Beach Hazards Statement banner ───────────────────────────────
+            // window.activeAlertEvents contains only currently-active NWS alerts
+            // (populated by fetchAlerts from the /alerts/active endpoint).
+            // loadAll() re-calls fetchBeachForecast after fetchAlerts() so this
+            // check always reflects the latest alert state.
+            var _hasBHS = (window.activeAlertEvents || []).some(function(e) {
+                return e === 'Beach Hazards Statement';
+            });
+            if (_hasBHS) {
+                html += '<div style="font-size:0.68em;color:#f87171;margin-top:5px;font-weight:700;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect.</div>';
+            }
+
             html += '</div>';
             html += '</div>'; // end conditions bar
 
@@ -7711,6 +7742,10 @@
             fetchBeachForecast(lat, lon);
             await Promise.all([fetchNWSChain(), fetchOpenWeather(), fetchTWCForecast()]);
             await fetchAlerts();
+            // Re-render beach section now that alerts are resolved — fetchBeachForecast
+            // fires before fetchAlerts() so the BHS banner needs a second pass to show.
+            var _beachSec = document.getElementById('beach-section');
+            if (_beachSec && _beachSec.style.display !== 'none') fetchBeachForecast(lat, lon);
             await fetchRiskLevels();
             if (activeOutlookCenter === 'nhc') {
                 updateOutlookMap('nhc', null);
