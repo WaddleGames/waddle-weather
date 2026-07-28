@@ -5658,23 +5658,9 @@
                     temperatureWindChill:  _dp.temperatureWindChill
                 }] : d.daypart
             };
-            // Fetch and cache icon SVGs as data URLs so they display correctly offline
-            (async function() {
-                var _iconCodes = (_dp.iconCode || []).filter(function(c) { return c != null; });
-                var _uniqueCodes = Array.from(new Set(_iconCodes.map(String)));
-                var _iconDataUrls = {};
-                await Promise.all(_uniqueCodes.map(async function(code) {
-                    try {
-                        var _ir = await fetch('https://www.wunderground.com/static/i/c/v4/' + code + '.svg');
-                        var _ib = await _ir.blob();
-                        _iconDataUrls[code] = await new Promise(function(rs) {
-                            var fr = new FileReader(); fr.onloadend = function() { rs(fr.result); }; fr.readAsDataURL(_ib);
-                        });
-                    } catch(e2) {}
-                }));
-                _slimTwc.iconDataUrls = _iconDataUrls;
-                SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
-            })();
+            // Icons are now hosted locally at icons/wu/{n}.svg and pre-cached by the
+            // service worker during install — no data-URL conversion needed.
+            SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
         } catch(e) {
             SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
                 if (cached && cached.data) renderTWCForecast(cached.data);
@@ -5851,13 +5837,8 @@
             const precipAmt = ((daypart.qpf?.[baseIdx] ?? 0) + (daypart.qpf?.[baseIdx + 1] ?? 0));
             const card = document.createElement('div'); card.className = 'forecast-card'; card.style.cursor = 'pointer'; card.style.position = 'relative';
             card.onclick = (function(idx) { return function() { openTWCDetailModal(data, idx); }; })(i);
-            // Offline: use cached data URL if available, emoji fallback otherwise
-            const _cachedIconUrl = (_isOffline && data.iconDataUrls) ? (data.iconDataUrls[String(iconNum)] || null) : null;
-            const iconHtml = _cachedIconUrl
-                ? '<img src="' + _cachedIconUrl + '" alt="icon" style="width:48px;display:block;margin:auto;">'
-                : _isOffline
-                ? '<div style="font-size:2em;text-align:center;line-height:1.2;margin:4px auto;">' + _twcIconEmoji(iconNum) + '</div>'
-                : '<img src="https://www.wunderground.com/static/i/c/v4/' + (iconNum ? iconNum : '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';">';
+            // Icons are locally hosted and SW-cached — serve the same path online and offline.
+            const iconHtml = '<img src="icons/wu/' + (iconNum || '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';">';
             card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div>' + iconHtml + '<div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
             const dayNarr = (daypart.narrative?.[baseIdx] || '').toLowerCase();
             const nightNarr = (daypart.narrative?.[baseIdx + 1] || '').toLowerCase();
@@ -5927,7 +5908,7 @@
                 cloudCover[part] ? '<span style="opacity:0.55">\u2601\uFE0F Sky</span><span>' + cloudCover[part] + '</span>' : null,
                 (snowQpf[part] != null && snowQpf[part] > 0) ? '<span style="opacity:0.55">\u2744\uFE0F Snow</span><span>' + (_isMetric() ? (snowQpf[part] * 25.4).toFixed(1) + ' mm' : snowQpf[part] + '"') + '</span>' : null
             ].filter(Boolean);
-            html += '<div style="margin-top:13px; text-align:center;"><div style="font-size:1.15em;font-weight:bold; color:' + (part === 0 ? '#ffd54f' : '#bbb') + '">' + titles[part] + '</div><img src="https://www.wunderground.com/static/i/c/v4/' + (icons[part] ? icons[part] : '50') + '.svg" style="width:64px;height:64px;margin:0 auto;" onerror="this.onerror=null;this.style.display=\'none\';"><div style="font-size:1.5em; margin:0.25em 0; color:' + (part === 0 ? 'var(--accent)' : '#ffffff') + ';font-weight:bold;">' + (part === 0 ? 'High: ' + (_isMetric() && lohi[0] !== '--' ? Math.round((lohi[0]-32)*5/9) + '\u00b0' : lohi[0] + '\u00b0') : 'Low: ' + (_isMetric() && lohi[1] !== '--' ? Math.round((lohi[1]-32)*5/9) + '\u00b0' : lohi[1] + '\u00b0')) + '</div><div style="font-size:1.05em; margin-bottom:9px;">' + escapeHtml(_convertNarrativeToMetric(narratives[part] ?? '--')) + '</div><div style="font-size:.9em;opacity:.85;"><strong>Precip Chance:</strong> ' + (precip[part] !== undefined ? precip[part] + '%' : '--') + (qpf[part] != null && qpf[part] > 0 ? ' &nbsp;&middot;&nbsp; <strong>Amount:</strong> ' + (_isMetric() ? (qpf[part] * 25.4).toFixed(1) + ' mm' : qpf[part] + '"') : '') + '</div>' + (detailRows.length ? '<div style="font-size:0.82em;text-align:left;margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;">' + detailRows.join('') + '</div>' : '') + '</div>';
+            html += '<div style="margin-top:13px; text-align:center;"><div style="font-size:1.15em;font-weight:bold; color:' + (part === 0 ? '#ffd54f' : '#bbb') + '">' + titles[part] + '</div><img src="icons/wu/' + (icons[part] || '50') + '.svg" style="width:64px;height:64px;margin:0 auto;" onerror="this.onerror=null;this.style.display=\'none\';"><div style="font-size:1.5em; margin:0.25em 0; color:' + (part === 0 ? 'var(--accent)' : '#ffffff') + ';font-weight:bold;">' + (part === 0 ? 'High: ' + (_isMetric() && lohi[0] !== '--' ? Math.round((lohi[0]-32)*5/9) + '\u00b0' : lohi[0] + '\u00b0') : 'Low: ' + (_isMetric() && lohi[1] !== '--' ? Math.round((lohi[1]-32)*5/9) + '\u00b0' : lohi[1] + '\u00b0')) + '</div><div style="font-size:1.05em; margin-bottom:9px;">' + escapeHtml(_convertNarrativeToMetric(narratives[part] ?? '--')) + '</div><div style="font-size:.9em;opacity:.85;"><strong>Precip Chance:</strong> ' + (precip[part] !== undefined ? precip[part] + '%' : '--') + (qpf[part] != null && qpf[part] > 0 ? ' &nbsp;&middot;&nbsp; <strong>Amount:</strong> ' + (_isMetric() ? (qpf[part] * 25.4).toFixed(1) + ' mm' : qpf[part] + '"') : '') + '</div>' + (detailRows.length ? '<div style="font-size:0.82em;text-align:left;margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;">' + detailRows.join('') + '</div>' : '') + '</div>';
         }
         html += '<div id="twc-hourly-section"><hr style="margin:14px 0;"><div style="margin:0;margin-top:-5px;font-weight:bold;">Hourly Forecast</div></div><div id="twc-hourly-placeholder"><em>Loading...</em></div>';
         document.getElementById('twc-modal-inner').innerHTML = html;
