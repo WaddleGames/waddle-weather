@@ -34,6 +34,10 @@ const STATIC_URLS = [
     'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css',
     'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js',
     'https://cdn-icons-png.flaticon.com/512/1779/1779927.png',
+    // WU/TWC weather condition icons (0–47) — hosted locally so they work
+    // offline without CORS issues. Pre-cached on install so first offline
+    // visit always has them, even before the user has viewed the forecast.
+    ...Array.from({ length: 48 }, (_, n) => `${BASE_URL}icons/wu/${n}.svg`),
 ];
 
 // Images matching any of these patterns are skipped entirely — too large or too
