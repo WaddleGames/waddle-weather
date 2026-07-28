@@ -2,7 +2,7 @@
 // Bump CACHE_VERSION whenever you deploy a breaking change.
 // All three sub-caches share the same version prefix so a single bump clears
 // everything consistently.
-const CACHE_VERSION = 'skymonitor-v1.1.6';
+const CACHE_VERSION = 'skymonitor-v1.1.7';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;   // CDN libs — cache-first
 const IMAGE_CACHE   = `${CACHE_VERSION}-images`;   // small icons — cache-on-use
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;  // HTML + same-origin — network-first
@@ -50,6 +50,9 @@ const SKIP_IMAGE_PATTERNS = [
     /nws\.noaa\.gov.*png/i,
     /api\.weather\.gov.*\.(png|jpg|gif)/i,
     /weather-story/i,
+    // ── Wunderground icons — no CORS headers; SW fetch() is always blocked.
+    //    <img> tags load them fine without SW interception, so skip entirely.
+    /wunderground\.com/,
     // ── Map tile providers ── each page load fetches 20-100+ tiles; never cache
     /openstreetmap\.org/,
     /tile\.openstreetmap/,
@@ -169,7 +172,14 @@ self.addEventListener('fetch', (e) => {
                         }
                         return res;
                     });
-                }).catch(() => caches.match(e.request));
+                }).catch(() =>
+                    // caches.match() returns undefined on a miss — respondWith(undefined)
+                    // is illegal and throws "Failed to convert value to 'Response'".
+                    // Always resolve to a valid Response so the promise never rejects.
+                    caches.match(e.request).then((cached) =>
+                        cached || new Response('', { status: 503, statusText: 'Offline' })
+                    )
+                );
             })
         );
         return;
