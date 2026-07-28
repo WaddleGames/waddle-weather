@@ -7586,20 +7586,9 @@
                 html += '<div style="font-size:0.68em;color:#fbbf24;margin-top:5px;font-weight:600;">&#9889; Thunderstorms possible today &mdash; exit the water if lightning is seen or thunder is heard.</div>';
             }
 
-            // ── Beach Hazards Statement banner ───────────────────────────────
-            // window.activeAlertEvents contains only currently-active NWS alerts
-            // (populated by fetchAlerts from the /alerts/active endpoint).
-            // loadAll() re-calls fetchBeachForecast after fetchAlerts() so this
-            // check always reflects the latest alert state.
-            var _hasBHS = (window.activeAlertEvents || []).some(function(e) {
-                return e.toLowerCase().includes('beach hazard');
-            });
-            if (_hasBHS) {
-                html += '<div style="font-size:0.68em;color:#f87171;margin-top:5px;font-weight:700;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect.</div>';
-            }
-
             html += '</div>';
             html += '</div>'; // end conditions bar
+
 
             // GLF lake forecast discussion (collapsible)
             if (glfText) {
