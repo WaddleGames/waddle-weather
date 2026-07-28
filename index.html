@@ -5660,15 +5660,20 @@
                 }] : d.daypart
             };
             // Cache today's thunder flag globally so _renderBeach() can read it
-            // synchronously. Use wxPhraseLong[0] (today's daytime phrase) — it only
-            // says "Thunderstorm" / "T-Storms" when thunder is the primary expected
-            // condition, so it never produces the false positives that thunderCategory
-            // "Thunder Possible" does on otherwise clear days. Daytime-only (index 0)
-            // because beach safety warnings are only relevant during daylight hours.
+            // synchronously. Use wxPhraseLong[0] (today's daytime phrase) and
+            // wxPhraseLong[1] (tonight's phrase) — these only say "Thunderstorm" /
+            // "T-Storms" when thunder is the primary expected condition, so they
+            // never produce the false positives that thunderCategory "Thunder Possible"
+            // does on otherwise clear days. Both dayparts are included so the beach
+            // warning fires even when thunderstorms are only in tonight's forecast.
             var _todayPhrase = ((_slimTwc.daypart && _slimTwc.daypart[0] &&
                                  _slimTwc.daypart[0].wxPhraseLong &&
                                  _slimTwc.daypart[0].wxPhraseLong[0]) || '').toLowerCase();
-            window._twcThunderToday = /thunder|t-storm|tstm/.test(_todayPhrase);
+            var _tonightPhrase = ((_slimTwc.daypart && _slimTwc.daypart[0] &&
+                                   _slimTwc.daypart[0].wxPhraseLong &&
+                                   _slimTwc.daypart[0].wxPhraseLong[1]) || '').toLowerCase();
+            window._twcThunderToday = /thunder|t-storm|tstm/.test(_todayPhrase) ||
+                                      /thunder|t-storm|tstm/.test(_tonightPhrase);
             // Icons are now hosted locally at icons/wu/{n}.svg and pre-cached by the
             // service worker during install — no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
