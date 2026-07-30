@@ -5732,6 +5732,9 @@
         function wxText(i) {
             return ((dp.wxPhraseLong?.[i * 2] || '') + ' ' + (dp.wxPhraseLong?.[i * 2 + 1] || '')).toLowerCase();
         }
+        function narrativeText(i) {
+            return ((dp.narrative?.[i * 2] || '') + ' ' + (dp.narrative?.[i * 2 + 1] || '')).toLowerCase();
+        }
         function fmtT(f) {
             if (f == null) return '--°';
             return _isMetric() ? Math.round((f - 32) * 5 / 9) + '°' : Math.round(f) + '°';
@@ -5763,12 +5766,16 @@
             }
         }
 
-        // ── Priority 3: Heavy rain (≥70% chance or ≥0.5" QPF) ───────────────
+        // ── Priority 3: Heavy rain — driven by TWC narrative keyword ────────
+        // Only flag "heavy rain" when TWC explicitly says so in the day/night
+        // narrative (e.g. "Potential for heavy rainfall."). QPF alone can reach
+        // 1"+ from prolonged moderate rain with no heavy-rain signal at all.
         for (var i = 0; i < n && !s1; i++) {
-            var pc  = maxPrecipChance(i);
-            var amt = totalQpf(i);
-            if (pc >= 70 || amt >= 0.5) {
-                s1 = 'Heavy rain likely ' + dayLabel(i) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
+            var narr = narrativeText(i);
+            var hasHeavyRainSignal = narr.includes('heavy rain') || narr.includes('heavy rainfall');
+            if (hasHeavyRainSignal) {
+                var amt = totalQpf(i);
+                s1 = 'Potential for heavy rainfall ' + dayLabel(i) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
             }
         }
 
