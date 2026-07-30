@@ -2160,7 +2160,7 @@
                 const qa = qcStatuses[a] ?? 0, qb = qcStatuses[b] ?? 0;
                 return qa !== qb ? qb - qa : a - b; // prefer higher qcStatus, then closer
             });
-            const neighborIndices = neighborCandidates.slice(0, 2);
+            const neighborIndices = neighborCandidates.slice(0, 3);
             const _fetchObs = async function(sid) {
                 try {
                     const r = await fetch('https://api.weather.com/v2/pws/observations/current?stationId=' + sid + '&format=json&units=e&apiKey=' + TWC_API_KEY);
