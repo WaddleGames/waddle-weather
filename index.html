@@ -2815,13 +2815,12 @@
             return 0;
         }
 
-        // QPF windows aligned to local midnight
+        // QPF from TWC daily forecast — same source as the daily forecast cards
         var now = new Date();
-        var hoursToMidnight = 24 - now.getHours() - now.getMinutes() / 60;
-
-        var qpf0 = _getNWSQPF(0, hoursToMidnight);           // rest of today
-        var qpf1 = _getNWSQPF(hoursToMidnight, 24);          // tomorrow
-        var qpf2 = _getNWSQPF(hoursToMidnight + 24, 24);     // day after tomorrow
+        function _getTWCQPF(i) { return (window.twcDailyQPF && window.twcDailyQPF[i] != null) ? window.twcDailyQPF[i] : 0; }
+        var qpf0 = _getTWCQPF(0); // today
+        var qpf1 = _getTWCQPF(1); // tomorrow
+        var qpf2 = _getTWCQPF(2); // day after tomorrow
 
         var ero1 = _eroLevel(window.wpcERODay1);
         var ero2 = _eroLevel(window.wpcERODay2);
@@ -5890,6 +5889,11 @@
         // so the initial computeOutdoorScore call had twcMaxFeelsLike = null and fell back
         // to Pirate's (potentially lagged) hourly apparentTemperature for the description.
         if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+        // Store TWC per-day QPF totals (day + night slots) for the Flood Outlook,
+        // so it matches the same source as the daily forecast cards.
+        window.twcDailyQPF = (data.dayOfWeek || []).map(function(_, i) {
+            return (daypart.qpf?.[i * 2] ?? 0) + (daypart.qpf?.[i * 2 + 1] ?? 0);
+        });
         computeFloodOutlook();
         for (let i = 0; i < data.dayOfWeek.length; ++i) {
             const baseIdx = i * 2;
