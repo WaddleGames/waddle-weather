@@ -5715,10 +5715,19 @@
         var days  = data.dayOfWeek || [];
         var n     = Math.min(days.length, 5);
 
+        // Day-level label: "today", "tomorrow", "Saturday"
         function dayLabel(i) {
             if (i === 0) return 'today';
             if (i === 1) return 'tomorrow';
             return days[i] || ('day ' + (i + 1));
+        }
+        // Daypart-level label: distinguishes day vs night within a calendar day
+        function daypartLabel(j) {
+            var i = Math.floor(j / 2), isNight = (j % 2 === 1);
+            if (i === 0) return isNight ? 'tonight'        : 'today';
+            if (i === 1) return isNight ? 'tomorrow night' : 'tomorrow';
+            var d = days[i] || ('day ' + (i + 1));
+            return isNight ? d + ' night' : d;
         }
         function maxPrecipChance(i) {
             return Math.max(dp.precipChance?.[i * 2] ?? 0, dp.precipChance?.[i * 2 + 1] ?? 0);
@@ -5729,12 +5738,11 @@
         function totalSnow(i) {
             return (dp.qpfSnow?.[i * 2] ?? 0) + (dp.qpfSnow?.[i * 2 + 1] ?? 0);
         }
-        function wxText(i) {
-            return ((dp.wxPhraseLong?.[i * 2] || '') + ' ' + (dp.wxPhraseLong?.[i * 2 + 1] || '')).toLowerCase();
-        }
-        function narrativeText(i) {
-            return ((dp.narrative?.[i * 2] || '') + ' ' + (dp.narrative?.[i * 2 + 1] || '')).toLowerCase();
-        }
+        // Per-daypart slot helpers (j = i*2 for day, i*2+1 for night)
+        function wxPart(j)   { return (dp.wxPhraseLong?.[j] || '').toLowerCase(); }
+        function narrPart(j) { return (dp.narrative?.[j]    || '').toLowerCase(); }
+        function snowPart(j) { return dp.qpfSnow?.[j] ?? 0; }
+        function pcPart(j)   { return dp.precipChance?.[j] ?? 0; }
         function fmtT(f) {
             if (f == null) return '--°';
             return _isMetric() ? Math.round((f - 32) * 5 / 9) + '°' : Math.round(f) + '°';
@@ -5749,20 +5757,21 @@
         var s1 = null, s2 = null;
 
         // ── Priority 1: Snow ─────────────────────────────────────────────────
-        for (var i = 0; i < n && !s1; i++) {
-            var snow = totalSnow(i);
-            var wx   = wxText(i);
+        for (var j = 0; j < n * 2 && !s1; j++) {
+            var snow = snowPart(j);
+            var wx   = wxPart(j);
             if (snow >= 0.1 || wx.includes('snow') || wx.includes('blizzard') || wx.includes('flurr')) {
-                var label = snow >= 2 ? 'Heavy snow' : snow >= 0.1 ? 'Snow' : 'Snow showers';
-                s1 = label + ' expected ' + dayLabel(i) + (snow >= 0.5 ? ' (' + fmtSnow(snow) + ' possible).' : '.');
+                var daySnow = totalSnow(Math.floor(j / 2));
+                var label = daySnow >= 2 ? 'Heavy snow' : daySnow >= 0.1 ? 'Snow' : 'Snow showers';
+                s1 = label + ' expected ' + daypartLabel(j) + (daySnow >= 0.5 ? ' (' + fmtSnow(daySnow) + ' possible).' : '.');
             }
         }
 
         // ── Priority 2: Thunderstorms ────────────────────────────────────────
-        for (var i = 0; i < n && !s1; i++) {
-            var wx = wxText(i);
+        for (var j = 0; j < n * 2 && !s1; j++) {
+            var wx = wxPart(j);
             if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm')) {
-                s1 = 'Thunderstorms possible ' + dayLabel(i) + '.';
+                s1 = 'Thunderstorms possible ' + daypartLabel(j) + '.';
             }
         }
 
@@ -5770,25 +5779,30 @@
         // Only flag "heavy rain" when TWC explicitly says so in the day/night
         // narrative (e.g. "Potential for heavy rainfall."). QPF alone can reach
         // 1"+ from prolonged moderate rain with no heavy-rain signal at all.
-        for (var i = 0; i < n && !s1; i++) {
-            var narr = narrativeText(i);
-            var hasHeavyRainSignal = narr.includes('heavy rain') || narr.includes('heavy rainfall');
-            if (hasHeavyRainSignal) {
-                var amt = totalQpf(i);
-                s1 = 'Potential for heavy rainfall ' + dayLabel(i) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
+        for (var j = 0; j < n * 2 && !s1; j++) {
+            var narr = narrPart(j);
+            if (narr.includes('heavy rain') || narr.includes('heavy rainfall')) {
+                var amt = totalQpf(Math.floor(j / 2));
+                s1 = 'Potential for heavy rainfall ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
             }
         }
 
         // ── Priority 4: Rain / showers (≥40% chance) ────────────────────────
+        // Multi-day cases stay at day level; single-day case pinpoints day vs night.
         if (!s1) {
-            var rainDays = [];
-            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 40) rainDays.push(i); }
-            if (rainDays.length === 1) {
-                s1 = 'Rain possible ' + dayLabel(rainDays[0]) + '.';
-            } else if (rainDays.length === 2) {
-                s1 = 'Rain possible ' + dayLabel(rainDays[0]) + ' and ' + dayLabel(rainDays[1]) + '.';
-            } else if (rainDays.length >= 3) {
-                s1 = 'Unsettled and rainy pattern through ' + dayLabel(rainDays[rainDays.length - 1]) + '.';
+            var rainDaySet = [];
+            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 40) rainDaySet.push(i); }
+            if (rainDaySet.length === 1) {
+                var di = rainDaySet[0];
+                var dayRain   = pcPart(di * 2)     >= 40;
+                var nightRain = pcPart(di * 2 + 1) >= 40;
+                // Use night-specific label only when rain is exclusively at night
+                var rainLbl = (!dayRain && nightRain) ? daypartLabel(di * 2 + 1) : dayLabel(di);
+                s1 = 'Rain possible ' + rainLbl + '.';
+            } else if (rainDaySet.length === 2) {
+                s1 = 'Rain possible ' + dayLabel(rainDaySet[0]) + ' and ' + dayLabel(rainDaySet[1]) + '.';
+            } else if (rainDaySet.length >= 3) {
+                s1 = 'Unsettled and rainy pattern through ' + dayLabel(rainDaySet[rainDaySet.length - 1]) + '.';
             }
         }
 
