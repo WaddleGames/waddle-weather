@@ -4980,39 +4980,51 @@
                 moonGlow.addColorStop(0, 'rgba(220,220,180,' + moonBrightness + ')');
                 moonGlow.addColorStop(1, 'rgba(220,220,180,0)');
                 ctx.fillStyle = moonGlow; ctx.beginPath(); ctx.arc(moonX, moonY, moonR * 3, 0, Math.PI * 2); ctx.fill();
-                // Correct moon phase rendering: half-fill + terminator ellipse
-                // Clip all drawing to the moon disk
+                // Moon phase rendering: single compound path (outer arc + terminator ellipse arc)
+                // so there is no shared edge between two fills and therefore no anti-aliasing seam.
                 ctx.save();
                 ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2); ctx.clip();
                 const _mp = moonPhaseVal;
                 const _isWax = _mp <= 0.5;
-                const _eScale = Math.cos(_mp * Math.PI * 2); // +1 new → 0 quarter → -1 full → 0 → +1
+                const _eScale = Math.cos(_mp * Math.PI * 2); // +1 new, 0 quarter, -1 full, 0, +1
                 const _litCol = '#ddd8c0', _darkCol = 'rgba(10,20,35,0.97)';
                 const _absScale = Math.abs(_eScale);
-                if (_absScale >= 0.99) {
-                    // Near full moon (eScale≈-1) or new moon (eScale≈+1): fill solid to avoid
-                    // the hairline anti-aliasing seam that appears when two semicircles meet.
-                    ctx.fillStyle = _eScale < 0 ? _litCol : _darkCol;
-                    ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-                } else {
-                    // Fill entire moon dark, then paint the lit hemisphere
-                    ctx.fillStyle = _darkCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-                    ctx.fillStyle = _litCol; ctx.beginPath();
-                    if (_isWax) { ctx.arc(moonX, moonY, moonR, -Math.PI / 2,  Math.PI / 2); }
-                    else        { ctx.arc(moonX, moonY, moonR,  Math.PI / 2, 3 * Math.PI / 2); }
-                    ctx.closePath(); ctx.fill();
-                    // Terminator ellipse (squished by |cos(phase×2π)|):
-                    // crescent → dark ellipse on lit side; gibbous → bright ellipse on dark side
-                    if (_absScale > 0.01) {
-                        const _tOnRight = (_isWax === (_eScale > 0));
-                        const _tCol = _eScale > 0 ? _darkCol : _litCol;
-                        ctx.save(); ctx.translate(moonX, moonY); ctx.scale(_absScale, 1);
-                        ctx.fillStyle = _tCol; ctx.beginPath();
-                        if (_tOnRight) { ctx.arc(0, 0, moonR, -Math.PI / 2,  Math.PI / 2); }
-                        else           { ctx.arc(0, 0, moonR,  Math.PI / 2, 3 * Math.PI / 2); }
-                        ctx.closePath(); ctx.fill(); ctx.restore();
+                // Dark base fill for the whole disk
+                ctx.fillStyle = _darkCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+                if (_eScale <= -0.99) {
+                    // Full moon -- solid bright fill, no paths needed
+                    ctx.fillStyle = _litCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+                } else if (_eScale < 0.99) {
+                    // All phases between new and full: single compound path with no shared edge.
+                    // Lit region boundary = outer moon arc (lit side) + terminator ellipse arc back.
+                    //   Waxing: lit = RIGHT. Arc CW top->bottom along right circle edge,
+                    //           then ellipse CCW (crescent) or CW (gibbous) bottom->top.
+                    //   Waning: lit = LEFT.  Arc CCW top->bottom along left circle edge,
+                    //           then ellipse CW (crescent) or CCW (gibbous) bottom->top.
+                    ctx.beginPath();
+                    if (_isWax) {
+                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, false); // right side CW
+                        if (_eScale >= 0) {
+                            // Waxing crescent: terminator on right, trace right ellipse CCW (inner curve)
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                        } else {
+                            // Waxing gibbous: terminator on left, trace left ellipse CW
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                        }
+                    } else {
+                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, true); // left side CCW
+                        if (_eScale >= 0) {
+                            // Waning crescent: terminator on left, trace left ellipse CW (inner curve)
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                        } else {
+                            // Waning gibbous: terminator on right, trace right ellipse CCW
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                        }
                     }
+                    ctx.closePath();
+                    ctx.fillStyle = _litCol; ctx.fill();
                 }
+                // eScale >= 0.99 -> new moon, disk stays dark, nothing more needed
                 ctx.restore(); // remove moon clip
             } else {
                 const nowMs = Date.now(), fifteenMins = 15 * 60 * 1000;
