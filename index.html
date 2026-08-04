@@ -3496,15 +3496,20 @@
             // once, after QC completes. This prevents briefly showing a bad PWS value on screen.
             let temp = curr.temperature;
             window.liveTemp = Math.round(temp);
-            (function(){ var _tv = Math.round(temp); var _te = document.getElementById('tempVal'); _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); })();
+            // _needsObsInit: true only when elements are being built from scratch
+            // (first load / location change sets opacity 0). On auto-refresh they
+            // already show the last authoritative value, so skip PirateWeather writes
+            // here and let fetchNWSChain do the single definitive write, no flash.
+            var _needsObsInit = (function() { var _e = document.getElementById('tempVal'); return !_e || _e.innerText === '--'; })();
+            if (_needsObsInit) { (function(){ var _tv = Math.round(temp); var _te = document.getElementById('tempVal'); _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); })(); }
             liveUV = curr.uvIndex || 0;
             const windSpeed = curr.windSpeed;
             const windDir = curr.windBearing;
             liveWindSpd = Math.round(windSpeed);
-            document.getElementById('windVal').innerText = _isMetric() ? Math.round(liveWindSpd * 1.60934) + ' km/h' : liveWindSpd + ' mph';
-            setWindCompass(liveWindSpd > 0 && windDir !== null ? windDir : null);
+            if (_needsObsInit) { document.getElementById('windVal').innerText = _isMetric() ? Math.round(liveWindSpd * 1.60934) + ' km/h' : liveWindSpd + ' mph'; }
+            if (_needsObsInit) { setWindCompass(liveWindSpd > 0 && windDir !== null ? windDir : null); }
             let humidity = curr.humidity * 100;
-            (function(){ var _hv = Math.round(humidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
+            if (_needsObsInit) { (function(){ var _hv = Math.round(humidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })(); }
             // NWS-standard local feels-like: wind chill ≤50°F, heat index ≥70°F, else actual temp
             (function() {
                 var T = temp, W = liveWindSpd, RH = humidity, fl = T;
@@ -3536,7 +3541,7 @@
                 }
                 liveFeelsLike = fl;
             })();
-            (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
+            if (_needsObsInit) { (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })(); }
             const presIn = (curr.pressure * 0.02953).toFixed(2);
             let trend = '\u27A1\uFE0F';
             if (lastPressureMb !== null && curr.pressure !== null) {
@@ -3657,7 +3662,7 @@
                     });
                 }
             }
-            updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, curr.summary || '', liveUV, (curr.precipProbability ?? 0) * 100);
+            if (_needsObsInit) { updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, curr.summary || '', liveUV, (curr.precipProbability ?? 0) * 100); }
             // Save current conditions to IndexedDB for offline restore
             SkyDB.set(SkyDB.S.weather, 'last_conditions', {
                 ts: Date.now(),
