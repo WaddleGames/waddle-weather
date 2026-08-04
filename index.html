@@ -4479,68 +4479,74 @@
             if (_obsEndpointFailed) {
                 document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
             }
-            // ── PWS quality control — neighbor median comparison ─────────────────────
-            // fetchWUMulti fetched the primary station + up to 2 qcStatus≥0 neighbors.
-            // Compare primary against their median: >5°F or >10% RH → reject.
-            // When no neighbors arrived, fall back to PirateWeather ±15°F as a backstop.
+            // ── PWS quality control — best-fit station selection ────────────────────────
+            // Strategy: score every candidate (primary + neighbors) by |temp − reference|
+            // and pick the best-fitting one, using distance as a tie-breaker only.
+            // This replaces "nearest wins unless extreme outlier" — a nearby station that
+            // reads 9°F closer to consensus now beats the nearest one, not just ones that
+            // are so bad they trigger a hard rejection threshold.
+            //
+            // Reference = neighbor median (computed from neighbors only, so a bad primary
+            // can't bias its own QC). Falls back to PirateWeather when no neighbors exist.
             let _wu = window.wuData;
-            // Filter neighbors: drop any whose temp deviates >20°F from PirateWeather —
-            // a glitching neighbor (e.g. 0°F in summer) would otherwise corrupt the median
-            // and cause a good primary to be falsely rejected.
             const _pwNowPre = window.pirateCurrently;
             const _pwTempPre = (_pwNowPre && _pwNowPre.temperature != null) ? _pwNowPre.temperature : null;
-            const _neighbors = (window.wuNeighborData || []).filter(function(n) {
-                if (!n || n.temp === null) return false;
-                if (_pwTempPre !== null && Math.abs(n.temp - _pwTempPre) > 20) return false;
-                return true;
-            });
-            // Hard validity guard: WU returns humidity as 0-100 integer percent.
-            // Values outside [0, 100] are sensor glitches (e.g. 104%) — null them out
-            // so this station is treated as unavailable regardless of neighbor comparison.
+            const _med = function(a) { var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2; };
+
+            // Hard validity guard: humidity outside [0,100] is a sensor glitch — null it out.
             if (_wu && _wu.humidity !== null && (!isFinite(_wu.humidity) || _wu.humidity < 0 || _wu.humidity > 100)) { _wu.humidity = null; }
             const _wuRawAvail = _wu && _wu.temp !== null && _wu.humidity !== null;
-            // Neighbor medians
+
+            // Station validity: must have temp + humidity, and not a confirmed glitch
+            // (>20°F from PirateWeather baseline). Applied to primary AND neighbors.
+            const _isValidStation = function(s) {
+                if (!s || s.temp === null || s.humidity === null) return false;
+                if (!isFinite(s.humidity) || s.humidity < 0 || s.humidity > 100) return false;
+                if (_pwTempPre !== null && Math.abs(s.temp - _pwTempPre) > 20) return false;
+                return true;
+            };
+            const _neighbors = (window.wuNeighborData || []).filter(_isValidStation);
+
+            // Compute reference from neighbors only (keeps median unbiased by a bad primary).
             let _neighborMedianTemp = null, _neighborMedianHum = null;
             if (_neighbors.length > 0) {
-                const _nT = _neighbors.map(function(n){ return n.temp; }).filter(function(t){ return t !== null; }).sort(function(a,b){ return a-b; });
+                const _nT = _neighbors.map(function(n){ return n.temp; }).sort(function(a,b){ return a-b; });
                 const _nH = _neighbors.map(function(n){ return n.humidity; }).filter(function(h){ return h !== null; }).sort(function(a,b){ return a-b; });
-                const _med = function(a) { var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2; };
-                if (_nT.length) _neighborMedianTemp = _med(_nT);
-                if (_nH.length) _neighborMedianHum  = _med(_nH);
+                _neighborMedianTemp = _med(_nT);
+                if (_nH.length) _neighborMedianHum = _med(_nH);
             }
-            let _wuDevFromNeighbors = false;
-            if (_wuRawAvail && _neighborMedianTemp !== null) {
-                const _tDiff = Math.abs(_wu.temp - _neighborMedianTemp);
-                const _hDiff = (_neighborMedianHum !== null && _wu.humidity !== null) ? Math.abs(_wu.humidity - _neighborMedianHum) : 0;
-                // 8°F / 15% RH threshold — tight enough to catch solar-biased sensors
-                // while allowing normal urban microclimate variation (shading, pavement
-                // heat, lake-breeze gradients) which routinely produces 5-7°F differences
-                // between nearby stations without indicating a bad sensor.
-                _wuDevFromNeighbors = (_tDiff > 8) || (_neighborMedianHum !== null && _hDiff > 15);
-            }
-            // If the primary is a clear outlier (>8°F from consensus), promote the neighbor
-            // closest to the median instead — and update wuData so downstream code and the
-            // "Observed at" label both reflect the station actually being used.
-            if (_wuDevFromNeighbors && _neighbors.length > 0 && _neighborMedianTemp !== null) {
-                let _bestNeighbor = null, _bestDiff = Infinity;
-                for (var _ni = 0; _ni < _neighbors.length; _ni++) {
-                    var _nb = _neighbors[_ni];
-                    if (_nb.temp === null) continue;
-                    var _nd = Math.abs(_nb.temp - _neighborMedianTemp);
-                    if (_nd < _bestDiff) { _bestDiff = _nd; _bestNeighbor = _nb; }
-                }
-                if (_bestNeighbor !== null && _bestDiff <= 8) {
-                    _wu = _bestNeighbor;
-                    window.wuData = _bestNeighbor;
-                    _wuDevFromNeighbors = false;
-                }
-            }
-            // No neighbors → PirateWeather backstop (catches solar bias when alone)
             const _pwNow = window.pirateCurrently;
             const _pwTemp = (_pwNow && _pwNow.temperature != null) ? _pwNow.temperature : null;
-            const _wuDevFromPirate = _wuRawAvail && _neighborMedianTemp === null
-                                     && _pwTemp !== null && Math.abs(_wu.temp - _pwTemp) > 15;
-            const _wuAvail = _wuRawAvail && !_wuDevFromNeighbors && !_wuDevFromPirate;
+            // Reference: prefer neighbor median; fall back to PirateWeather.
+            const _refTemp = _neighborMedianTemp !== null ? _neighborMedianTemp : _pwTemp;
+
+            // Build pool: primary (if valid) + all valid neighbors, each tagged with a
+            // distance rank (0 = primary = nearest, 1-3 = neighbors in distance order).
+            const _pool = [];
+            if (_isValidStation(_wu)) _pool.push({ s: _wu, rank: 0 });
+            _neighbors.forEach(function(n, i) { _pool.push({ s: n, rank: i + 1 }); });
+
+            // Select winner: lowest |temp − reference|; ties broken by distance rank.
+            // When no reference exists (no neighbors AND no PirateWeather), primary wins
+            // by default — we have nothing to QC against.
+            if (_pool.length > 0 && _refTemp !== null) {
+                _pool.sort(function(a, b) {
+                    const da = Math.abs(a.s.temp - _refTemp);
+                    const db = Math.abs(b.s.temp - _refTemp);
+                    // >0.5°F difference is meaningful; otherwise prefer closer station.
+                    return Math.abs(da - db) > 0.5 ? da - db : a.rank - b.rank;
+                });
+                const _winner = _pool[0].s;
+                if (_winner !== _wu) {
+                    _wu = _winner;
+                    window.wuData = _winner;
+                }
+            }
+
+            // Availability: pool non-empty AND (a reference existed OR primary was valid).
+            // If every candidate was filtered as a glitch, pool is empty → fall through to NWS.
+            const _wuDevFromPirate = _wuRawAvail && _pool.length === 0 && _refTemp !== null;
+            const _wuAvail = _pool.length > 0 && _wuRawAvail;
             window.wuDeviates = !_wuAvail;
             // Hide the "Observed at KXXX" label whenever the PWS is rejected —
             // regardless of which fallback branch we end up in below.
