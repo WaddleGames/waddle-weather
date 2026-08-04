@@ -549,8 +549,8 @@
         <!-- Hero: big temperature + condition -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:22px;">
             <div>
-                <div id="tempVal" style="font-size:clamp(3.5rem,5.2rem,84px); font-weight:900; letter-spacing:-2px; line-height:0.9; opacity:0;">--</div>
-                <div style="font-size:0.82em; color:#94a3b8; margin-top:11px;">Feels like <span id="feelsVal" style="opacity:0;">--</span></div>
+                <div id="tempVal" style="font-size:clamp(3.5rem,5.2rem,84px); font-weight:900; letter-spacing:-2px; line-height:0.9;">--</div>
+                <div style="font-size:0.82em; color:#94a3b8; margin-top:11px;">Feels like <span id="feelsVal">--</span></div>
                 <div id="conditionText" style="font-size:0.88em; color:#cbd5e1; margin-top:5px; font-weight:400;">--</div>
             </div>
             <div style="flex-shrink:0; padding-top:4px; text-align:right;">
@@ -564,7 +564,7 @@
                     <div class="detail-label">Wind</div>
                 </div>
                 <div class="di-right">
-                    <div id="windVal" class="detail-val" style="white-space:nowrap; opacity:0;">--</div>
+                    <div id="windVal" class="detail-val" style="white-space:nowrap;">--</div>
                     <svg id="windCompass" width="38" height="38" viewBox="0 0 56 56" style="display:none;flex-shrink:0;overflow:visible;">
                         <circle cx="28" cy="28" r="26" fill="rgba(0,0,0,0.4)" stroke="rgba(79,195,247,0.18)" stroke-width="1.5"/>
                         <line x1="28" y1="4" x2="28" y2="9" stroke="rgba(79,195,247,0.35)" stroke-width="1.2"/>
@@ -588,7 +588,7 @@
                 <div class="di-left">
                     <div class="detail-label">Humidity</div>
                 </div>
-                <div class="di-right"><div id="humVal" class="detail-val" style="opacity:0;">--</div></div>
+                <div class="di-right"><div id="humVal" class="detail-val">--</div></div>
             </div>
             <div class="detail-item">
                 <div class="di-left">
@@ -1657,7 +1657,7 @@
         // Hide observed fields without blanking — values reappear once authoritative data arrives
         (function(){['tempVal','feelsVal','windVal','humVal'].forEach(function(id){
             var el=document.getElementById(id);
-            if(el){el.style.transition='none';el.style.opacity='0';el.innerText='--';el.style.color='';}
+            if(el){el.style.transition='none';el.style.opacity='1';el.innerText='--';el.style.color='';}
         });})();
         setWindCompass(null);
         document.getElementById('weatherIcon').style.display = 'none';
