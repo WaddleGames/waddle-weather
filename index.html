@@ -1501,7 +1501,8 @@
             setTimeout(function() { closeRecaptchaGate(false); }, 650);
         } catch(e) {
             if (btn) { btn.textContent = '\u2713 Confirm I\'m Human'; btn.disabled = false; btn.style.opacity = '1'; }
-            if (statusEl) { statusEl.textContent = 'Verification failed \u2014 please try again.'; statusEl.style.color = 'var(--danger)'; }
+            if (statusEl) statusEl.textContent = '';
+            alert('Could not connect to the reCAPTCHA service. Please check your internet connection and try again.');
         }
     }
 
