@@ -4539,8 +4539,8 @@
                 _pool.sort(function(a, b) {
                     const da = Math.abs(a.s.temp - _refTemp);
                     const db = Math.abs(b.s.temp - _refTemp);
-                    // >0.5°F difference is meaningful; otherwise prefer closer station.
-                    return Math.abs(da - db) > 0.5 ? da - db : a.rank - b.rank;
+                    // >1.5°F difference is meaningful; otherwise prefer closer station.
+                    return Math.abs(da - db) > 1.5 ? da - db : a.rank - b.rank;
                 });
                 const _winner = _pool[0].s;
                 if (_winner !== _wu) {
