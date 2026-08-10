@@ -886,11 +886,11 @@
                      <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts</span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
+                 <div id="custom-sky-alerts-status" style="font-size:0.68em; color:#718496; min-height:1em; margin:-3px 0 10px;"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:0.82em; color:#ccc;">Show reports up to 48h old</span>
                     <label class="ios-toggle"><input type="checkbox" id="show-older-reports" onchange="onShowOlderReportsChange()"><span class="ios-toggle-track"></span></label>
                 </div>
-                 <div id="custom-sky-alerts-status" style="font-size:0.68em; color:#718496; min-height:1em; margin:-3px 0 10px;"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:0.82em; color:#ccc;">Privacy Mode</span>
                     <label class="ios-toggle"><input type="checkbox" id="privacy-mode-cb" onchange="onPrivacyModeChange()"><span class="ios-toggle-track"></span></label>
@@ -2298,7 +2298,7 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────To�───────────
+        // ── Severe / life-threatening ──────────────────────────────────────
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
@@ -6607,7 +6607,12 @@
             const res = await fetch(CUSTOM_SKY_ALERTS_WORKER_URL, {
                 headers: { 'Accept': 'application/geo+json, application/json' }
             });
-            if (!res.ok) throw new Error('Request failed with status ' + res.status);
+            if (!res.ok) {
+                if (res.status === 405) {
+                    throw new Error('The Worker rejected GET requests (HTTP 405)');
+                }
+                throw new Error('Request failed with status ' + res.status);
+            }
             const payload = await res.json();
             const features = getCustomSkyAlertFeatures(payload);
             let renderedCount = 0;
@@ -6646,7 +6651,11 @@
                 renderedCount ? '#00e676' : '#718496'
             );
         } catch (e) {
-            setCustomSkyAlertsStatus('Custom alerts unavailable right now', '#ffb74d');
+            const message = e && e.message ? e.message : '';
+            setCustomSkyAlertsStatus(
+                message || 'Custom alerts unavailable right now',
+                '#ffb74d'
+            );
         }
     }
 
