@@ -6633,7 +6633,7 @@
                 const props = feature.properties || {};
                 const headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
                 const alertType = customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
-                const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'source', 'wfo', 'office'], 'SkyMonitor');
+                const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'discordUsername', 'discord_username', 'uploadedBy', 'uploaded_by', 'uploader', 'publisher', 'author', 'username', 'source', 'wfo', 'office'], 'SkyMonitor');
                 const description = customSkyAlertValue(props, ['description', 'details', 'body'], '');
                 let shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
                 let recommendedAction = customSkyAlertValue(props, ['recommendedAction', 'recommended_action', 'safetyAction', 'safety_action', 'action', 'instruction'], '');
