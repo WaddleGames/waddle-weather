@@ -6587,6 +6587,110 @@
         return fallback || '';
     }
 
+    function formatCustomSkyDiscussionNumber(props) {
+        const raw = customSkyAlertValue(
+            props,
+            ['discussion_number', 'discussionNumber', 'md_number', 'mdNumber'],
+            ''
+        );
+        if (!raw) return '';
+        const numeric = Number(raw);
+        return Number.isFinite(numeric)
+            ? String(numeric)
+            : String(raw).replace(/\.0+$/, '');
+    }
+
+    function isCustomSkyMesoscaleDiscussion(props) {
+        const type = customSkyAlertValue(
+            props,
+            ['severity', 'alertType', 'alert_type', 'event', 'category', 'type'],
+            ''
+        ).toUpperCase();
+        return type === 'MD' ||
+            type.includes('MESOSCALE DISCUSSION') ||
+            Boolean(customSkyAlertValue(
+                props,
+                ['discussion_number', 'discussionNumber', 'concerning'],
+                ''
+            ));
+    }
+
+    function buildCustomSkyMdPopup(props, description) {
+        const concerning = customSkyAlertValue(props, ['concerning'], '');
+        const severePotential = customSkyAlertValue(
+            props,
+            ['severe_potential', 'severePotential'],
+            ''
+        );
+        const watchSituation = customSkyAlertValue(
+            props,
+            ['watch_situation', 'watchSituation'],
+            ''
+        ).toLowerCase();
+        const watchProbability = customSkyAlertValue(
+            props,
+            ['watch_probability', 'watchProbability'],
+            ''
+        );
+        const watchType = customSkyAlertValue(props, ['watch_type', 'watchType'], '');
+        const watchNumber = customSkyAlertValue(
+            props,
+            ['watch_number', 'watchNumber'],
+            ''
+        );
+        const watchValidThrough = customSkyAlertValue(
+            props,
+            ['watch_valid_through', 'watchValidThrough'],
+            ''
+        );
+        const summary = customSkyAlertValue(
+            props,
+            ['summary', 'shortSummary', 'short_summary', 'shortDescription', 'short_description'],
+            ''
+        );
+        const guidance = customSkyAlertValue(
+            props,
+            ['monitoring_guidance', 'monitoringGuidance', 'instructions', 'recommendedAction', 'recommended_action'],
+            ''
+        );
+        const rows = [];
+        const addRow = function(label, value) {
+            if (!value) return;
+            rows.push(
+                '<div style="margin-top:10px;"><b style="font-size:0.9em;">' +
+                escapeHtml(label) +
+                '</b><br><span>' +
+                escapeHtml(value) +
+                '</span></div>'
+            );
+        };
+
+        addRow('Concerning', concerning);
+        addRow('Severe Potential', severePotential);
+        if (watchSituation === 'none') {
+            addRow('Watch Situation', 'No watch is expected');
+        } else if (watchSituation === 'current') {
+            const currentWatch = [watchType, watchNumber ? '#' + watchNumber : '']
+                .filter(Boolean)
+                .join(' ');
+            addRow(
+                'Current Watch',
+                currentWatch + (watchValidThrough ? ' through ' + watchValidThrough : '')
+            );
+        } else if (watchSituation === 'possible' || watchProbability) {
+            addRow(
+                'Watch Possible',
+                watchProbability
+                    ? 'Probability of watch issuance: ' + watchProbability + '%'
+                    : 'Watch issuance is possible'
+            );
+        }
+        addRow('Discussion Summary', summary);
+        addRow('Monitoring Guidance', guidance);
+        if (!rows.length && description) addRow('Discussion', description);
+        return rows.join('');
+    }
+
     function formatCustomSkyAlertTime(value) {
         if (!value) return '';
         const parsed = new Date(value);
@@ -6631,8 +6735,15 @@
                 const feature = toCustomSkyAlertFeature(item);
                 if (!feature || !feature.geometry) return;
                 const props = feature.properties || {};
-                const headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
-                const alertType = customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
+                const isMd = isCustomSkyMesoscaleDiscussion(props);
+                const discussionNumber = formatCustomSkyDiscussionNumber(props);
+                const rawHeadline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
+                const headline = isMd
+                    ? 'Mesoscale Discussion' + (discussionNumber ? ' #' + discussionNumber : '')
+                    : rawHeadline;
+                const alertType = isMd
+                    ? 'MD'
+                    : customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
                 const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'discordUsername', 'discord_username', 'uploadedBy', 'uploaded_by', 'uploader', 'publisher', 'author', 'username', 'source', 'wfo', 'office'], 'SkyMonitor');
                 const description = customSkyAlertValue(props, ['description', 'details', 'body'], '');
                 let shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
@@ -6657,9 +6768,10 @@
                     ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Expiration Time</b><br><span>' + escapeHtml(formatCustomSkyAlertTime(expires)) + '</span></div>'
                     : '';
                 const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</small>' : '';
+                const mdContent = isMd ? buildCustomSkyMdPopup(props, description) : '';
                 const popup = '<b style="color:' + color + ';">' + escapeHtml(headline) + '</b>'
                     + '<br><small>' + escapeHtml(alertType) + ' \u00B7 Issued by ' + escapeHtml(issuer) + '</small>'
-                    + issuedLine + summaryLine + actionLine + dateLine;
+                    + issuedLine + (isMd ? mdContent : summaryLine + actionLine) + dateLine;
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 }).bindPopup(popup);
@@ -7334,7 +7446,7 @@
 
     }
 
-    // ─── AIR QUALITY (Open-Meteo Air Quality API) ────────────────────────────
+    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e;�─
     var _aqiLastFetch = 0; var _aqiLastLat = null; var _aqiLastLon = null;
 
     function _aqiInfo(aqi) {
