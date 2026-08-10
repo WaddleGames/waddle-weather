@@ -2298,7 +2298,7 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────────────────
+        // ── Severe / life-threatening ──────────────────────────To�───────────
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
@@ -6608,10 +6608,7 @@
                 headers: { 'Accept': 'application/geo+json, application/json' }
             });
             if (!res.ok) {
-                if (res.status === 405) {
-                    throw new Error('The Worker rejected GET requests (HTTP 405)');
-                }
-                throw new Error('Request failed with status ' + res.status);
+                throw new Error('Failed to fetch');
             }
             const payload = await res.json();
             const features = getCustomSkyAlertFeatures(payload);
@@ -6651,11 +6648,7 @@
                 renderedCount ? '#00e676' : '#718496'
             );
         } catch (e) {
-            const message = e && e.message ? e.message : '';
-            setCustomSkyAlertsStatus(
-                message || 'Custom alerts unavailable right now',
-                '#ffb74d'
-            );
+            setCustomSkyAlertsStatus('Failed to fetch', '#ffb74d');
         }
     }
 
