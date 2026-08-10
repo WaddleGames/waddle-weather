@@ -6583,6 +6583,12 @@
         return fallback || '';
     }
 
+    function formatCustomSkyAlertTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
+    }
+
     function customSkyAlertColor(props) {
         const value = customSkyAlertValue(props, ['severity', 'level', 'priority', 'alertType', 'event', 'type'], '').toLowerCase();
         if (value.includes('tornado') || value.includes('extreme') || value.includes('critical')) return '#ff1744';
@@ -6621,14 +6627,24 @@
                 const headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
                 const alertType = customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
                 const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'source', 'wfo', 'office'], 'SkyMonitor');
+                const shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
+                const recommendedAction = customSkyAlertValue(props, ['recommendedAction', 'recommended_action', 'safetyAction', 'safety_action', 'action', 'instruction'], '');
                 const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'effective', 'createdAt', 'time'], '');
-                const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expiration', 'ends', 'endTime'], '');
+                const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
-                const dateLine = expires ? '<br><small>Expires: ' + escapeHtml(new Date(expires).toLocaleString()) + '</small>' : '';
-                const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(new Date(issued).toLocaleString()) + '</small>' : '';
+                const summaryLine = shortSummary
+                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Short Summary</b><br><span>' + escapeHtml(shortSummary) + '</span></div>'
+                    : '';
+                const actionLine = recommendedAction
+                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Recommended Action</b><br><span>' + escapeHtml(recommendedAction) + '</span></div>'
+                    : '';
+                const dateLine = expires
+                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Expiration Time</b><br><span>' + escapeHtml(formatCustomSkyAlertTime(expires)) + '</span></div>'
+                    : '';
+                const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</small>' : '';
                 const popup = '<b style="color:' + color + ';">' + escapeHtml(headline) + '</b>'
                     + '<br><small>' + escapeHtml(alertType) + ' \u00B7 Issued by ' + escapeHtml(issuer) + '</small>'
-                    + issuedLine + dateLine;
+                    + issuedLine + summaryLine + actionLine + dateLine;
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 }).bindPopup(popup);
