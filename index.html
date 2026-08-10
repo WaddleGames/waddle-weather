@@ -6515,9 +6515,13 @@
         if (cb) cb.checked = customSkyAlertsVisible;
         localStorage.setItem('report_custom_sky_alerts', customSkyAlertsVisible ? '1' : '0');
         if (customSkyAlertsVisible) {
+            if (customSkyAlertLayer && reportingMap) customSkyAlertLayer.addTo(reportingMap);
             loadCustomSkyAlerts();
         } else {
-            if (customSkyAlertLayer) customSkyAlertLayer.clearLayers();
+            if (customSkyAlertLayer) {
+                customSkyAlertLayer.clearLayers();
+                if (reportingMap) reportingMap.removeLayer(customSkyAlertLayer);
+            }
             setCustomSkyAlertsStatus('');
         }
     }
@@ -6607,6 +6611,9 @@
             return;
         }
         const L_ref = window.L;
+        if (reportingMap && !reportingMap.hasLayer(customSkyAlertLayer)) {
+            customSkyAlertLayer.addTo(reportingMap);
+        }
         setCustomSkyAlertsStatus('Loading custom alerts\u2026', '#718496');
         customSkyAlertLayer.clearLayers();
         try {
@@ -6627,10 +6634,18 @@
                 const headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
                 const alertType = customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
                 const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'source', 'wfo', 'office'], 'SkyMonitor');
-                const shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
-                const recommendedAction = customSkyAlertValue(props, ['recommendedAction', 'recommended_action', 'safetyAction', 'safety_action', 'action', 'instruction'], '');
-                const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'effective', 'createdAt', 'time'], '');
-                const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
+                const description = customSkyAlertValue(props, ['description', 'details', 'body'], '');
+                let shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
+                let recommendedAction = customSkyAlertValue(props, ['recommendedAction', 'recommended_action', 'safetyAction', 'safety_action', 'action', 'instruction'], '');
+                if (description) {
+                    const actionMatch = description.match(/recommended\s+action\s*:\s*([\s\S]*?)(?=\n\s*\n|\n\s*(?:qualifiers?|expiration|expires?)\s*:|$)/i);
+                    if (!recommendedAction && actionMatch) recommendedAction = actionMatch[1].trim();
+                    if (!shortSummary) {
+                        shortSummary = (actionMatch ? description.slice(0, actionMatch.index) : description).trim();
+                    }
+                }
+                const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'issued_at', 'effective', 'createdAt', 'created_at', 'time'], '');
+                const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
                 const summaryLine = shortSummary
                     ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Short Summary</b><br><span>' + escapeHtml(shortSummary) + '</span></div>'
