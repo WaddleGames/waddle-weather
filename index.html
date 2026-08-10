@@ -882,10 +882,15 @@
                     <label class="ios-toggle"><input type="checkbox" id="lsr-toggle-cb" checked onchange="toggleLSR()"><span class="ios-toggle-track"></span></label>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
+                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts</span>
+                     <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
+                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:0.82em; color:#ccc;">Show reports up to 48h old</span>
                     <label class="ios-toggle"><input type="checkbox" id="show-older-reports" onchange="onShowOlderReportsChange()"><span class="ios-toggle-track"></span></label>
                 </div>
+                 <div id="custom-sky-alerts-status" style="font-size:0.68em; color:#718496; min-height:1em; margin:-3px 0 10px;"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-size:0.82em; color:#ccc;">Privacy Mode</span>
                     <label class="ios-toggle"><input type="checkbox" id="privacy-mode-cb" onchange="onPrivacyModeChange()"><span class="ios-toggle-track"></span></label>
@@ -983,7 +988,7 @@
                         'skymonitor_swipe','pref_alert_enabled','pref_alert_type','pref_rain_enabled',
                         'pref_spc_outlook','pref_spc_md','pref_wpc_outlook','pref_wpc_mpd',
                         'report_radar_on','report_alerts_on','report_lsr_on',
-                        'report_show_older','report_privacy_mode'];
+                        'report_show_older','report_privacy_mode','report_custom_sky_alerts'];
             get(S.settings, '__migrated_v1').then(function(done) {
                 if (done) return;
                 keys.forEach(function(k) {
@@ -1004,6 +1009,8 @@
     const TWC_API_KEY = "77211cbbfe6841d6a11cbbfe6811d69a";
     // CloudFlare worker URL for weather reporting (v1.0.4)
     const REPORTS_WORKER_URL = 'https://skymonitor-reports.skymonitor-account.workers.dev';
+    // Cloudflare Worker URL for active custom SkyMonitor alerts
+    const CUSTOM_SKY_ALERTS_WORKER_URL = 'https://skymonitor-api.skymonitor-account.workers.dev/';
 
     let lat = 41.8781, lon = -87.6298;
     var _liveWatchId = null;
@@ -2291,7 +2298,7 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────────────────
+        // ── Severe / life-threatening ──────────────────────────To�───────────
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
@@ -6330,10 +6337,12 @@
     let reportingMap = null;
     let lsrLayer = null;
     let alertPolygonLayer = null;
+    let customSkyAlertLayer = null;
     let userReportLayer = null;
     let reportingRadarLayer = null;
     let radarVisible = localStorage.getItem('report_radar_on') !== '0';
     let alertsVisible = localStorage.getItem('report_alerts_on') !== '0';
+    let customSkyAlertsVisible = localStorage.getItem('report_custom_sky_alerts') === '1';
     let reportLat = null, reportLon = null;
     let reportPinMarker = null;
     let selectedReportType = '';
@@ -6493,6 +6502,154 @@
         else { reportingMap.removeLayer(alertPolygonLayer); }
     }
 
+    function setCustomSkyAlertsStatus(message, color) {
+        const status = document.getElementById('custom-sky-alerts-status');
+        if (!status) return;
+        status.textContent = message || '';
+        status.style.color = color || '#718496';
+    }
+
+    function onCustomSkyAlertsChange() {
+        const cb = document.getElementById('custom-sky-alerts-toggle-cb');
+        customSkyAlertsVisible = cb ? cb.checked : !customSkyAlertsVisible;
+        if (cb) cb.checked = customSkyAlertsVisible;
+        localStorage.setItem('report_custom_sky_alerts', customSkyAlertsVisible ? '1' : '0');
+        if (customSkyAlertsVisible) {
+            loadCustomSkyAlerts();
+        } else {
+            if (customSkyAlertLayer) customSkyAlertLayer.clearLayers();
+            setCustomSkyAlertsStatus('');
+        }
+    }
+
+    function getCustomSkyAlertFeatures(payload) {
+        if (!payload) return [];
+        if (payload.type === 'FeatureCollection') return Array.isArray(payload.features) ? payload.features : [];
+        if (payload.type === 'Feature') return [payload];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.features)) return payload.features;
+        if (Array.isArray(payload.alerts)) return payload.alerts;
+        if (Array.isArray(payload.data)) return payload.data;
+        if (payload.alert && typeof payload.alert === 'object') return [payload.alert];
+        return [];
+    }
+
+    function toCustomSkyAlertFeature(item) {
+        if (!item || typeof item !== 'object') return null;
+        if (item.type === 'Feature' && item.geometry) return item;
+
+        const properties = (item.properties && typeof item.properties === 'object')
+            ? item.properties
+            : item;
+        let geometry = item.geometry || item.geojson?.geometry || item.geoJSON?.geometry || item.polygon || item.geometryData;
+        if (typeof geometry === 'string') {
+            try { geometry = JSON.parse(geometry); } catch (e) { geometry = null; }
+        }
+        if (geometry && geometry.type === 'Feature') geometry = geometry.geometry;
+        if (geometry && geometry.type && Array.isArray(geometry.coordinates)) {
+            return { type: 'Feature', properties: properties, geometry: geometry };
+        }
+
+        let coordinates = geometry && Array.isArray(geometry.coordinates) ? geometry.coordinates : geometry;
+        if (!coordinates && Array.isArray(item.coordinates)) coordinates = item.coordinates;
+        if (typeof coordinates === 'string') {
+            try { coordinates = JSON.parse(coordinates); } catch (e) { coordinates = null; }
+        }
+        if (!Array.isArray(coordinates) || !coordinates.length) return null;
+
+        // Accept a GeoJSON ring, Polygon coordinates, or MultiPolygon coordinates.
+        let geometryType = 'Polygon';
+        if (Array.isArray(coordinates[0]) && Array.isArray(coordinates[0][0]) && Array.isArray(coordinates[0][0][0])) {
+            geometryType = 'MultiPolygon';
+        } else if (Array.isArray(coordinates[0]) && Array.isArray(coordinates[0][0])) {
+            geometryType = 'Polygon';
+        } else if (Array.isArray(coordinates[0]) && coordinates[0].length >= 2 && !Array.isArray(coordinates[0][0])) {
+            coordinates = [coordinates];
+        } else {
+            return null;
+        }
+        return {
+            type: 'Feature',
+            properties: properties,
+            geometry: { type: geometryType, coordinates: coordinates }
+        };
+    }
+
+    function customSkyAlertValue(props, keys, fallback) {
+        for (let i = 0; i < keys.length; i++) {
+            const value = props && props[keys[i]];
+            if (value != null && String(value).trim() !== '') return String(value);
+        }
+        return fallback || '';
+    }
+
+    function customSkyAlertColor(props) {
+        const value = customSkyAlertValue(props, ['severity', 'level', 'priority', 'alertType', 'event', 'type'], '').toLowerCase();
+        if (value.includes('tornado') || value.includes('extreme') || value.includes('critical')) return '#ff1744';
+        if (value.includes('severe') || value.includes('warning') || value.includes('high')) return '#ff9100';
+        if (value.includes('flood') || value.includes('rain')) return '#00c853';
+        if (value.includes('winter') || value.includes('snow') || value.includes('ice')) return '#81d4fa';
+        if (value.includes('wind')) return '#ffd54f';
+        return '#ce93d8';
+    }
+
+    async function loadCustomSkyAlerts() {
+        if (!customSkyAlertLayer || !window.L) return;
+        if (!customSkyAlertsVisible) {
+            customSkyAlertLayer.clearLayers();
+            setCustomSkyAlertsStatus('');
+            return;
+        }
+        const L_ref = window.L;
+        setCustomSkyAlertsStatus('Loading custom alerts\u2026', '#718496');
+        customSkyAlertLayer.clearLayers();
+        try {
+            const res = await fetch(CUSTOM_SKY_ALERTS_WORKER_URL, {
+                headers: { 'Accept': 'application/geo+json, application/json' }
+            });
+            if (!res.ok) throw new Error('Request failed with status ' + res.status);
+            const payload = await res.json();
+            const features = getCustomSkyAlertFeatures(payload);
+            let renderedCount = 0;
+
+            features.forEach(function(item) {
+                const feature = toCustomSkyAlertFeature(item);
+                if (!feature || !feature.geometry) return;
+                const props = feature.properties || {};
+                const headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], 'SkyMonitor alert');
+                const alertType = customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
+                const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'source', 'wfo', 'office'], 'SkyMonitor');
+                const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'effective', 'createdAt', 'time'], '');
+                const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expiration', 'ends', 'endTime'], '');
+                const color = customSkyAlertColor(props);
+                const dateLine = expires ? '<br><small>Expires: ' + escapeHtml(new Date(expires).toLocaleString()) + '</small>' : '';
+                const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(new Date(issued).toLocaleString()) + '</small>' : '';
+                const popup = '<b style="color:' + color + ';">' + escapeHtml(headline) + '</b>'
+                    + '<br><small>' + escapeHtml(alertType) + ' \u00B7 Issued by ' + escapeHtml(issuer) + '</small>'
+                    + issuedLine + dateLine;
+                const polygon = L_ref.geoJSON(feature, {
+                    style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
+                }).bindPopup(popup);
+                polygon.on('click', function(e) {
+                    L_ref.DomEvent.stopPropagation(e);
+                    polygon.openPopup(e.latlng);
+                });
+                polygon.on('dblclick', function(e) {
+                    L_ref.DomEvent.stop(e);
+                    setReportPin(parseFloat(e.latlng.lat.toFixed(5)), parseFloat(e.latlng.lng.toFixed(5)));
+                });
+                polygon.addTo(customSkyAlertLayer);
+                renderedCount++;
+            });
+            setCustomSkyAlertsStatus(
+                renderedCount ? renderedCount + ' active custom alert' + (renderedCount === 1 ? '' : 's') : 'No active custom alerts',
+                renderedCount ? '#00e676' : '#718496'
+            );
+        } catch (e) {
+            setCustomSkyAlertsStatus('Custom alerts unavailable right now', '#ffb74d');
+        }
+    }
+
     function updatePinCoordsDisplay() {
         const el = document.getElementById('report-pin-coords');
         if (!el) return;
@@ -6639,6 +6796,7 @@
         }).addTo(reportingMap);
 
         alertPolygonLayer = L_ref.layerGroup().addTo(reportingMap);
+        customSkyAlertLayer = L_ref.layerGroup();
         lsrLayer = L_ref.layerGroup().addTo(reportingMap);
 
         // Restore saved toggle state — sync iOS toggle checkboxes
@@ -6651,6 +6809,11 @@
             reportingMap.removeLayer(alertPolygonLayer);
             const cb = document.getElementById('alerts-toggle-cb');
             if (cb) cb.checked = false;
+        }
+        const _customSkyAlertsCb = document.getElementById('custom-sky-alerts-toggle-cb');
+        if (_customSkyAlertsCb) _customSkyAlertsCb.checked = customSkyAlertsVisible;
+        if (customSkyAlertsVisible) {
+            customSkyAlertLayer.addTo(reportingMap);
         }
         if (!lsrVisible) {
             reportingMap.removeLayer(lsrLayer);
@@ -6755,6 +6918,9 @@
                 });
             }
         } catch(e) {}
+
+        // Active custom SkyMonitor alert polygons from the Cloudflare Worker
+        await loadCustomSkyAlerts();
 
         await loadMapReports();
     }
