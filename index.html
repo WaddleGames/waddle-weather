@@ -6699,7 +6699,7 @@
             minWidth: 190,
             closeButton: true,
             autoPan: true,
-            keepInView: true,
+            keepInView: false,
             autoPanPadding: [48, 42],
             autoPanPaddingTopLeft: [54, 54],
             autoPanPaddingBottomRight: [14, 42]
@@ -7439,8 +7439,7 @@
                             ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
                             ['Source', props.source || ''],
                             ['Remark', props.remark || '(No remark)'],
-                            ['Magnitude', [props.magnitude, props.magf, props.unit].filter(Boolean).join(' ')],
-                            ['Product', props.product_id || '']
+                            ['Magnitude', [props.magnitude, props.magf, props.unit].filter(Boolean).join(' ')]
                         ])
                     });
                 });
