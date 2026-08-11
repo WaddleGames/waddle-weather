@@ -291,6 +291,15 @@
             max-width: calc(100vw - 76px);
             margin: 0;
         }
+        @media(max-width: 767px) {
+            #reporting-map .leaflet-popup-content {
+                width: var(--reporting-popup-width, calc(100vw - 92px)) !important;
+                max-width: var(--reporting-popup-width, calc(100vw - 92px));
+            }
+            #reporting-map .leaflet-popup-content-wrapper {
+                max-width: var(--reporting-popup-width, calc(100vw - 92px));
+            }
+        }
         #reporting-map .leaflet-popup-close-button {
             color: #fff !important; font-size: 20px !important; font-weight: 800;
             padding: 7px 9px 0 0 !important; z-index: 3;
@@ -6693,10 +6702,18 @@
             return reportingPopupEntryIsNear(entry, latlng, sourceEntry);
         });
         if (!nearby.length) nearby.push(sourceEntry);
+        const isMobileReportingMap = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+        const mapWidth = reportingMap.getSize ? reportingMap.getSize().x : 0;
+        const mobilePopupWidth = isMobileReportingMap && mapWidth
+            ? Math.max(0, Math.floor(mapWidth - 24))
+            : null;
+        if (mobilePopupWidth) {
+            reportingMap.getContainer().style.setProperty('--reporting-popup-width', mobilePopupWidth + 'px');
+        }
         const popup = window.L.popup({
             className: 'reporting-map-popup',
-            maxWidth: 340,
-            minWidth: 190,
+            maxWidth: mobilePopupWidth || 340,
+            minWidth: mobilePopupWidth || 190,
             closeButton: true,
             autoPan: true,
             keepInView: false,
@@ -7423,8 +7440,22 @@
                     const emoji = matchKey ? LSR_ICONS[matchKey] : '\uD83D\uDCCC';
                     const dotColor = matchKey ? LSR_COLORS[matchKey] : '#90a4ae';
                     const validStr = formatReportTime(props.valid);
-                    const magf = props.magf && isNaN(Number(props.magf)) ? ' ' + props.magf : '';
-                    const mag = props.magnitude ? ' \u2014 ' + props.magnitude + magf : '';
+                    const magnitudeValue = props.magnitude == null ? '' : String(props.magnitude).trim();
+                    const magfValue = props.magf == null ? '' : String(props.magf).trim();
+                    const unitValue = props.unit == null ? '' : String(props.unit).trim();
+                    const magnitudeParts = [];
+                    if (magnitudeValue) magnitudeParts.push(magnitudeValue);
+                    if (magfValue && !(magnitudeValue && (
+                        magfValue === magnitudeValue ||
+                        magfValue.indexOf(magnitudeValue + ' ') === 0
+                    ))) {
+                        magnitudeParts.push(magfValue);
+                    }
+                    const magnitudeText = magnitudeParts.join(' ');
+                    const magnitudeWithUnit = unitValue && magnitudeText.toLowerCase().indexOf(unitValue.toLowerCase()) === -1
+                        ? magnitudeText + ' ' + unitValue
+                        : magnitudeText;
+                    const mag = magnitudeWithUnit ? ' \u2014 ' + magnitudeWithUnit : '';
                     const marker = L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
                         .addTo(lsrLayer);
                     registerReportingPopup(marker, {
@@ -7439,7 +7470,7 @@
                             ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
                             ['Source', props.source || ''],
                             ['Remark', props.remark || '(No remark)'],
-                            ['Magnitude', [props.magnitude, props.magf, props.unit].filter(Boolean).join(' ')]
+                            ['Magnitude', magnitudeWithUnit]
                         ])
                     });
                 });
