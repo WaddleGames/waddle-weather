@@ -297,39 +297,44 @@
         }
         .reporting-popup-shell { width: 100%; box-sizing: border-box; }
         .reporting-popup-header {
-            padding: 10px 34px 8px 12px; font-size: 0.72em; color: #c7d5e8;
+            padding: 7px 34px 6px 10px; font-size: 0.7em; color: #c7d5e8;
             border-bottom: 1px solid rgba(255,255,255,0.16); font-weight: 700;
         }
         .reporting-popup-scroll {
-            max-height: 270px; overflow-y: auto; overflow-x: hidden;
+            max-height: 258px; overflow-y: auto; overflow-x: hidden;
             -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-            padding: 8px;
+            padding: 6px;
         }
         .reporting-popup-card {
             border-left: 3px solid #4fc3f7; background: rgba(255,255,255,0.075);
-            border-radius: 4px; margin: 0 0 7px; overflow: hidden;
+            border-radius: 4px; margin: 0 0 5px; overflow: hidden;
         }
         .reporting-popup-card:last-child { margin-bottom: 0; }
         .reporting-popup-card-head {
-            padding: 8px 9px; cursor: pointer; user-select: none;
-            font-size: 0.76em; line-height: 1.35; font-weight: 800;
+            padding: 6px 8px; cursor: pointer; user-select: none;
+            font-size: 0.74em; line-height: 1.22; font-weight: 800;
         }
         .reporting-popup-card-head:hover { background: rgba(255,255,255,0.06); }
         .reporting-popup-card-title { display: block; padding-right: 18px; }
         .reporting-popup-card-meta {
-            display: block; margin-top: 3px; color: #d4deec; font-weight: 600;
+            display: block; margin-top: 2px; color: #d4deec; font-weight: 600;
             font-size: 0.92em;
         }
         .reporting-popup-card-chevron {
             float: right; color: #fff; font-size: 1.15em; line-height: 1;
         }
         .reporting-popup-card-detail {
-            display: none; padding: 0 9px 10px; font-size: 0.76em;
-            line-height: 1.42; color: #f1f4f8; white-space: normal;
+            display: none; padding: 0 8px 7px; font-size: 0.72em;
+            line-height: 1.22; color: #f1f4f8; white-space: normal;
         }
         .reporting-popup-card.is-open .reporting-popup-card-detail { display: block; }
         .reporting-popup-card-detail b { color: #fff; }
-        .reporting-popup-card-detail p { margin: 7px 0 0; }
+        .reporting-popup-card-detail p {
+            display: grid; grid-template-columns: minmax(64px, 30%) minmax(0, 1fr);
+            column-gap: 6px; align-items: start; margin: 3px 0 0;
+        }
+        .reporting-popup-card-detail p b { overflow-wrap: anywhere; }
+        .reporting-popup-card-detail p .reporting-popup-pre { min-width: 0; }
         .reporting-popup-card-detail .reporting-popup-pre {
             white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
         }
@@ -6549,6 +6554,7 @@
     }
 
     function reportingPopupEntryIsNear(entry, latlng, sourceEntry) {
+        if (!reportingPopupSourceIsVisible(entry.source)) return false;
         if (entry === sourceEntry) return true;
         if (!reportingMap || !entry.layer) return false;
         try {
@@ -6564,6 +6570,24 @@
             }
         } catch (e) {}
         return false;
+    }
+
+    function reportingPopupSourceIsVisible(source) {
+        if (!reportingMap) return false;
+        if (source === 'nws') {
+            const cb = document.getElementById('alerts-toggle-cb');
+            return !!alertPolygonLayer && (cb ? cb.checked : alertsVisible) && reportingMap.hasLayer(alertPolygonLayer);
+        }
+        if (source === 'iem-lsr') {
+            const cb = document.getElementById('lsr-toggle-cb');
+            return !!lsrLayer && (cb ? cb.checked : lsrVisible) && reportingMap.hasLayer(lsrLayer);
+        }
+        if (source === 'custom-skymonitor') {
+            const cb = document.getElementById('custom-sky-alerts-toggle-cb');
+            return !!customSkyAlertLayer && (cb ? cb.checked : customSkyAlertsVisible) && reportingMap.hasLayer(customSkyAlertLayer);
+        }
+        if (source === 'skymonitor-reports') return !!userReportLayer && reportingMap.hasLayer(userReportLayer);
+        return true;
     }
 
     function reportingPopupEntryIdFor(entry) {
@@ -6622,7 +6646,9 @@
             closeButton: true,
             autoPan: true,
             keepInView: true,
-            autoPanPadding: [12, 12]
+            autoPanPadding: [48, 42],
+            autoPanPaddingTopLeft: [54, 54],
+            autoPanPaddingBottomRight: [14, 42]
         }).setLatLng(latlng).setContent(buildReportingPopup(nearby));
         popup.openOn(reportingMap);
         nearby.forEach(function(entry) {
@@ -6646,7 +6672,7 @@
 
     function reportingPopupDetailRows(rows) {
         return rows.filter(function(row) { return row && row[1]; }).map(function(row) {
-            return '<p><b>' + escapeHtml(row[0]) + '</b><br><span class="reporting-popup-pre">'
+            return '<p><b>' + escapeHtml(row[0]) + '</b><span class="reporting-popup-pre">'
                 + escapeHtml(row[1]) + '</span></p>';
         }).join('');
     }
