@@ -6558,8 +6558,12 @@
         if (entry === sourceEntry) return true;
         if (!reportingMap || !entry.layer) return false;
         try {
-            if (entry.isPolygon && entry.layer.getBounds) {
-                return entry.layer.getBounds().contains(latlng);
+            // Never pull an alert polygon into a popup opened by a point report.
+            // Conversely, a polygon click only groups polygons whose actual
+            // geometry contains the clicked coordinate (not just its bounds).
+            if (!!entry.isPolygon !== !!sourceEntry.isPolygon) return false;
+            if (entry.isPolygon) {
+                return reportingPolygonContainsLatLng(entry.layer, latlng);
             }
             if (entry.layer.getLatLng) {
                 const markerPoint = reportingMap.latLngToContainerPoint(entry.layer.getLatLng());
@@ -6570,6 +6574,56 @@
             }
         } catch (e) {}
         return false;
+    }
+
+    function reportingLatLngInRing(point, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i].lng, yi = ring[i].lat;
+            const xj = ring[j].lng, yj = ring[j].lat;
+            const intersects = ((yi > point.lat) !== (yj > point.lat))
+                && (point.lng < (xj - xi) * (point.lat - yi) / ((yj - yi) || 1e-12) + xi);
+            if (intersects) inside = !inside;
+        }
+        return inside;
+    }
+
+    function reportingLatLngInRingSet(point, rings) {
+        if (!rings || !rings.length || !reportingLatLngInRing(point, rings[0])) return false;
+        // GeoJSON polygon ring 0 is the exterior; remaining rings are holes.
+        for (let i = 1; i < rings.length; i++) {
+            if (reportingLatLngInRing(point, rings[i])) return false;
+        }
+        return true;
+    }
+
+    function reportingPolygonLatLngsContain(point, latlngs) {
+        if (!Array.isArray(latlngs) || !latlngs.length) return false;
+        if (latlngs[0] && typeof latlngs[0].lat === 'number') {
+            return reportingLatLngInRing(point, latlngs);
+        }
+        if (latlngs[0] && latlngs[0][0] && typeof latlngs[0][0].lat === 'number') {
+            return reportingLatLngInRingSet(point, latlngs);
+        }
+        return latlngs.some(function(part) {
+            return reportingPolygonLatLngsContain(point, part);
+        });
+    }
+
+    function reportingPolygonContainsLatLng(layer, latlng) {
+        let contains = false;
+        if (!layer || !latlng) return false;
+        if (layer.getLatLngs && reportingPolygonLatLngsContain(latlng, layer.getLatLngs())) {
+            return true;
+        }
+        if (layer.eachLayer) {
+            layer.eachLayer(function(child) {
+                if (!contains && child !== layer) {
+                    contains = reportingPolygonContainsLatLng(child, latlng);
+                }
+            });
+        }
+        return contains;
     }
 
     function reportingPopupSourceIsVisible(source) {
