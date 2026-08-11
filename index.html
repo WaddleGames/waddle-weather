@@ -5138,9 +5138,9 @@
         if (flags.highSurfAdvisory) return 'A High Surf Advisory is in effect. Surf conditions are rough and may be hazardous, especially for inexperienced swimmers. Exercise caution near the water.';
         if (flags.coastalFloodWarning) return 'A Coastal Flood Warning is in effect. Ocean or bay water is inundating coastal areas. Stay away from the shoreline, move vehicles and valuables to higher ground, and follow all local evacuation orders.';
         if (flags.coastalFloodAdvisory) return 'A Coastal Flood Advisory is in effect. Minor flooding of low-lying coastal areas is expected at high tide. Avoid vulnerable shoreline areas and secure waterfront property.';
+        if (flags.lakeshoreFloodWarning) return 'A Lakeshore Flood Warning is active for the area. Powerful wave action and rising lake levels are flooding low-lying coastal areas and causing significant beach erosion. Avoid the shoreline, piers, and breakwalls. Never drive or walk through flooded coastal roads—turn around, don\'t drown.';
         if (flags.floodWarning && flags.heavyRain) return 'A Flood Warning is in effect and heavy rain is falling. Rivers or streams are rising to flood stage — stay away from waterways and do not attempt to cross flooded roads.';
-        if (flags.floodWarning) return 'A Flood Warning is in effect. Rivers or streams are at or approaching flood stage. ear waterways and do not drive through flooded roads — turn around, don\'t drown.';
-        if (flags.lakeshorefloodWarning) return 'A Lakeshore Flood Warning is active for the area. Powerful wave action and rising lake levels are flooding low-lying coastal areas and causing significant beach erosion. Avoid the shoreline, piers, and breakwalls. Never drive or walk through flooded coastal roads—turn around, don\'t drown.';
+        if (flags.floodWarning) return 'A Flood Warning is in effect. Rivers or streams are at or approaching flood stage. Stay away from waterways and do not drive through flooded roads — turn around, don\'t drown.';
         if (flags.floodAdvisory) return 'A Flood Advisory is in effect. Minor flooding is occurring or possible in low-lying and flood-prone areas. Motorists should avoid flooded roadways.';
         if (hazardCats.flood && flags.heavyRain) return 'Active flooding combined with heavy rainfall creates an extremely dangerous situation. Avoid all low-lying areas and roadways.';
         if (hazardCats.flood && (tier === 'DANGEROUS' || tier === 'CRITICAL')) return 'Flash flooding is developing or imminent. Avoid flooded roads and low-lying areas — turn around, don\'t drown.';
@@ -5232,9 +5232,9 @@
             ['flash flood watch',           3, 'Flash Flood Watch',       '#4fc3f7', 'flood'],
             ['flash flood statement',       1, 'Flash Flood Statement',   '#4fc3f7', 'flood'],
             // General flood
-            ['flood warning',               2, 'Flood Warning',           '#4fc3f7', 'flood'],
             ['coastal flood warning',       2, 'Coastal Flood Warning',   '#4fc3f7', 'flood'],
             ['lakeshore flood warning',     2, 'Lakeshore Flood Warning', '#4fc3f7', 'flood'],
+            ['flood warning',               2, 'Flood Warning',            '#4fc3f7', 'flood'],
             ['flood watch',                 1, 'Flood Watch',             '#4fc3f7', 'flood'],
             ['coastal flood watch',         1, 'Coastal Flood Watch',     '#4fc3f7', 'flood'],
             // Coastal / marine surf hazards
@@ -5496,7 +5496,8 @@
             highSurfAdvisory:     _activeNow('high surf advisory') && !_activeNow('high surf warning'),
             coastalFloodWarning:  _activeNow('coastal flood warning'),
             coastalFloodAdvisory: _activeNow('coastal flood advisory') && !_activeNow('coastal flood warning'),
-            floodWarning:         _activeNow('flood warning') && !_activeNow('flash flood warning') && !_activeNow('coastal flood warning'),
+            lakeshoreFloodWarning: _activeNow('lakeshore flood warning'),
+            floodWarning:         _activeNow('flood warning') && !_activeNow('flash flood warning') && !_activeNow('coastal flood warning') && !_activeNow('lakeshore flood warning'),
             floodAdvisory:        _activeNow('flood advisory') && !_activeNow('flood warning') && !_activeNow('flash flood warning'),
             // Other
             dustStormWarning:   _activeNow('dust storm warning'),
