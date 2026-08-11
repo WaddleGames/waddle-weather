@@ -276,6 +276,67 @@
         /* v1.0.4: Reporting map */
         #reporting-map { height: 350px; border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
         #reporting-map .leaflet-control-attribution { font-size: 9px !important; line-height: 1.2 !important; }
+        /* Reporting popups stay inside the map on mobile and keep long alert text usable. */
+        #reporting-map .leaflet-popup-content-wrapper,
+        #reporting-map .leaflet-popup-tip {
+            background: #14294b; color: #f4f7fb;
+        }
+        #reporting-map .leaflet-popup-content-wrapper {
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+        }
+        #reporting-map .leaflet-popup-content {
+            width: min(310px, calc(100vw - 76px)) !important;
+            max-width: calc(100vw - 76px);
+            margin: 0;
+        }
+        #reporting-map .leaflet-popup-close-button {
+            color: #fff !important; font-size: 20px !important; font-weight: 800;
+            padding: 7px 9px 0 0 !important; z-index: 3;
+        }
+        .reporting-popup-shell { width: 100%; box-sizing: border-box; }
+        .reporting-popup-header {
+            padding: 10px 34px 8px 12px; font-size: 0.72em; color: #c7d5e8;
+            border-bottom: 1px solid rgba(255,255,255,0.16); font-weight: 700;
+        }
+        .reporting-popup-scroll {
+            max-height: 270px; overflow-y: auto; overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+            padding: 8px;
+        }
+        .reporting-popup-card {
+            border-left: 3px solid #4fc3f7; background: rgba(255,255,255,0.075);
+            border-radius: 4px; margin: 0 0 7px; overflow: hidden;
+        }
+        .reporting-popup-card:last-child { margin-bottom: 0; }
+        .reporting-popup-card-head {
+            padding: 8px 9px; cursor: pointer; user-select: none;
+            font-size: 0.76em; line-height: 1.35; font-weight: 800;
+        }
+        .reporting-popup-card-head:hover { background: rgba(255,255,255,0.06); }
+        .reporting-popup-card-title { display: block; padding-right: 18px; }
+        .reporting-popup-card-meta {
+            display: block; margin-top: 3px; color: #d4deec; font-weight: 600;
+            font-size: 0.92em;
+        }
+        .reporting-popup-card-chevron {
+            float: right; color: #fff; font-size: 1.15em; line-height: 1;
+        }
+        .reporting-popup-card-detail {
+            display: none; padding: 0 9px 10px; font-size: 0.76em;
+            line-height: 1.42; color: #f1f4f8; white-space: normal;
+        }
+        .reporting-popup-card.is-open .reporting-popup-card-detail { display: block; }
+        .reporting-popup-card-detail b { color: #fff; }
+        .reporting-popup-card-detail p { margin: 7px 0 0; }
+        .reporting-popup-card-detail .reporting-popup-pre {
+            white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+        }
+        .reporting-popup-footer {
+            padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.16);
+            color: #d4deec; font-size: 0.68em; font-weight: 600;
+        }
         .report-form-input {
             background: #0b1e2d; color: #fff; border: 1px solid #334;
             padding: 8px 12px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 0.9em;
@@ -886,7 +947,7 @@
                      <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts</span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
-                 <div id="custom-sky-alerts-status" style="font-size:0.68em; color:#718496; min-height:1em; margin:-3px 0 10px;"></div>
+                  <div id="custom-sky-alerts-status" style="display:none; font-size:0.68em; color:#718496; margin:-3px 0 10px;"></div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:0.82em; color:#ccc;">Show reports up to 48h old</span>
                     <label class="ios-toggle"><input type="checkbox" id="show-older-reports" onchange="onShowOlderReportsChange()"><span class="ios-toggle-track"></span></label>
@@ -6474,6 +6535,162 @@
         return reportDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
     }
 
+    // Reporting-map popups use one shared, bounded popup. This keeps long
+    // alert text scrollable on phones and lets overlapping map items be opened
+    // independently instead of creating a separate full-size Leaflet popup
+    // for every layer.
+    let reportingPopupEntries = [];
+    let reportingPopupEntryId = 0;
+
+    function removeReportingPopupEntries(source) {
+        reportingPopupEntries = source
+            ? reportingPopupEntries.filter(function(entry) { return entry.source !== source; })
+            : [];
+    }
+
+    function reportingPopupEntryIsNear(entry, latlng, sourceEntry) {
+        if (entry === sourceEntry) return true;
+        if (!reportingMap || !entry.layer) return false;
+        try {
+            if (entry.isPolygon && entry.layer.getBounds) {
+                return entry.layer.getBounds().contains(latlng);
+            }
+            if (entry.layer.getLatLng) {
+                const markerPoint = reportingMap.latLngToContainerPoint(entry.layer.getLatLng());
+                const clickPoint = reportingMap.latLngToContainerPoint(latlng);
+                const dx = markerPoint.x - clickPoint.x;
+                const dy = markerPoint.y - clickPoint.y;
+                return Math.sqrt(dx * dx + dy * dy) <= 30;
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function reportingPopupEntryIdFor(entry) {
+        if (!entry._popupId) entry._popupId = 'reporting-popup-' + (++reportingPopupEntryId);
+        return entry._popupId;
+    }
+
+    function buildReportingPopupCard(entry, index) {
+        const id = reportingPopupEntryIdFor(entry);
+        const color = entry.color || '#4fc3f7';
+        return '<div class="reporting-popup-card" id="' + id + '" style="border-left-color:' + color + ';">'
+            + '<div class="reporting-popup-card-head" onclick="toggleReportingPopupCard(\'' + id + '\')">'
+            + '<span class="reporting-popup-card-chevron" id="' + id + '-chevron">&#8250;</span>'
+            + '<span class="reporting-popup-card-title">' + (entry.title || 'Report') + '</span>'
+            + '<span class="reporting-popup-card-meta">' + (entry.meta || '') + '</span>'
+            + '</div>'
+            + '<div class="reporting-popup-card-detail" id="' + id + '-detail">'
+            + (entry.detail || '<span style="opacity:0.7;">Loading details\u2026</span>')
+            + '</div></div>';
+    }
+
+    function buildReportingPopup(entries) {
+        const count = entries.length;
+        return '<div class="reporting-popup-shell">'
+            + '<div class="reporting-popup-header">' + count + ' alert' + (count === 1 ? '' : 's') + ' at this location</div>'
+            + '<div class="reporting-popup-scroll">' + entries.map(buildReportingPopupCard).join('') + '</div>'
+            + '<div class="reporting-popup-footer">Tap an item to read the full details</div>'
+            + '</div>';
+    }
+
+    function toggleReportingPopupCard(id) {
+        const card = document.getElementById(id);
+        const chevron = document.getElementById(id + '-chevron');
+        if (!card) return;
+        const open = card.classList.toggle('is-open');
+        if (chevron) chevron.innerHTML = open ? '&#8964;' : '&#8250;';
+    }
+    window.toggleReportingPopupCard = toggleReportingPopupCard;
+
+    function updateReportingPopupEntry(entry, detail) {
+        entry.detail = detail;
+        const detailEl = document.getElementById(reportingPopupEntryIdFor(entry) + '-detail');
+        if (detailEl) detailEl.innerHTML = detail;
+    }
+
+    function openReportingPopup(sourceEntry, latlng) {
+        if (!reportingMap || !window.L) return;
+        const nearby = reportingPopupEntries.filter(function(entry) {
+            return reportingPopupEntryIsNear(entry, latlng, sourceEntry);
+        });
+        if (!nearby.length) nearby.push(sourceEntry);
+        const popup = window.L.popup({
+            className: 'reporting-map-popup',
+            maxWidth: 340,
+            minWidth: 190,
+            closeButton: true,
+            autoPan: true,
+            keepInView: true,
+            autoPanPadding: [12, 12]
+        }).setLatLng(latlng).setContent(buildReportingPopup(nearby));
+        popup.openOn(reportingMap);
+        nearby.forEach(function(entry) {
+            if (typeof entry.loadDetails === 'function' && !entry._detailsLoaded) {
+                entry._detailsLoaded = true;
+                entry.loadDetails(latlng).then(function(detail) {
+                    if (detail) updateReportingPopupEntry(entry, detail);
+                }).catch(function() {});
+            }
+        });
+    }
+
+    function registerReportingPopup(layer, entry) {
+        entry.layer = layer;
+        reportingPopupEntries.push(entry);
+        layer.on('click', function(e) {
+            if (window.L && window.L.DomEvent) window.L.DomEvent.stopPropagation(e);
+            openReportingPopup(entry, e.latlng);
+        });
+    }
+
+    function reportingPopupDetailRows(rows) {
+        return rows.filter(function(row) { return row && row[1]; }).map(function(row) {
+            return '<p><b>' + escapeHtml(row[0]) + '</b><br><span class="reporting-popup-pre">'
+                + escapeHtml(row[1]) + '</span></p>';
+        }).join('');
+    }
+
+    async function loadNwsReportingDetails(entry, latlng, eventName, wfo) {
+        const url = 'https://api.weather.gov/alerts/active?point='
+            + encodeURIComponent(latlng.lat.toFixed(4) + ',' + latlng.lng.toFixed(4));
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/geo+json' } });
+            if (!res.ok) return '';
+            const data = await res.json();
+            const wanted = String(eventName || '').toLowerCase();
+            const wantedOffice = String(wfo || '').toLowerCase().replace(/^k/, '');
+            const alert = (data.features || []).map(function(feature) {
+                return feature.properties || {};
+            }).filter(function(props) {
+                const sameEvent = String(props.event || '').toLowerCase() === wanted
+                    || String(props.event || '').toLowerCase().includes(wanted)
+                    || wanted.includes(String(props.event || '').toLowerCase());
+                const sender = String(props.senderName || '').toLowerCase();
+                const sameOffice = !wantedOffice
+                    || sender.includes(wantedOffice)
+                    || sender.includes('wfo ' + wantedOffice)
+                    || sender.includes('nws ' + wantedOffice);
+                return sameEvent && sameOffice;
+            }).sort(function(a, b) {
+                return new Date(b.effective || 0).getTime() - new Date(a.effective || 0).getTime();
+            })[0];
+            if (!alert) return '';
+            const rows = [
+                ['Issued by', alert.senderName || wfo],
+                ['Issued', formatCustomSkyAlertTime(alert.effective || alert.sent)],
+                ['Expires', formatCustomSkyAlertTime(alert.expires || alert.ends)],
+                ['Area', alert.areaDesc],
+                ['Headline', alert.headline],
+                ['Alert text', alert.description],
+                ['Instructions', alert.instruction]
+            ];
+            return reportingPopupDetailRows(rows);
+        } catch (e) {
+            return '';
+        }
+    }
+
     let lsrVisible = localStorage.getItem('report_lsr_on') === '1';
     function toggleMapSettings() {
         const panel = document.getElementById('map-settings-panel');
@@ -6509,6 +6726,7 @@
         if (!status) return;
         status.textContent = message || '';
         status.style.color = color || '#718496';
+        status.style.display = message ? 'block' : 'none';
     }
 
     function onCustomSkyAlertsChange() {
@@ -6713,6 +6931,7 @@
         if (!customSkyAlertLayer || !window.L) return;
         if (!customSkyAlertsVisible) {
             customSkyAlertLayer.clearLayers();
+            removeReportingPopupEntries('custom-skymonitor');
             setCustomSkyAlertsStatus('');
             return;
         }
@@ -6722,6 +6941,7 @@
         }
         setCustomSkyAlertsStatus('Loading custom alerts\u2026', '#718496');
         customSkyAlertLayer.clearLayers();
+        removeReportingPopupEntries('custom-skymonitor');
         try {
             const res = await fetch(CUSTOM_SKY_ALERTS_WORKER_URL, {
                 headers: { 'Accept': 'application/geo+json, application/json' }
@@ -6771,15 +6991,22 @@
                     : '';
                 const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</small>' : '';
                 const mdContent = isMd ? buildCustomSkyMdPopup(props, description) : '';
-                const popup = '<b style="color:' + color + ';">' + escapeHtml(headline) + '</b>'
-                    + '<br><small>' + escapeHtml(alertType) + ' \u00B7 Issued by ' + escapeHtml(issuer) + '</small>'
-                    + issuedLine + (isMd ? mdContent : summaryLine + actionLine) + dateLine;
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
-                }).bindPopup(popup);
-                polygon.on('click', function(e) {
-                    L_ref.DomEvent.stopPropagation(e);
-                    polygon.openPopup(e.latlng);
+                });
+                const customDetail = '<p><b>Type</b><br>' + escapeHtml(alertType) + '</p>'
+                    + '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
+                    + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</p>' : '')
+                    + (isMd ? mdContent : summaryLine + actionLine)
+                    + dateLine
+                    + (description && !isMd ? '<p><b>Full alert</b><br><span class="reporting-popup-pre">' + escapeHtml(description) + '</span></p>' : '');
+                registerReportingPopup(polygon, {
+                    source: 'custom-skymonitor',
+                    isPolygon: true,
+                    color: color,
+                    title: escapeHtml(headline),
+                    meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires ' + escapeHtml(formatCustomSkyAlertTime(expires)) : ''),
+                    detail: customDetail
                 });
                 polygon.on('dblclick', function(e) {
                     L_ref.DomEvent.stop(e);
@@ -7033,6 +7260,7 @@
         // NWS Short-Fused alert polygons via IEM Storm-Based Warnings (always has polygon geometry)
         try {
             alertPolygonLayer.clearLayers();
+            removeReportingPopupEntries('nws');
             const sbwRes = await fetch('https://mesonet.agron.iastate.edu/geojson/sbw.geojson');
             if (sbwRes.ok) {
                 const sbwData = await sbwRes.json();
@@ -7047,17 +7275,33 @@
                     if ((f.properties.type || '').toLowerCase().includes('statement')) return;
                     if (!f.geometry) return;
                     const color = shortFusedPhenomena[ph];
-                    const label = f.properties.eventid || ph;
+                    const nwsEvent = f.properties.type || f.properties.ps || ph + ' Warning';
+                    const issuedText = f.properties.issue || f.properties.polygon_begin;
+                    const expiresText = f.properties.expire || f.properties.polygon_end;
                     const _poly = L_ref.geoJSON(f.geometry, { style: { color: color, weight: 2.5, opacity: 0.95, fillOpacity: 0.2 } });
-                    const _popupContent = '<b>' + escapeHtml(f.properties.type || ph + ' Warning') + '</b><br><small>Issued by ' + escapeHtml(f.properties.wfo || '') + '<br>Expires: ' + (f.properties.expire ? new Date(f.properties.expire).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '') + '</small>';
-                    _poly.bindPopup(_popupContent);
-                    _poly.on('click', function(e) {
-                        // Single click: open popup but don't let it reach the map's double-tap timer
-                        L_ref.DomEvent.stopPropagation(e);
-                        _poly.openPopup(e.latlng);
+                    registerReportingPopup(_poly, {
+                        source: 'nws',
+                        isPolygon: true,
+                        color: color,
+                        title: escapeHtml(nwsEvent),
+                        meta: escapeHtml(f.properties.wfo || 'NWS') + (expiresText ? ' \u00B7 Expires ' + escapeHtml(formatCustomSkyAlertTime(expiresText)) : ''),
+                        detail: reportingPopupDetailRows([
+                            ['Issued by', f.properties.wfo || 'NWS'],
+                            ['Issued', issuedText ? formatCustomSkyAlertTime(issuedText) : ''],
+                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : ''],
+                            ['Product', f.properties.product_id || ''],
+                            ['Alert status', f.properties.status || '']
+                        ]),
+                        loadDetails: function(latlng) {
+                            return loadNwsReportingDetails(
+                                null,
+                                latlng,
+                                nwsEvent,
+                                f.properties.wfo || ''
+                            );
+                        }
                     });
                     _poly.on('dblclick', function(e) {
-                        // Double click: set report pin (stop default map zoom too)
                         L_ref.DomEvent.stop(e);
                         setReportPin(parseFloat(e.latlng.lat.toFixed(5)), parseFloat(e.latlng.lng.toFixed(5)));
                     });
@@ -7084,6 +7328,7 @@
         // NWS Local Storm Reports via IEM MESONET
         try {
             lsrLayer.clearLayers();
+            removeReportingPopupEntries('iem-lsr');
             const lsrRes = await fetch('https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=' + lsrHours + '&fmt=geojson');
             if (lsrRes.ok) {
                 const lsrData = await lsrRes.json();
@@ -7100,9 +7345,24 @@
                     const validStr = formatReportTime(props.valid);
                     const magf = props.magf && isNaN(Number(props.magf)) ? ' ' + props.magf : '';
                     const mag = props.magnitude ? ' \u2014 ' + props.magnitude + magf : '';
-                    L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
-                        .bindPopup('<b>' + emoji + ' ' + escapeHtml(props.typetext || 'LSR') + escapeHtml(mag) + '</b><br>' + escapeHtml(props.remark || '(No remark)') + '<br><small style="opacity:0.7;">' + escapeHtml(props.city || '') + (validStr ? ' \u00B7 ' + escapeHtml(validStr) : '') + '</small>')
+                    const marker = L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
                         .addTo(lsrLayer);
+                    registerReportingPopup(marker, {
+                        source: 'iem-lsr',
+                        color: dotColor,
+                        title: emoji + ' ' + escapeHtml(props.typetext || 'LSR') + escapeHtml(mag),
+                        meta: escapeHtml(props.city || 'Unknown location') + (validStr ? ' \u00B7 ' + escapeHtml(validStr) : ''),
+                        detail: reportingPopupDetailRows([
+                            ['Storm report', props.typetext || 'LSR'],
+                            ['Reported', props.valid ? formatCustomSkyAlertTime(props.valid) : ''],
+                            ['Location', props.city || ''],
+                            ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
+                            ['Source', props.source || ''],
+                            ['Remark', props.remark || '(No remark)'],
+                            ['Magnitude', [props.magnitude, props.magf, props.unit].filter(Boolean).join(' ')],
+                            ['Product', props.product_id || '']
+                        ])
+                    });
                 });
             }
         } catch(e) { console.warn('LSR fetch error:', e); }
@@ -7110,6 +7370,7 @@
         // SkyMonitor user reports
         try {
             userReportLayer.clearLayers();
+            removeReportingPopupEntries('skymonitor-reports');
             const rRes = await fetch(REPORTS_WORKER_URL);
             if (rRes.ok) {
                 const payload = await rRes.json();
@@ -7147,9 +7408,20 @@
                         iconSize: [24, 24],
                         iconAnchor: [12, 12]
                     });
-                    L_ref.marker([r.lat, r.lon], { icon: icon })
-                        .bindPopup('<b>' + emoji + ' ' + escapeHtml(r.type || 'User Report') + '</b>' + (r.notes ? '<br>' + escapeHtml(r.notes) : '') + '<br><small style="opacity:0.7;">' + escapeHtml(timeStr) + '</small>')
-                        .addTo(userReportLayer);
+                    const marker = L_ref.marker([r.lat, r.lon], { icon: icon }).addTo(userReportLayer);
+                    registerReportingPopup(marker, {
+                        source: 'skymonitor-reports',
+                        color: '#00e676',
+                        title: emoji + ' ' + escapeHtml(r.type || 'User Report'),
+                        meta: escapeHtml(timeStr) + (r.location || r.city ? ' \u00B7 ' + escapeHtml(r.location || r.city) : ''),
+                        detail: reportingPopupDetailRows([
+                            ['Report type', r.type || 'User Report'],
+                            ['Reported', r.time ? formatCustomSkyAlertTime(r.time) : timeStr],
+                            ['Location', r.location || r.city || ''],
+                            ['Notes', r.notes || '(No notes provided)'],
+                            ['Submitted by', r.username || r.reporter || r.source || 'SkyMonitor user']
+                        ])
+                    });
                 });
             }
         } catch(e) {}
