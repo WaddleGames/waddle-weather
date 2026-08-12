@@ -6757,21 +6757,30 @@
             const data = await res.json();
             const wanted = String(eventName || '').toLowerCase();
             const wantedOffice = String(wfo || '').toLowerCase().replace(/^k/, '');
-            const alert = (data.features || []).map(function(feature) {
+            const alertCandidates = (data.features || []).map(function(feature) {
                 return feature.properties || {};
             }).filter(function(props) {
                 const sameEvent = String(props.event || '').toLowerCase() === wanted
                     || String(props.event || '').toLowerCase().includes(wanted)
                     || wanted.includes(String(props.event || '').toLowerCase());
-                const sender = String(props.senderName || '').toLowerCase();
-                const sameOffice = !wantedOffice
-                    || sender.includes(wantedOffice)
-                    || sender.includes('wfo ' + wantedOffice)
-                    || sender.includes('nws ' + wantedOffice);
-                return sameEvent && sameOffice;
+                return sameEvent;
             }).sort(function(a, b) {
+                const senderA = String(a.senderName || '').toLowerCase();
+                const senderB = String(b.senderName || '').toLowerCase();
+                const officeA = wantedOffice && (
+                    senderA.includes(wantedOffice)
+                    || senderA.includes('wfo ' + wantedOffice)
+                    || senderA.includes('nws ' + wantedOffice)
+                ) ? 1 : 0;
+                const officeB = wantedOffice && (
+                    senderB.includes(wantedOffice)
+                    || senderB.includes('wfo ' + wantedOffice)
+                    || senderB.includes('nws ' + wantedOffice)
+                ) ? 1 : 0;
+                if (officeA !== officeB) return officeB - officeA;
                 return new Date(b.effective || 0).getTime() - new Date(a.effective || 0).getTime();
-            })[0];
+            });
+            const alert = alertCandidates[0];
             if (!alert) return '';
             const rows = [
                 ['Issued by', alert.senderName || wfo],
@@ -7385,9 +7394,7 @@
                         detail: reportingPopupDetailRows([
                             ['Issued by', f.properties.wfo || 'NWS'],
                             ['Issued', issuedText ? formatCustomSkyAlertTime(issuedText) : ''],
-                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : ''],
-                            ['Product', f.properties.product_id || ''],
-                            ['Alert status', f.properties.status || '']
+                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : '']
                         ]),
                         loadDetails: function(latlng) {
                             return loadNwsReportingDetails(
