@@ -316,7 +316,7 @@
         }
         .reporting-popup-card {
             border-left: 3px solid #4fc3f7; background: rgba(255,255,255,0.075);
-            border-radius: 4px; margin: 0 0 5px; overflow: hidden;
+             border-radius: 4px; margin: 0 0 3px; overflow: hidden;
         }
         .reporting-popup-card:last-child { margin-bottom: 0; }
         .reporting-popup-card-head {
@@ -340,7 +340,7 @@
         .reporting-popup-card-detail b { color: #fff; }
         .reporting-popup-card-detail p {
             display: grid; grid-template-columns: minmax(64px, 30%) minmax(0, 1fr);
-            column-gap: 6px; align-items: start; margin: 2px 0 0;
+             column-gap: 6px; align-items: start; margin: 2px 0 0;
         }
         .reporting-popup-card-detail p b { overflow-wrap: anywhere; }
         .reporting-popup-card-detail p .reporting-popup-pre { min-width: 0; }
@@ -6748,29 +6748,6 @@
         }).join('');
     }
 
-    function formatReportingIssuedTime(value) {
-        if (!value) return '';
-        const parsed = new Date(value);
-        if (isNaN(parsed.getTime())) return String(value);
-        return parsed.toLocaleString([], {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-        });
-    }
-
-    function formatReportingExpiration(value) {
-        if (!value) return '';
-        const parsed = new Date(value);
-        if (isNaN(parsed.getTime())) return String(value);
-        const diffMs = parsed.getTime() - Date.now();
-        if (diffMs <= 0) return 'Expired';
-        const minutes = Math.max(1, Math.ceil(diffMs / 60000));
-        return 'Expires in ' + minutes + ' minute' + (minutes === 1 ? '' : 's');
-    }
-
     async function loadNwsReportingDetails(entry, latlng, eventName, wfo) {
         const url = 'https://api.weather.gov/alerts/active?point='
             + encodeURIComponent(latlng.lat.toFixed(4) + ',' + latlng.lng.toFixed(4));
@@ -6805,11 +6782,11 @@
             });
             const alert = alertCandidates[0];
             if (!alert) return '';
-            const rows = [
-                ['Issued by', alert.senderName || wfo],
-                ['Alert text', alert.description],
-                ['Instructions', alert.instruction]
-            ];
+             const rows = [
+                 ['Issued by', alert.senderName || wfo],
+                 ['Alert text', alert.description],
+                 ['Instructions', alert.instruction]
+             ];
             return reportingPopupDetailRows(rows);
         } catch (e) {
             return '';
@@ -7002,11 +6979,11 @@
         const addRow = function(label, value) {
             if (!value) return;
             rows.push(
-                '<p><b>' +
+                '<div style="margin-top:6px;"><b style="font-size:0.9em;">' +
                 escapeHtml(label) +
-                '</b><span>' +
+                '</b><br><span>' +
                 escapeHtml(value) +
-                '</span></p>'
+                '</span></div>'
             );
         };
 
@@ -7040,6 +7017,27 @@
         if (!value) return '';
         const parsed = new Date(value);
         return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
+    }
+
+    function formatReportingMinutesUntil(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return '';
+        return Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / 60000)) + ' minutes';
+    }
+
+    function formatReportingDateTimeNoSeconds(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime())
+            ? String(value)
+            : parsed.toLocaleString([], {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
     }
 
     function customSkyAlertColor(props) {
@@ -7105,30 +7103,26 @@
                 const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'issued_at', 'effective', 'createdAt', 'created_at', 'time'], '');
                 const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
-                const summaryLine = shortSummary
-                    ? '<p><b>Short Summary</b><span>' + escapeHtml(shortSummary) + '</span></p>'
+                 const summaryLine = shortSummary
+                     ? '<div style="margin-top:6px;"><b style="font-size:0.9em;">Short Summary</b><br><span>' + escapeHtml(shortSummary) + '</span></div>'
                     : '';
                 const actionLine = recommendedAction
-                    ? '<p><b>Recommended Action</b><span>' + escapeHtml(recommendedAction) + '</span></p>'
-                    : '';
-                const dateLine = expires
-                    ? '<p><b>Expiration</b><span>' + escapeHtml(formatReportingExpiration(expires)) + '</span></p>'
+                     ? '<div style="margin-top:6px;"><b style="font-size:0.9em;">Recommended Action</b><br><span>' + escapeHtml(recommendedAction) + '</span></div>'
                     : '';
                 const mdContent = isMd ? buildCustomSkyMdPopup(props, description) : '';
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 });
-                const customDetail = '<p><b>Issued by</b><span>' + escapeHtml(issuer) + '</span></p>'
-                    + (issued ? '<p><b>Issued</b><span>' + escapeHtml(formatReportingIssuedTime(issued)) + '</span></p>' : '')
+                 const customDetail = '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
+                     + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatReportingDateTimeNoSeconds(issued)) + '</p>' : '')
                     + (isMd ? mdContent : summaryLine + actionLine)
-                    + dateLine
                     + (description && !isMd ? '<p><b>Full alert</b><br><span class="reporting-popup-pre">' + escapeHtml(description) + '</span></p>' : '');
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
                     isPolygon: true,
                     color: color,
                     title: escapeHtml(headline),
-                    meta: escapeHtml(alertType) + (expires ? ' \u00B7 ' + escapeHtml(formatReportingExpiration(expires)) : ''),
+                     meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires in ' + escapeHtml(formatReportingMinutesUntil(expires)) : ''),
                     detail: customDetail
                 });
                 polygon.on('dblclick', function(e) {
@@ -7406,9 +7400,9 @@
                         isPolygon: true,
                         color: color,
                         title: escapeHtml(nwsEvent),
-                        meta: escapeHtml(f.properties.wfo || 'NWS') + (expiresText ? ' \u00B7 ' + escapeHtml(formatReportingExpiration(expiresText)) : ''),
+                         meta: escapeHtml(f.properties.wfo || 'NWS') + (expiresText ? ' \u00B7 Expires in ' + escapeHtml(formatReportingMinutesUntil(expiresText)) : ''),
                         detail: reportingPopupDetailRows([
-                            ['Issued by', f.properties.wfo || 'NWS']
+                             ['Issued by', f.properties.wfo || 'NWS']
                         ]),
                         loadDetails: function(latlng) {
                             return loadNwsReportingDetails(
@@ -7476,19 +7470,18 @@
                     const magnitudeWithUnit = unitValue && magnitudeText.toLowerCase().indexOf(unitValue.toLowerCase()) === -1
                         ? magnitudeText + ' ' + unitValue
                         : magnitudeText;
-                    const mag = magnitudeWithUnit ? ' \u2014 ' + magnitudeWithUnit : '';
                     const marker = L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
                         .addTo(lsrLayer);
                     registerReportingPopup(marker, {
                         source: 'iem-lsr',
                         color: dotColor,
-                        title: emoji + ' ' + escapeHtml(props.typetext || 'LSR') + escapeHtml(mag),
+                         title: emoji + ' ' + escapeHtml(props.typetext || 'LSR'),
                         meta: escapeHtml(props.city || 'Unknown location') + (validStr ? ' \u00B7 ' + escapeHtml(validStr) : ''),
-                        detail: reportingPopupDetailRows([
-                            ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
-                            ['Source', props.source || ''],
-                            ['Remark', props.remark || '(No remark)']
-                        ])
+                         detail: reportingPopupDetailRows([
+                             ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
+                             ['Source', props.source || ''],
+                             ['Remark', props.remark || '(No remark)']
+                         ])
                     });
                 });
             }
