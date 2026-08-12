@@ -1701,7 +1701,26 @@
             if (complexity === 'specific') renderAnalytics();
         }
         if (tabId === 'severe') updateLightningEstimate();
-        if (tabId === 'reporting') { renderReportCategories(); setTimeout(initReportingMap, 150); }
+        if (tabId === 'reporting') {
+            renderReportCategories();
+            setTimeout(function() {
+                initReportingMap();
+                if (!reportingMap) return;
+                reportingMap.invalidateSize({ pan: false });
+                syncReportingMapLayers();
+                loadReportingMapData();
+                // Mobile Safari can finish revealing the tab after the first
+                // Leaflet/layout pass. Retry once after it is fully visible.
+                if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+                    setTimeout(function() {
+                        if (!document.getElementById('reporting-tab')?.classList.contains('active') || !reportingMap) return;
+                        reportingMap.invalidateSize({ pan: false });
+                        syncReportingMapLayers();
+                        loadReportingMapData();
+                    }, 450);
+                }
+            }, 150);
+        }
     }
 
     function saveLoc() {
@@ -6417,6 +6436,8 @@
     let customSkyAlertLayer = null;
     let userReportLayer = null;
     let reportingRadarLayer = null;
+    let reportingDataLoadInFlight = false;
+    let reportingDataRefreshQueued = false;
     let radarVisible = localStorage.getItem('report_radar_on') !== '0';
     let alertsVisible = localStorage.getItem('report_alerts_on') !== '0';
     let customSkyAlertsVisible = localStorage.getItem('report_custom_sky_alerts') === '1';
@@ -6793,7 +6814,24 @@
         }
     }
 
-    let lsrVisible = localStorage.getItem('report_lsr_on') === '1';
+    let lsrVisible = localStorage.getItem('report_lsr_on') !== '0';
+
+    function syncReportingMapLayers() {
+        if (!reportingMap) return;
+        [
+            { layer: alertPolygonLayer, visible: alertsVisible },
+            { layer: lsrLayer, visible: lsrVisible },
+            { layer: customSkyAlertLayer, visible: customSkyAlertsVisible }
+        ].forEach(function(item) {
+            if (!item.layer) return;
+            if (item.visible) {
+                if (!reportingMap.hasLayer(item.layer)) item.layer.addTo(reportingMap);
+            } else if (reportingMap.hasLayer(item.layer)) {
+                reportingMap.removeLayer(item.layer);
+            }
+        });
+    }
+
     function toggleMapSettings() {
         const panel = document.getElementById('map-settings-panel');
         const btn = document.getElementById('map-settings-btn');
@@ -6809,8 +6847,10 @@
         lsrVisible = cb ? cb.checked : !lsrVisible;
         if (cb) cb.checked = lsrVisible;
         localStorage.setItem('report_lsr_on', lsrVisible ? '1' : '0');
-        if (lsrVisible) { reportingMap.addLayer(lsrLayer); }
-        else { reportingMap.removeLayer(lsrLayer); }
+        syncReportingMapLayers();
+        if (lsrVisible && lsrLayer.getLayers && !lsrLayer.getLayers().length) {
+            loadReportingMapData();
+        }
     }
 
     function toggleAlertPolygons() {
@@ -6819,8 +6859,10 @@
         alertsVisible = cb ? cb.checked : !alertsVisible;
         if (cb) cb.checked = alertsVisible;
         localStorage.setItem('report_alerts_on', alertsVisible ? '1' : '0');
-        if (alertsVisible) { alertPolygonLayer.addTo(reportingMap); }
-        else { reportingMap.removeLayer(alertPolygonLayer); }
+        syncReportingMapLayers();
+        if (alertsVisible && alertPolygonLayer.getLayers && !alertPolygonLayer.getLayers().length) {
+            loadReportingMapData();
+        }
     }
 
     function setCustomSkyAlertsStatus(message, color) {
@@ -6837,7 +6879,7 @@
         if (cb) cb.checked = customSkyAlertsVisible;
         localStorage.setItem('report_custom_sky_alerts', customSkyAlertsVisible ? '1' : '0');
         if (customSkyAlertsVisible) {
-            if (customSkyAlertLayer && reportingMap) customSkyAlertLayer.addTo(reportingMap);
+            syncReportingMapLayers();
             loadCustomSkyAlerts();
         } else {
             if (customSkyAlertLayer) {
@@ -7367,12 +7409,31 @@
             }
         });
 
+        syncReportingMapLayers();
         loadReportingMapData();
     }
 
     async function loadReportingMapData() {
+        if (reportingDataLoadInFlight) {
+            reportingDataRefreshQueued = true;
+            return;
+        }
+        reportingDataLoadInFlight = true;
+        try {
+            await loadReportingMapDataNow();
+        } finally {
+            reportingDataLoadInFlight = false;
+            if (reportingDataRefreshQueued) {
+                reportingDataRefreshQueued = false;
+                setTimeout(loadReportingMapData, 0);
+            }
+        }
+    }
+
+    async function loadReportingMapDataNow() {
         if (!reportingMap || !window.L) return;
         const L_ref = window.L;
+        syncReportingMapLayers();
 
         // NWS Short-Fused alert polygons via IEM Storm-Based Warnings (always has polygon geometry)
         try {
@@ -7426,6 +7487,7 @@
         await loadCustomSkyAlerts();
 
         await loadMapReports();
+        syncReportingMapLayers();
     }
 
     async function loadMapReports() {
