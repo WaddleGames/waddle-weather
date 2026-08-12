@@ -340,7 +340,7 @@
         .reporting-popup-card-detail b { color: #fff; }
         .reporting-popup-card-detail p {
             display: grid; grid-template-columns: minmax(64px, 30%) minmax(0, 1fr);
-            column-gap: 6px; align-items: start; margin: 3px 0 0;
+            column-gap: 6px; align-items: start; margin: 2px 0 0;
         }
         .reporting-popup-card-detail p b { overflow-wrap: anywhere; }
         .reporting-popup-card-detail p .reporting-popup-pre { min-width: 0; }
@@ -2373,7 +2373,7 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────To ───────────
+        // ── Severe / life-threatening ──────────────────────────To�───────────
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
@@ -6748,6 +6748,29 @@
         }).join('');
     }
 
+    function formatReportingIssuedTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return String(value);
+        return parsed.toLocaleString([], {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    }
+
+    function formatReportingExpiration(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return String(value);
+        const diffMs = parsed.getTime() - Date.now();
+        if (diffMs <= 0) return 'Expired';
+        const minutes = Math.max(1, Math.ceil(diffMs / 60000));
+        return 'Expires in ' + minutes + ' minute' + (minutes === 1 ? '' : 's');
+    }
+
     async function loadNwsReportingDetails(entry, latlng, eventName, wfo) {
         const url = 'https://api.weather.gov/alerts/active?point='
             + encodeURIComponent(latlng.lat.toFixed(4) + ',' + latlng.lng.toFixed(4));
@@ -6784,10 +6807,6 @@
             if (!alert) return '';
             const rows = [
                 ['Issued by', alert.senderName || wfo],
-                ['Issued', formatCustomSkyAlertTime(alert.effective || alert.sent)],
-                ['Expires', formatCustomSkyAlertTime(alert.expires || alert.ends)],
-                ['Area', alert.areaDesc],
-                ['Headline', alert.headline],
                 ['Alert text', alert.description],
                 ['Instructions', alert.instruction]
             ];
@@ -6983,11 +7002,11 @@
         const addRow = function(label, value) {
             if (!value) return;
             rows.push(
-                '<div style="margin-top:10px;"><b style="font-size:0.9em;">' +
+                '<p><b>' +
                 escapeHtml(label) +
-                '</b><br><span>' +
+                '</b><span>' +
                 escapeHtml(value) +
-                '</span></div>'
+                '</span></p>'
             );
         };
 
@@ -7087,22 +7106,20 @@
                 const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
                 const summaryLine = shortSummary
-                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Short Summary</b><br><span>' + escapeHtml(shortSummary) + '</span></div>'
+                    ? '<p><b>Short Summary</b><span>' + escapeHtml(shortSummary) + '</span></p>'
                     : '';
                 const actionLine = recommendedAction
-                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Recommended Action</b><br><span>' + escapeHtml(recommendedAction) + '</span></div>'
+                    ? '<p><b>Recommended Action</b><span>' + escapeHtml(recommendedAction) + '</span></p>'
                     : '';
                 const dateLine = expires
-                    ? '<div style="margin-top:10px;"><b style="font-size:0.9em;">Expiration Time</b><br><span>' + escapeHtml(formatCustomSkyAlertTime(expires)) + '</span></div>'
+                    ? '<p><b>Expiration</b><span>' + escapeHtml(formatReportingExpiration(expires)) + '</span></p>'
                     : '';
-                const issuedLine = issued ? '<br><small>Issued: ' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</small>' : '';
                 const mdContent = isMd ? buildCustomSkyMdPopup(props, description) : '';
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 });
-                const customDetail = '<p><b>Type</b><br>' + escapeHtml(alertType) + '</p>'
-                    + '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
-                    + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</p>' : '')
+                const customDetail = '<p><b>Issued by</b><span>' + escapeHtml(issuer) + '</span></p>'
+                    + (issued ? '<p><b>Issued</b><span>' + escapeHtml(formatReportingIssuedTime(issued)) + '</span></p>' : '')
                     + (isMd ? mdContent : summaryLine + actionLine)
                     + dateLine
                     + (description && !isMd ? '<p><b>Full alert</b><br><span class="reporting-popup-pre">' + escapeHtml(description) + '</span></p>' : '');
@@ -7111,7 +7128,7 @@
                     isPolygon: true,
                     color: color,
                     title: escapeHtml(headline),
-                    meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires ' + escapeHtml(formatCustomSkyAlertTime(expires)) : ''),
+                    meta: escapeHtml(alertType) + (expires ? ' \u00B7 ' + escapeHtml(formatReportingExpiration(expires)) : ''),
                     detail: customDetail
                 });
                 polygon.on('dblclick', function(e) {
@@ -7382,7 +7399,6 @@
                     if (!f.geometry) return;
                     const color = shortFusedPhenomena[ph];
                     const nwsEvent = f.properties.type || f.properties.ps || ph + ' Warning';
-                    const issuedText = f.properties.issue || f.properties.polygon_begin;
                     const expiresText = f.properties.expire || f.properties.polygon_end;
                     const _poly = L_ref.geoJSON(f.geometry, { style: { color: color, weight: 2.5, opacity: 0.95, fillOpacity: 0.2 } });
                     registerReportingPopup(_poly, {
@@ -7390,11 +7406,9 @@
                         isPolygon: true,
                         color: color,
                         title: escapeHtml(nwsEvent),
-                        meta: escapeHtml(f.properties.wfo || 'NWS') + (expiresText ? ' \u00B7 Expires ' + escapeHtml(formatCustomSkyAlertTime(expiresText)) : ''),
+                        meta: escapeHtml(f.properties.wfo || 'NWS') + (expiresText ? ' \u00B7 ' + escapeHtml(formatReportingExpiration(expiresText)) : ''),
                         detail: reportingPopupDetailRows([
-                            ['Issued by', f.properties.wfo || 'NWS'],
-                            ['Issued', issuedText ? formatCustomSkyAlertTime(issuedText) : ''],
-                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : '']
+                            ['Issued by', f.properties.wfo || 'NWS']
                         ]),
                         loadDetails: function(latlng) {
                             return loadNwsReportingDetails(
@@ -7471,13 +7485,9 @@
                         title: emoji + ' ' + escapeHtml(props.typetext || 'LSR') + escapeHtml(mag),
                         meta: escapeHtml(props.city || 'Unknown location') + (validStr ? ' \u00B7 ' + escapeHtml(validStr) : ''),
                         detail: reportingPopupDetailRows([
-                            ['Storm report', props.typetext || 'LSR'],
-                            ['Reported', props.valid ? formatCustomSkyAlertTime(props.valid) : ''],
-                            ['Location', props.city || ''],
                             ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
                             ['Source', props.source || ''],
-                            ['Remark', props.remark || '(No remark)'],
-                            ['Magnitude', magnitudeWithUnit]
+                            ['Remark', props.remark || '(No remark)']
                         ])
                     });
                 });
@@ -7837,7 +7847,7 @@
 
     }
 
-    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e; ─
+    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e;�─
     var _aqiLastFetch = 0; var _aqiLastLat = null; var _aqiLastLon = null;
 
     function _aqiInfo(aqi) {
