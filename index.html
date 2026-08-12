@@ -7068,7 +7068,12 @@
         if (!value) return '';
         const parsed = new Date(value);
         if (isNaN(parsed.getTime())) return '';
-        return Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / 60000)) + ' minutes';
+        const totalMinutes = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / 60000));
+        if (totalMinutes < 60) return totalMinutes + ' minutes';
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return hours + (hours === 1 ? ' hour' : ' hours') +
+            (minutes ? ' ' + minutes + (minutes === 1 ? ' minute' : ' minutes') : '');
     }
 
     function formatReportingDateTimeNoSeconds(value) {
