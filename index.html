@@ -2651,21 +2651,37 @@
         // Build personalized description from the actual hourly data
         const maxPrecipProb = Math.max(...todayHours.map(function(h) { return (h.precipProbability || 0) * 100; }));
         const hasThunder = todayHours.some(function(h) { return (h.icon || h.summary || '').toLowerCase().includes('thunderstorm'); });
-        const hasRain = maxPrecipProb >= 50;
+        let hasRain = maxPrecipProb >= 50;
+        let rainSeverityChance = maxPrecipProb;
         const maxGust = Math.max(...todayHours.map(function(h) { return h.windGust || h.windSpeed || 0; }));
         const maxFeels = Math.max(...todayHours.map(function(h) { return h.apparentTemperature || h.temperature || 70; }));
         const minFeels = Math.min(...todayHours.map(function(h) { return h.apparentTemperature || h.temperature || 70; }));
         var rainWindow = '';
-        var rainHour = todayHours.find(function(h) { return (h.precipProbability || 0) >= 0.5; });
-        if (rainHour) {
-            if (rainHour.time <= now) {
-                rainWindow = 'now';
-            } else {
-                var _tzOffSec = (window.pirateTimezoneOffset || 0) * 3600;
-                var rh = new Date((rainHour.time + _tzOffSec) * 1000).getUTCHours();
-                var ampm = rh >= 12 ? 'PM' : 'AM';
-                var rh12 = rh > 12 ? rh - 12 : (rh === 0 ? 12 : rh);
-                rainWindow = rh12 + ' ' + ampm;
+        // Use TWC's day/night forecast for the rain wording. PirateWeather's
+        // hourly timestamps are intentionally not used here because they can
+        // produce misleading exact times such as "around 1 AM".
+        const twcDaypart = window.twcForecastData?.daypart?.[0];
+        if (twcDaypart) {
+            const twcChance = twcDaypart.precipChance || [];
+            const twcPhrase = twcDaypart.wxPhraseLong || [];
+            const twcRainSlot = function(index) {
+                const phrase = String(twcPhrase[index] || '').toLowerCase();
+                const chance = Number(twcChance[index] || 0);
+                return chance >= 40 || /rain|shower|thunder|storm|drizzle/.test(phrase);
+            };
+            const rainThisAfternoon = twcRainSlot(0);
+            const rainOvernight = twcRainSlot(1);
+            hasRain = rainThisAfternoon || rainOvernight;
+            rainSeverityChance = Math.max(
+                Number(twcChance[0] || 0),
+                Number(twcChance[1] || 0)
+            );
+            if (rainThisAfternoon && rainOvernight) {
+                rainWindow = 'this afternoon and overnight';
+            } else if (rainThisAfternoon) {
+                rainWindow = 'this afternoon';
+            } else if (rainOvernight) {
+                rainWindow = 'overnight';
             }
         }
         // Use TWC's daily max feels-like for heat thresholds when available;
@@ -2688,18 +2704,18 @@
             desc = 'Freezing temperatures. Dress warmly before heading out.';
         } else if (minFeels < 45) {
             desc = 'Chilly — jacket required. Otherwise manageable.';
-        } else if (maxPrecipProb >= 80) {
-            desc = 'Heavy rain very likely' + (rainWindow ? ' around ' + rainWindow : '') + '. Best to stay inside.';
+        } else if (rainSeverityChance >= 80) {
+            desc = 'Heavy rain very likely' + (rainWindow ? ' ' + rainWindow : '') + '. Best to stay inside.';
         } else if (avgScore >= 75 && hasRain) {
-            desc = 'Mostly good, but watch for rain' + (rainWindow ? ' around ' + rainWindow : '') + '.';
+            desc = 'Mostly good, but watch for rain' + (rainWindow ? ' ' + rainWindow : '') + '.';
         } else if (avgScore >= 75) {
             desc = 'Great conditions for outdoor activities!';
         } else if (avgScore >= 60 && hasRain) {
-            desc = 'Decent overall, but expect rain' + (rainWindow ? ' around ' + rainWindow : '') + '. Plan accordingly.';
+            desc = 'Decent overall, but expect rain' + (rainWindow ? ' ' + rainWindow : '') + '. Plan accordingly.';
         } else if (avgScore >= 60) {
             desc = 'Decent — some minor discomfort expected.';
         } else if (hasRain) {
-            desc = 'Rainy periods likely' + (rainWindow ? ' starting around ' + rainWindow : '') + '. Have an umbrella ready.';
+            desc = 'Rainy periods likely' + (rainWindow ? ' starting ' + rainWindow : '') + '. Have an umbrella ready.';
         } else if (maxGust >= 35) {
             desc = 'Very windy (' + _fmtWind(maxGust) + ' gusts). Outdoor plans may be disrupted.';
         } else if (avgScore >= 45) {
@@ -6001,6 +6017,7 @@
     }
 
     function renderTWCForecast(data) {
+        window.twcForecastData = data;
         const cont = document.getElementById('twc-daily-forecast'); cont.innerHTML = '';
         if (!data || !Array.isArray(data.dayOfWeek) || !data.dayOfWeek.length || !data.daypart || !Array.isArray(data.daypart[0].iconCode)) {
             cont.innerHTML = "<div style='opacity:0.7'>Forecast unavailable</div>"; return;
