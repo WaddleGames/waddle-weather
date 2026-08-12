@@ -6560,14 +6560,19 @@
     function formatReportTime(isoString) {
         if (!isoString) return '';
         const reportDate = new Date(isoString);
+        if (isNaN(reportDate.getTime())) return String(isoString);
         const now = new Date();
-        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const reportMidnight = new Date(reportDate.getFullYear(), reportDate.getMonth(), reportDate.getDate()).getTime();
         const timeStr = reportDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        const daysDiff = Math.round((todayMidnight - reportMidnight) / 86400000);
+        const todayKey = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+        const reportKey = Date.UTC(
+            reportDate.getFullYear(),
+            reportDate.getMonth(),
+            reportDate.getDate()
+        );
+        const daysDiff = Math.round((todayKey - reportKey) / 86400000);
         if (daysDiff === 0) return timeStr;
-        if (daysDiff === 1) return 'Yesterday ' + timeStr;
-        return reportDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
+        if (daysDiff === 1) return timeStr + ' YESTERDAY';
+        return timeStr;
     }
 
     // Reporting-map popups use one shared, bounded popup. This keeps long
@@ -7056,9 +7061,7 @@
     }
 
     function formatCustomSkyAlertTime(value) {
-        if (!value) return '';
-        const parsed = new Date(value);
-        return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
+        return formatReportTime(value);
     }
 
     function formatReportingMinutesUntil(value) {
@@ -7069,17 +7072,7 @@
     }
 
     function formatReportingDateTimeNoSeconds(value) {
-        if (!value) return '';
-        const parsed = new Date(value);
-        return isNaN(parsed.getTime())
-            ? String(value)
-            : parsed.toLocaleString([], {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit'
-            });
+        return formatReportTime(value);
     }
 
     function customSkyAlertColor(props) {
@@ -7142,7 +7135,21 @@
                         shortSummary = (actionMatch ? description.slice(0, actionMatch.index) : description).trim();
                     }
                 }
-                const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'issued_at', 'effective', 'createdAt', 'created_at', 'time'], '');
+                const issued = customSkyAlertValue(props, [
+                    'updated',
+                    'updatedAt',
+                    'updated_at',
+                    'modified',
+                    'modifiedAt',
+                    'modified_at',
+                    'issued',
+                    'issuedAt',
+                    'issued_at',
+                    'effective',
+                    'createdAt',
+                    'created_at',
+                    'time'
+                ], '');
                 const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
                 shortSummary = shortSummary.replace(/^\s*Full alert\s*:?\s*/i, '').trim();
@@ -7156,9 +7163,10 @@
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 });
-                 const customDetail = '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
-                     + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatReportingDateTimeNoSeconds(issued)) + '</p>' : '')
-                     + (isMd ? mdContent : summaryLine + actionLine);
+                 const customDetail = reportingPopupDetailRows([
+                     ['Issued by', issuer],
+                     ['Issued', issued ? formatReportingDateTimeNoSeconds(issued) : '']
+                 ]) + (isMd ? mdContent : summaryLine + actionLine);
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
                     isPolygon: true,
@@ -7598,8 +7606,6 @@
                         title: emoji + ' ' + escapeHtml(r.type || 'User Report'),
                         meta: escapeHtml(timeStr) + (r.location || r.city ? ' \u00B7 ' + escapeHtml(r.location || r.city) : ''),
                         detail: reportingPopupDetailRows([
-                            ['Report type', r.type || 'User Report'],
-                            ['Reported', r.time ? formatCustomSkyAlertTime(r.time) : timeStr],
                             ['Location', r.location || r.city || ''],
                             ['Notes', r.notes || '(No notes provided)'],
                             ['Submitted by', r.username || r.reporter || r.source || 'SkyMonitor user']
