@@ -7103,6 +7103,7 @@
                 const issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'issued_at', 'effective', 'createdAt', 'created_at', 'time'], '');
                 const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
+                shortSummary = shortSummary.replace(/^\s*Full alert\s*:?\s*/i, '').trim();
                  const summaryLine = shortSummary
                      ? '<div style="margin-top:6px;"><b style="font-size:0.9em;">Short Summary</b><br><span>' + escapeHtml(shortSummary) + '</span></div>'
                     : '';
