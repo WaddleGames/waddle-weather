@@ -291,15 +291,6 @@
             max-width: calc(100vw - 76px);
             margin: 0;
         }
-        @media(max-width: 767px) {
-            #reporting-map .leaflet-popup-content {
-                width: var(--reporting-popup-width, calc(100vw - 92px)) !important;
-                max-width: var(--reporting-popup-width, calc(100vw - 92px));
-            }
-            #reporting-map .leaflet-popup-content-wrapper {
-                max-width: var(--reporting-popup-width, calc(100vw - 92px));
-            }
-        }
         #reporting-map .leaflet-popup-close-button {
             color: #fff !important; font-size: 20px !important; font-weight: 800;
             padding: 7px 9px 0 0 !important; z-index: 3;
@@ -422,10 +413,9 @@
             </div>
         </div>
         <div class="settings-row">
-            <span class="settings-label">Data Complexity</span>
-            <div class="btn-group">
-                <button id="opt-data-normal" class="btn-opt active" onclick="setDataComplexity('normal')">NORMAL</button>
-                <button id="opt-data-specific" class="btn-opt" onclick="setDataComplexity('specific')">ADVANCED</button>
+            <span class="settings-label">Alert display</span>
+            <div style="padding:10px 12px; border:1px solid rgba(79,195,247,0.18); border-radius:8px; background:rgba(79,195,247,0.06); color:#b9c9d6; font-size:0.72em; line-height:1.45;">
+                Public summaries are shown here. Full alert records and technical parameters are available in the SkyMonitor Alert Editor.
             </div>
         </div>
         <div class="settings-row">
@@ -3145,8 +3135,9 @@
 
                 sortedFeatures.forEach(function(f) {
                     const p = f.properties; let extraDetails = '';
-                    const complexity = localStorage.getItem('data_complexity') || 'normal';
-                    if (complexity === 'specific') {
+                    // The consumer site always uses the public summary format.
+                    // Technical CAP parameters stay in the SkyMonitor Alert Editor.
+                    if (false) {
                         const params2 = p.parameters || {};
                         const evtCheck = (p.event || '').toLowerCase();
                         // Each row: [paramKey, Display Label, optional value transform fn]
@@ -6677,7 +6668,7 @@
         return '<div class="reporting-popup-shell">'
             + '<div class="reporting-popup-header">' + count + ' alert' + (count === 1 ? '' : 's') + ' at this location</div>'
             + '<div class="reporting-popup-scroll">' + entries.map(buildReportingPopupCard).join('') + '</div>'
-            + '<div class="reporting-popup-footer">Tap an item to read the full details</div>'
+            + '<div class="reporting-popup-footer">Tap an item to read the public summary</div>'
             + '</div>';
     }
 
@@ -6702,21 +6693,13 @@
             return reportingPopupEntryIsNear(entry, latlng, sourceEntry);
         });
         if (!nearby.length) nearby.push(sourceEntry);
-        const isMobileReportingMap = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
-        const mapWidth = reportingMap.getSize ? reportingMap.getSize().x : 0;
-        const mobilePopupWidth = isMobileReportingMap && mapWidth
-            ? Math.max(0, Math.floor(mapWidth - 24))
-            : null;
-        if (mobilePopupWidth) {
-            reportingMap.getContainer().style.setProperty('--reporting-popup-width', mobilePopupWidth + 'px');
-        }
         const popup = window.L.popup({
             className: 'reporting-map-popup',
-            maxWidth: mobilePopupWidth || 340,
-            minWidth: mobilePopupWidth || 190,
+            maxWidth: 340,
+            minWidth: 190,
             closeButton: true,
             autoPan: true,
-            keepInView: false,
+            keepInView: true,
             autoPanPadding: [48, 42],
             autoPanPaddingTopLeft: [54, 54],
             autoPanPaddingBottomRight: [14, 42]
@@ -6757,39 +6740,26 @@
             const data = await res.json();
             const wanted = String(eventName || '').toLowerCase();
             const wantedOffice = String(wfo || '').toLowerCase().replace(/^k/, '');
-            const alertCandidates = (data.features || []).map(function(feature) {
+            const alert = (data.features || []).map(function(feature) {
                 return feature.properties || {};
             }).filter(function(props) {
                 const sameEvent = String(props.event || '').toLowerCase() === wanted
                     || String(props.event || '').toLowerCase().includes(wanted)
                     || wanted.includes(String(props.event || '').toLowerCase());
-                return sameEvent;
+                const sender = String(props.senderName || '').toLowerCase();
+                const sameOffice = !wantedOffice
+                    || sender.includes(wantedOffice)
+                    || sender.includes('wfo ' + wantedOffice)
+                    || sender.includes('nws ' + wantedOffice);
+                return sameEvent && sameOffice;
             }).sort(function(a, b) {
-                const senderA = String(a.senderName || '').toLowerCase();
-                const senderB = String(b.senderName || '').toLowerCase();
-                const officeA = wantedOffice && (
-                    senderA.includes(wantedOffice)
-                    || senderA.includes('wfo ' + wantedOffice)
-                    || senderA.includes('nws ' + wantedOffice)
-                ) ? 1 : 0;
-                const officeB = wantedOffice && (
-                    senderB.includes(wantedOffice)
-                    || senderB.includes('wfo ' + wantedOffice)
-                    || senderB.includes('nws ' + wantedOffice)
-                ) ? 1 : 0;
-                if (officeA !== officeB) return officeB - officeA;
                 return new Date(b.effective || 0).getTime() - new Date(a.effective || 0).getTime();
-            });
-            const alert = alertCandidates[0];
+            })[0];
             if (!alert) return '';
             const rows = [
-                ['Issued by', alert.senderName || wfo],
-                ['Issued', formatCustomSkyAlertTime(alert.effective || alert.sent)],
-                ['Expires', formatCustomSkyAlertTime(alert.expires || alert.ends)],
-                ['Area', alert.areaDesc],
-                ['Headline', alert.headline],
-                ['Alert text', alert.description],
-                ['Instructions', alert.instruction]
+                ['Headline', alert.headline || alert.event],
+                ['What to know', alert.description],
+                ['What to do', alert.instruction]
             ];
             return reportingPopupDetailRows(rows);
         } catch (e) {
@@ -7100,19 +7070,26 @@
                 const polygon = L_ref.geoJSON(feature, {
                     style: { color: color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22 }
                 });
-                const customDetail = '<p><b>Type</b><br>' + escapeHtml(alertType) + '</p>'
-                    + '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
-                    + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatCustomSkyAlertTime(issued)) + '</p>' : '')
-                    + (isMd ? mdContent : summaryLine + actionLine)
+                const publicDetail = (isMd
+                    ? (shortSummary
+                        ? '<p><b>What to know</b><br><span>' + escapeHtml(shortSummary) + '</span></p>'
+                        : '')
+                    : summaryLine)
+                    + actionLine
                     + dateLine
-                    + (description && !isMd ? '<p><b>Full alert</b><br><span class="reporting-popup-pre">' + escapeHtml(description) + '</span></p>' : '');
+                    + (!shortSummary && description
+                        ? '<p><b>What to know</b><br><span class="reporting-popup-pre">'
+                            + escapeHtml(description.slice(0, 420))
+                            + (description.length > 420 ? '…' : '')
+                            + '</span></p>'
+                        : '');
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
                     isPolygon: true,
                     color: color,
                     title: escapeHtml(headline),
                     meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires ' + escapeHtml(formatCustomSkyAlertTime(expires)) : ''),
-                    detail: customDetail
+                    detail: publicDetail
                 });
                 polygon.on('dblclick', function(e) {
                     L_ref.DomEvent.stop(e);
@@ -7394,7 +7371,9 @@
                         detail: reportingPopupDetailRows([
                             ['Issued by', f.properties.wfo || 'NWS'],
                             ['Issued', issuedText ? formatCustomSkyAlertTime(issuedText) : ''],
-                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : '']
+                            ['Expires', expiresText ? formatCustomSkyAlertTime(expiresText) : ''],
+                            ['Product', f.properties.product_id || ''],
+                            ['Alert status', f.properties.status || '']
                         ]),
                         loadDetails: function(latlng) {
                             return loadNwsReportingDetails(
@@ -7447,22 +7426,8 @@
                     const emoji = matchKey ? LSR_ICONS[matchKey] : '\uD83D\uDCCC';
                     const dotColor = matchKey ? LSR_COLORS[matchKey] : '#90a4ae';
                     const validStr = formatReportTime(props.valid);
-                    const magnitudeValue = props.magnitude == null ? '' : String(props.magnitude).trim();
-                    const magfValue = props.magf == null ? '' : String(props.magf).trim();
-                    const unitValue = props.unit == null ? '' : String(props.unit).trim();
-                    const magnitudeParts = [];
-                    if (magnitudeValue) magnitudeParts.push(magnitudeValue);
-                    if (magfValue && !(magnitudeValue && (
-                        magfValue === magnitudeValue ||
-                        magfValue.indexOf(magnitudeValue + ' ') === 0
-                    ))) {
-                        magnitudeParts.push(magfValue);
-                    }
-                    const magnitudeText = magnitudeParts.join(' ');
-                    const magnitudeWithUnit = unitValue && magnitudeText.toLowerCase().indexOf(unitValue.toLowerCase()) === -1
-                        ? magnitudeText + ' ' + unitValue
-                        : magnitudeText;
-                    const mag = magnitudeWithUnit ? ' \u2014 ' + magnitudeWithUnit : '';
+                    const magf = props.magf && isNaN(Number(props.magf)) ? ' ' + props.magf : '';
+                    const mag = props.magnitude ? ' \u2014 ' + props.magnitude + magf : '';
                     const marker = L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
                         .addTo(lsrLayer);
                     registerReportingPopup(marker, {
@@ -7477,7 +7442,8 @@
                             ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
                             ['Source', props.source || ''],
                             ['Remark', props.remark || '(No remark)'],
-                            ['Magnitude', magnitudeWithUnit]
+                            ['Magnitude', [props.magnitude, props.magf, props.unit].filter(Boolean).join(' ')],
+                            ['Product', props.product_id || '']
                         ])
                     });
                 });
