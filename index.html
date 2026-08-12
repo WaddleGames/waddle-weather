@@ -7115,8 +7115,7 @@
                 });
                  const customDetail = '<p><b>Issued by</b><br>' + escapeHtml(issuer) + '</p>'
                      + (issued ? '<p><b>Issued</b><br>' + escapeHtml(formatReportingDateTimeNoSeconds(issued)) + '</p>' : '')
-                    + (isMd ? mdContent : summaryLine + actionLine)
-                    + (description && !isMd ? '<p><b>Full alert</b><br><span class="reporting-popup-pre">' + escapeHtml(description) + '</span></p>' : '');
+                     + (isMd ? mdContent : summaryLine + actionLine);
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
                     isPolygon: true,
@@ -7470,12 +7469,13 @@
                     const magnitudeWithUnit = unitValue && magnitudeText.toLowerCase().indexOf(unitValue.toLowerCase()) === -1
                         ? magnitudeText + ' ' + unitValue
                         : magnitudeText;
+                     const mag = magnitudeWithUnit ? ' \u2014 ' + magnitudeWithUnit : '';
                     const marker = L_ref.circleMarker([la, lo], { radius: 7, fillColor: dotColor, color: '#0b1e2d', weight: 1.5, opacity: 1, fillOpacity: 0.9 })
                         .addTo(lsrLayer);
                     registerReportingPopup(marker, {
                         source: 'iem-lsr',
                         color: dotColor,
-                         title: emoji + ' ' + escapeHtml(props.typetext || 'LSR'),
+                         title: emoji + ' ' + escapeHtml(props.typetext || 'LSR') + escapeHtml(mag),
                         meta: escapeHtml(props.city || 'Unknown location') + (validStr ? ' \u00B7 ' + escapeHtml(validStr) : ''),
                          detail: reportingPopupDetailRows([
                              ['County / state', [props.county, props.st].filter(Boolean).join(', ')],
