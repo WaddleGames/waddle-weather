@@ -174,7 +174,7 @@
         .nav-item.active { color: var(--primary); }
         .spc-btn-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0; }
         .sky-hd { display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#f1f5f9; font-size:0.92em; margin-bottom:12px; letter-spacing:0.2px; }
-        .sky-hd::after { content:'›'; color:#4b5563; font-size:1.15em; font-weight:400; }
+        .sky-hd::after { content:'âº'; color:#4b5563; font-size:1.15em; font-weight:400; }
 
         @keyframes radar-pulse {
             0% { transform: scale(1); opacity: 1; }
@@ -357,7 +357,7 @@
         }
         .report-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 
-        /* ——— PWA Launch Screen ——— */
+        /* âââ PWA Launch Screen âââ */
         #launch-screen {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: #07131d; z-index: 99999;
@@ -369,10 +369,10 @@
         #launch-screen .ls-title { font-size: clamp(1.5rem, 2.4rem, 39px); font-weight: 800; color: #ffd54f; letter-spacing: -1px; margin: 0; }
         #launch-screen .ls-sub { font-size: 0.8em; color: #4fc3f7; margin-top: 10px; opacity: 0.65; letter-spacing: 1px; text-transform: uppercase; }
 
-        /* Hide reCAPTCHA v3 badge — branding shown in the gate modal per Google ToS */
+        /* Hide reCAPTCHA v3 badge â branding shown in the gate modal per Google ToS */
         .grecaptcha-badge { visibility: hidden !important; }
 
-        /* Data source QC panel — runs in background only, never shown to users */
+        /* Data source QC panel â runs in background only, never shown to users */
         #pws-qc-panel { display: none !important; }
     </style>
 
@@ -418,7 +418,7 @@
             <div class="btn-group">
                 <button id="opt-mode-coord" class="btn-opt active" onclick="setInputView('coord')">COORDS</button>
                 <button id="opt-mode-city" class="btn-opt" onclick="setInputView('city')">CITY</button>
-                <button id="opt-mode-live" class="btn-opt" onclick="setInputView('live')">📍 LIVE</button>
+                <button id="opt-mode-live" class="btn-opt" onclick="setInputView('live')">ð LIVE</button>
             </div>
         </div>
         <div class="settings-row">
@@ -678,7 +678,7 @@
         <div id="pws-qc-panel" style="display:none;"></div>
 
         <div id="tropical-widget" style="display:none; background:rgba(79,195,247,0.05); border:1px solid rgba(79,195,247,0.18); border-radius:16px; padding:16px 18px; margin-bottom:15px;">
-            <div class="sky-hd">🌀 Tropical Activity</div>
+            <div class="sky-hd">ð Tropical Activity</div>
             <div id="tropical-storms-list"></div>
             <div id="tropical-map" style="height:200px; border-radius:10px; overflow:hidden; margin-top:10px; display:none;"></div>
         </div>
@@ -701,7 +701,7 @@
             <div id="twc-daily-forecast" class="forecast-scroll"></div>
         </div>
 
-        <!-- Outdoor Score — daytime only (6 AM – 6 PM) -->
+        <!-- Outdoor Score â daytime only (6 AM â 6 PM) -->
         <div id="outdoor-score-box" style="display:none; background:rgba(0,230,118,0.07); border:1px solid rgba(0,230,118,0.25); border-radius:15px; padding:14px 18px; margin-top:15px;">
             <div style="font-size:0.7em; font-weight:900; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; color:var(--success);">&#127807; OUTDOOR SCORE</div>
             <div style="display:flex; align-items:baseline; gap:6px;">
@@ -735,7 +735,7 @@
             </div>
         </div>
 
-        <!-- v1.0.4: Storm Estimator removed — proximity data feeds Threat Level above -->
+        <!-- v1.0.4: Storm Estimator removed â proximity data feeds Threat Level above -->
         <!-- Hidden elements retained for JS compatibility -->
         <span id="storm-status-tag" style="display:none;"></span>
         <span id="storm-dist-val" style="display:none;"></span>
@@ -746,14 +746,14 @@
 
         <iframe id="radar-frame" width="100%" height="450" frameborder="0" style="border-radius:16px; background:#000; margin-bottom:20px;"></iframe>
 
-        <!-- Flood Outlook — multi-day WPC ERO + NWS QPF; hidden outside US -->
+        <!-- Flood Outlook â multi-day WPC ERO + NWS QPF; hidden outside US -->
         <div id="flood-score-box" style="display:none; background:rgba(0,230,118,0.07); border:1px solid rgba(0,230,118,0.25); border-radius:15px; padding:14px 18px; margin-bottom:20px; cursor:pointer; -webkit-tap-highlight-color:transparent;" onclick="openFloodModal()" title="Tap for multi-day flood outlook">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div id="flood-outlook-header" style="font-size:0.7em; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:var(--success);">&#127754; FLOOD OUTLOOK</div>
                 <div id="flood-outlook-label" style="font-size:0.62em; color:var(--success); letter-spacing:0.5px; font-weight:700;">OUTLOOK &#8250;</div>
             </div>
             <div id="flood-score-section">
-                <div id="flood-outlook-days" style="font-size:0.82em; color:#aaa; line-height:1.8;">Loading…</div>
+                <div id="flood-outlook-days" style="font-size:0.82em; color:#aaa; line-height:1.8;">Loadingâ¦</div>
             </div>
         </div>
 
@@ -907,7 +907,7 @@
 
         <!-- v1.0.4: Advanced analytics hidden by default, shown only in Advanced mode -->
         <div id="analytics-section" style="display:none; margin-top:20px;">
-            <div class="sky-hd" style="margin-bottom:12px;">📊 Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
+            <div class="sky-hd" style="margin-bottom:12px;">ð Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
             <div class="analytics-canvas-wrap">
                 <div class="analytics-label">&#127777; Pressure Trend (inHg)</div>
                 <canvas id="chart-pressure" height="120" style="width:100%; display:block;"></canvas>
@@ -1019,7 +1019,7 @@
 </footer>
 
 <script>
-    // ——— SkyDB: IndexedDB wrapper for settings + weather cache ———
+    // âââ SkyDB: IndexedDB wrapper for settings + weather cache âââ
     const SkyDB = (function() {
         'use strict';
         var NAME = 'skymonitor', VER = 1;
@@ -1142,7 +1142,7 @@
     window.activeFFE = false;
     // v1.0.5: Full per-alert-type scoring
     window.activeAlertEvents = [];
-    // Per-event expiry timestamps (ms) — lets hourly scoring know exactly which
+    // Per-event expiry timestamps (ms) â lets hourly scoring know exactly which
     // hours a warning like a Flash Flood Warning is actually in effect for.
     window.activeAlertExpires = {};
     window.activeSVRDestructive = false;
@@ -1162,7 +1162,7 @@
     window._modalOpen = false;
     function setModalOpen(v) { window._modalOpen = v; document.body.style.overflow = v ? 'hidden' : ''; }
 
-    // ——— UTILITIES ———
+    // âââ UTILITIES âââ
 
     function formatOffsetTime(unixSeconds, offsetSeconds) {
         const d = new Date((unixSeconds + offsetSeconds) * 1000);
@@ -1217,7 +1217,7 @@
                 var city = (suburb && primaryCity) ? suburb + ', ' + primaryCity : (suburb || primaryCity || 'Current Location');
                 var livePanel = document.getElementById('coords-panel');
                 if (livePanel && localStorage.getItem('input_mode') === 'live') {
-                    livePanel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">📍 ' + escapeHtml(city) + '</span>';
+                    livePanel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">ð ' + escapeHtml(city) + '</span>';
                 }
             }).catch(function() {});
     }
@@ -1247,7 +1247,7 @@
                 panel.innerHTML = '<span style="color:#ff1744; font-size:0.8em;">GPS not available</span>';
                 return;
             }
-            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px;">📍 Locating…</span>';
+            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px;">ð Locatingâ¦</span>';
             if (_liveWatchId !== null) {
                 navigator.geolocation.clearWatch(_liveWatchId);
                 _liveWatchId = null;
@@ -1389,7 +1389,7 @@
         return 'rgb(' + r + ',' + g + ',' + b + ')';
     }
     function colorFeelsLike(f) {
-        // icy blue ≤10 … neutral white ~68 … hot red ≥100
+        // icy blue â¤10 â¦ neutral white ~68 â¦ hot red â¥100
         var stops = [
             [-20, [100, 200, 255]],
             [32,  [79,  195, 247]],
@@ -1541,7 +1541,7 @@
         if (m) m.style.display = 'none';
     }
 
-    // ——— reCAPTCHA v3 Gate ———
+    // âââ reCAPTCHA v3 Gate âââ
     function showRecaptchaGate() {
         var gate = document.getElementById('recaptcha-gate');
         if (!gate) return;
@@ -1558,11 +1558,11 @@
         if (gate) gate.style.display = 'none';
         setModalOpen(false);
         if (goHome) {
-            // X pressed — send user back to home, don't let them in
+            // X pressed â send user back to home, don't let them in
             var homeNav = document.getElementById('nav-home');
             if (homeNav) window.switchTab('home', homeNav);
         } else {
-            // Verified — re-trigger the reporting tab navigation now that flag is set
+            // Verified â re-trigger the reporting tab navigation now that flag is set
             var repNav = document.getElementById('nav-reporting');
             if (repNav) window.switchTab('reporting', repNav);
         }
@@ -1651,7 +1651,7 @@
     // v1.0.4 FIX: NWS text rendered as HTML with bullet lists
     function formatNWSText(raw) {
         if (!raw) return '';
-        // Strip leading WFO product identifier line (e.g. "FFWLMK", "TORLOT") —
+        // Strip leading WFO product identifier line (e.g. "FFWLMK", "TORLOT") â
         // exactly 6 uppercase letters alone on the first non-empty line.
         raw = raw.replace(/^[A-Z]{6}\r?\n/, '');
         const lines = raw.split('\n');
@@ -1761,7 +1761,7 @@
         document.getElementById('stationName').innerText = 'LOADING LOCATION...';
         document.getElementById('conditionText').innerText = '--';
         document.getElementById('presVal').innerText = '--';
-        // Hide observed fields without blanking — values reappear once authoritative data arrives
+        // Hide observed fields without blanking â values reappear once authoritative data arrives
         (function(){['tempVal','feelsVal','windVal','humVal'].forEach(function(id){
             var el=document.getElementById(id);
             if(el){el.style.transition='none';el.style.opacity='1';el.innerText='--';el.style.color='';}
@@ -1936,7 +1936,7 @@
                     return getNum(a) - getNum(b);
                 });
             if (validImages.length === 0) throw new Error('No valid images');
-            // Images found — make sure section is visible (may have been hidden by a previous no-image WFO)
+            // Images found â make sure section is visible (may have been hidden by a previous no-image WFO)
             const _wxSec = document.getElementById('wxstory-section');
             if (_wxSec) _wxSec.style.display = '';
             window._wxStoryImages = validImages;
@@ -1961,7 +1961,7 @@
             }, 5000);
         } catch(e) {
             storyImg.src = '';
-            // No images returned (WFO doesn't issue weather stories) — hide the whole section
+            // No images returned (WFO doesn't issue weather stories) â hide the whole section
             const _wxSecErr = document.getElementById('wxstory-section');
             if (_wxSecErr) _wxSecErr.style.display = 'none';
         }
@@ -1989,7 +1989,7 @@
     }
 
     // Computes the moon's illumination phase (0 = new, 0.5 = full, 1 = new again)
-    // directly from the synodic month length — no network call, so it never fails.
+    // directly from the synodic month length â no network call, so it never fails.
     function computeMoonPhase(date) {
         var synodicMonth = 29.53058867; // days
         var knownNewMoon = Date.UTC(2000, 0, 6, 18, 14, 0); // a reference new moon
@@ -2062,7 +2062,7 @@
     const SEVERITY_SCORE = { 'Extreme': 4, 'Severe': 3, 'Moderate': 2, 'Minor': 1, 'Unknown': 0 };
     const SPC_LABELS = { TSTM:"General Thunderstorms", MRGL:"Marginal Severe Storm Risk", SLGT:"Possible Severe Storm Risk", ENH:"Likely Severe Storm Risk", MDT:"Very Likely Severe Storm Risk", HIGH:"EXTREME Severe Storm Risk" };
 
-    // Full-feature alert scorer — reads description & parameters so FFE, Tor Emergency,
+    // Full-feature alert scorer â reads description & parameters so FFE, Tor Emergency,
     // PDS, Destructive SVR, and confirmed tornado all sort at their true danger level.
     function getAlertScore(feature) {
         var p   = feature.properties;
@@ -2074,25 +2074,25 @@
         var torPoss = ((ap.tornadoPossible            && ap.tornadoPossible[0])            || '').toUpperCase();
         var sevBonus = { 'Extreme': 40, 'Severe': 30, 'Moderate': 20, 'Minor': 10 }[p.severity] || 0;
 
-        // ── TIER 0: Absolute top — nothing outranks an Extreme Wind Warning ──
+        // ââ TIER 0: Absolute top â nothing outranks an Extreme Wind Warning ââ
         // Extreme Wind Warnings are exceptionally rare and mean destructive,
         // hurricane-force winds are imminent within minutes. They must sort
         // above every other alert type, including tornado emergencies.
         if (evt.includes('extreme wind warning'))                                              return 20000;
 
-        // ── TIER 1: Life-threatening emergencies ─────────────────────────
-        // Civil/authority emergencies are the absolute top — issued by officials for imminent threats
+        // ââ TIER 1: Life-threatening emergencies âââââââââââââââââââââââââ
+        // Civil/authority emergencies are the absolute top â issued by officials for imminent threats
         if (EMERGENCY_TYPES.some(function(em) { return evt.includes(em); }))                   return 16000;
         if (evt.includes('tornado warning')  && desc.includes('TORNADO EMERGENCY'))            return 15000;
         if (evt.includes('flash flood')      && desc.includes('FLASH FLOOD EMERGENCY'))        return 14000;
         if (evt.includes('tornado warning')  && desc.includes('PARTICULARLY DANGEROUS SITUATION')) return 13000;
         // Typhoon / Hurricane / Tsunami Warnings are life-threatening, large-scale
-        // events — they must outrank routine short-fused warnings like a Flash
+        // events â they must outrank routine short-fused warnings like a Flash
         // Flood Warning (a real Guam case had a Flash Flood Warning displayed
         // above an active Typhoon Warning, which is backwards).
         if (evt.includes('typhoon warning') || evt.includes('hurricane warning') || evt.includes('tsunami warning')) return 12500;
 
-        // ── TIER 2: Imminent-threat warnings ─────────────────────────────
+        // ââ TIER 2: Imminent-threat warnings âââââââââââââââââââââââââââââ
         if (evt.includes('tornado warning')  && torDet.includes('OBSERVED'))                   return 12000;
         if (evt.includes('tornado warning'))                                                    return 11000;
         if (evt.includes('severe thunderstorm warning') && dmgThr.includes('DESTRUCTIVE'))     return 10000;
@@ -2100,17 +2100,17 @@
         if (evt.includes('severe thunderstorm warning') && (torPoss === 'YES' || desc.includes('TORNADO POSSIBLE'))) return 9000;
         if (evt.includes('severe thunderstorm warning'))                                        return 8500;
 
-        // ── TIER 3: Other significant warnings ───────────────────────────
+        // ââ TIER 3: Other significant warnings âââââââââââââââââââââââââââ
         if (evt.includes('flash flood warning'))                                                return 8000;
         if (evt.includes('warning'))   return 7000 + sevBonus;
 
-        // ── TIER 4: Watches ───────────────────────────────────────────────
+        // ââ TIER 4: Watches âââââââââââââââââââââââââââââââââââââââââââââââ
         if (evt.includes('tornado watch'))              return 4500 + sevBonus;
         if (evt.includes('flash flood watch'))          return 4400 + sevBonus;
         if (evt.includes('severe thunderstorm watch'))  return 4300 + sevBonus;
         if (evt.includes('watch'))                      return 4000 + sevBonus;
 
-        // ── TIER 5+: Advisories, statements, outlooks ────────────────────
+        // ââ TIER 5+: Advisories, statements, outlooks ââââââââââââââââââââ
         if (evt.includes('advisory'))  return 3000 + sevBonus;
         if (evt.includes('statement')) return 2000 + sevBonus;
         if (evt.includes('outlook'))   return 1500 + sevBonus;
@@ -2168,7 +2168,7 @@
         const countdownElem = document.getElementById('spc-countdown');
         if (!countdownElem) return;
         countdownElem.style.display = '';
-        // NHC issues tropical weather outlooks 4× daily at ~02Z, 08Z, 14Z, 20Z
+        // NHC issues tropical weather outlooks 4Ã daily at ~02Z, 08Z, 14Z, 20Z
         const updateTimes = [2, 8, 14, 20];
         function updateNHC() {
             const now = new Date();
@@ -2227,13 +2227,13 @@
     }
 
     // Fetch the nearest WU PWS station that passes WU's own quality control.
-    // Always picks the nearest PWS (index 0 — API returns stations in distance order) as primary.
+    // Always picks the nearest PWS (index 0 â API returns stations in distance order) as primary.
     // qcStatus is intentionally NOT used for primary selection: WU computes it against its own
     // reference stations, which produces false failures for islands, peninsulas, and other
     // geographically isolated locations (e.g. Avalon on Catalina Island picks a mainland station
     // 12 miles away instead of the correct island station). Our own neighbor comparison in
-    // fetchNWSChain is the actual QC — qcStatus is only a soft tie-breaker for neighbor ranking.
-    // Neighbors are filtered to ≤5 miles so isolated primaries get no neighbors and fall back
+    // fetchNWSChain is the actual QC â qcStatus is only a soft tie-breaker for neighbor ranking.
+    // Neighbors are filtered to â¤5 miles so isolated primaries get no neighbors and fall back
     // to the PirateWeather backstop rather than comparing against climatologically unrelated stations.
     async function fetchWUMulti(latP, lonP) {
         try {
@@ -2286,7 +2286,7 @@
             return obsResults.filter(function(r) { return r !== null; });
         } catch(e) { return []; }
     }
-    // Compatibility shim — existing callers that expect a single-station object
+    // Compatibility shim â existing callers that expect a single-station object
     async function fetchWUData(latP, lonP) {
         const stations = await fetchWUMulti(latP, lonP);
         return stations[0] || null;
@@ -2313,7 +2313,7 @@
         }
     }
 
-    // ——— ALERT STACK (v1.0.4 fixes) ———
+    // âââ ALERT STACK (v1.0.4 fixes) âââ
 
     function _pirateAlertColor(severity) {
         switch ((severity || '').toLowerCase()) {
@@ -2392,25 +2392,25 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────To�───────────
+        // ââ Severe / life-threatening ââââââââââââââââââââââââââToï¿½âââââââââââ
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
         if (s.includes('blizzard'))                                          return base + 'blizzard'       + sz;
 
-        // ── Thunderstorms — three NWS probability tiers ───────────────────
+        // ââ Thunderstorms â three NWS probability tiers âââââââââââââââââââ
         // Must check before rain so "thunderstorm" beats the rain branches.
         if (s.includes('thunder') || s.includes('t-storm') || s.includes('tstm')) {
-            // Isolated / slight chance / in vicinity → tsra_hi
+            // Isolated / slight chance / in vicinity â tsra_hi
             if (s.includes('isolat') || s.includes('slight') ||
                 s.includes('possibl') || s.includes('vicinit'))              return base + 'tsra_hi'        + sz;
-            // Scattered / chance → tsra_sct
+            // Scattered / chance â tsra_sct
             if (s.includes('scatter') || s.includes('chance'))              return base + 'tsra_sct'       + sz;
-            // Definite / likely → tsra
+            // Definite / likely â tsra
             return base + 'tsra' + sz;
         }
 
-        // ── Frozen precip ──────────────────────────────────────────────────
+        // ââ Frozen precip ââââââââââââââââââââââââââââââââââââââââââââââââââ
         if (s.includes('freezing rain') || s.includes('freezing drizzle'))  return base + 'fzra'           + sz;
         if ((s.includes('rain') || s.includes('drizzle')) && s.includes('snow')) return base + 'rain_snow' + sz;
         if ((s.includes('rain') || s.includes('drizzle')) &&
@@ -2420,16 +2420,16 @@
         if (s.includes('snow') || s.includes('flurr') ||
             s.includes('blowing snow') || s.includes('snow grain'))          return base + 'snow'           + sz;
 
-        // ── Liquid precip — three NWS probability tiers ───────────────────
-        // Drizzle / sprinkles / possible light = isolated/slight chance → rain_showers_hi
+        // ââ Liquid precip â three NWS probability tiers âââââââââââââââââââ
+        // Drizzle / sprinkles / possible light = isolated/slight chance â rain_showers_hi
         if (s.includes('drizzle') || s.includes('sprinkl') || s.includes('possible light'))
                                                                              return base + 'rain_showers_hi' + sz;
-        // Showers (moderate probability) → rain_showers
+        // Showers (moderate probability) â rain_showers
         if (s.includes('shower') || s.includes('light rain'))               return base + 'rain_showers'   + sz;
-        // Definite / likely rain → rain
+        // Definite / likely rain â rain
         if (s.includes('rain'))                                              return base + 'rain'           + sz;
 
-        // ── Obscurations ───────────────────────────────────────────────────
+        // ââ Obscurations âââââââââââââââââââââââââââââââââââââââââââââââââââ
         // NWS puts Fog/Mist together in the fog icon (fg); mist is NOT a precip icon.
         if (s.includes('fog') || s.includes('mist') || s.includes('freezing fog'))
                                                                              return base + 'fog'            + sz;
@@ -2437,9 +2437,9 @@
         if (s.includes('haze'))                                              return base + 'haze'           + sz;
         if (s.includes('dust') || s.includes('sand'))                       return base + 'dust'           + sz;
 
-        // ── Wind ───────────────────────────────────────────────────────────
+        // ââ Wind âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         // NWS distinction: "Breezy" with a cloud modifier uses the *plain* sky icon
-        // (e.g. "Partly Cloudy and Breezy" → sct). Standalone "Breezy" → wind_skc.
+        // (e.g. "Partly Cloudy and Breezy" â sct). Standalone "Breezy" â wind_skc.
         // "Windy" always uses the wind_ icon variants.
         if (s.includes('breezy') || s.includes('blustery')) {
             if (s.includes('overcast'))                                      return base + 'ovc'            + sz;
@@ -2456,7 +2456,7 @@
             return base + 'wind_skc' + sz;
         }
 
-        // ── Sky cover ──────────────────────────────────────────────────────
+        // ââ Sky cover ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         if (s.includes('overcast'))                                          return base + 'ovc'            + sz;
         if (s.includes('mostly cloud') || s.includes('broken'))             return base + 'bkn'            + sz;
         if (s.includes('partly cloud') || s.includes('partly sunny') ||
@@ -2466,7 +2466,7 @@
         if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return base + 'skc'         + sz;
         if (s.includes('cloud') || s.includes('cloudy'))                    return base + 'ovc'            + sz;
 
-        // ── Extremes ───────────────────────────────────────────────────────
+        // ââ Extremes âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
         if (s.includes('hot'))                                               return base + 'hot'            + sz;
         if (s.includes('cold') || s.includes('frigid') ||
             s.includes('arctic') || s.includes('bitter'))                   return base + 'cold'           + sz;
@@ -2482,7 +2482,7 @@
         if (window.pirateCurrently) {
             const summary = window.pirateCurrently.summary || 'Clear';
             const pwTemp = window.pirateCurrently.temperature;
-            // Restore PirateWeather temp — fetchNWSChain resets tempVal to '--' before calling
+            // Restore PirateWeather temp â fetchNWSChain resets tempVal to '--' before calling
             // this, so we must explicitly repopulate it for international locations.
             if (pwTemp != null) {
                 window.liveTemp = Math.round(pwTemp);
@@ -2504,7 +2504,7 @@
         }
         // Populate the QC panel for international locations (NWS unavailable)
         _renderPWSQCPanel(window.wuData || null, null, null);
-        _wxReveal(); // International location — PirateWeather is authoritative; reveal now
+        _wxReveal(); // International location â PirateWeather is authoritative; reveal now
     }
 
     function applyUSMode() {
@@ -2523,7 +2523,7 @@
             if (window._polarState === 'day') return true;
             if (window._polarState === 'night') return false;
             if (localRiseTime && localSetTime) return _nowMs >= localRiseTime && _nowMs <= localSetTime;
-            // fallback if sunrise/sunset not yet loaded: use 6 AM – 6 PM
+            // fallback if sunrise/sunset not yet loaded: use 6 AM â 6 PM
             const _stationNowMs = _nowMs + (stationTzOffset * 1000);
             const _fallbackHour = new Date(_stationNowMs).getUTCHours();
             return _fallbackHour >= 6 && _fallbackHour < 18;
@@ -2563,7 +2563,7 @@
             else if (icon.includes('snow') || icon.includes('sleet')) score -= 25;
             else if (icon.includes('rain') || icon.includes('drizzle')) score -= 20;
 
-            // Temperature / feels-like penalty — aggressive for extremes
+            // Temperature / feels-like penalty â aggressive for extremes
             if (fl >= 65 && fl <= 80) {
                 // ideal, no penalty
             } else if (fl >= 58 && fl < 65) score -= 8;
@@ -2609,32 +2609,32 @@
         }
         if (_outdoorAlertNow('tornado warning') || _outdoorAlertNow('severe thunderstorm warning')) {
             if (scoreEl) scoreEl.innerText = 0;
-            if (descEl) descEl.innerText = 'Dangerous to be outside — active severe weather warning';
+            if (descEl) descEl.innerText = 'Dangerous to be outside â active severe weather warning';
             return;
         }
         if (_outdoorAlertNow('blizzard warning') || _outdoorAlertNow('winter storm warning') || _outdoorAlertNow('ice storm warning') || _outdoorAlertNow('snow squall warning')) {
             if (scoreEl) scoreEl.innerText = 25;
-            if (descEl) descEl.innerText = 'Not recommended — severe winter weather occurring';
+            if (descEl) descEl.innerText = 'Not recommended â severe winter weather occurring';
             return;
         }
         if (_outdoorAlertNow('extreme heat warning')) {
             if (scoreEl) scoreEl.innerText = 25;
-            if (descEl) descEl.innerText = 'Not recommended — extremely hot conditions occurring';
+            if (descEl) descEl.innerText = 'Not recommended â extremely hot conditions occurring';
             return;
         }
         if (_outdoorAlertNow('extreme cold warning')) {
             if (scoreEl) scoreEl.innerText = 25;
-            if (descEl) descEl.innerText = 'Not recommended — extremely cold conditions occurring';
+            if (descEl) descEl.innerText = 'Not recommended â extremely cold conditions occurring';
             return;
         }
         if (_outdoorAlertNow('heat advisory')) {
             if (scoreEl) scoreEl.innerText = 50;
-            if (descEl) descEl.innerText = 'Not recommended — uncomfortably hot conditions occurring';
+            if (descEl) descEl.innerText = 'Not recommended â uncomfortably hot conditions occurring';
             return;
         }
         if (_outdoorAlertNow('cold weather advisory')) {
             if (scoreEl) scoreEl.innerText = 50;
-            if (descEl) descEl.innerText = 'Not recommended — uncomfortably cold conditions occurring';
+            if (descEl) descEl.innerText = 'Not recommended â uncomfortably cold conditions occurring';
             return;
         }
         if (_outdoorAlertNow('air quality alert') || _outdoorAlertNow('dense smoke advisory')) {
@@ -2691,9 +2691,9 @@
         if (avgScore === 100 && minFeels >= 65 && minFeels <= 80) {
             desc = 'A completely perfect day to be outside! Get out there and enjoy it!';
         } else if (avgScore >= 90) {
-            desc = minFeels >= 65 && minFeels <= 80 ? 'Nearly perfect — enjoy your time outside!' : 'Excellent conditions for the next 12 hours.';
+            desc = minFeels >= 65 && minFeels <= 80 ? 'Nearly perfect â enjoy your time outside!' : 'Excellent conditions for the next 12 hours.';
         } else if (hasThunder) {
-            desc = avgScore < 30 ? 'Active thunderstorms likely. Stay inside.' : 'Storms possible — watch lightning closely.';
+            desc = avgScore < 30 ? 'Active thunderstorms likely. Stay inside.' : 'Storms possible â watch lightning closely.';
         } else if (peakFeels >= 103) {
             desc = 'Dangerous heat ahead. Minimize outdoor exposure and hydrate.';
         } else if (peakFeels >= 95) {
@@ -2703,7 +2703,7 @@
         } else if (minFeels < 32) {
             desc = 'Freezing temperatures. Dress warmly before heading out.';
         } else if (minFeels < 45) {
-            desc = 'Chilly — jacket required. Otherwise manageable.';
+            desc = 'Chilly â jacket required. Otherwise manageable.';
         } else if (rainSeverityChance >= 80) {
             desc = 'Heavy rain very likely' + (rainWindow ? ' ' + rainWindow : '') + '. Best to stay inside.';
         } else if (avgScore >= 75 && hasRain) {
@@ -2713,23 +2713,23 @@
         } else if (avgScore >= 60 && hasRain) {
             desc = 'Decent overall, but expect rain' + (rainWindow ? ' ' + rainWindow : '') + '. Plan accordingly.';
         } else if (avgScore >= 60) {
-            desc = 'Decent — some minor discomfort expected.';
+            desc = 'Decent â some minor discomfort expected.';
         } else if (hasRain) {
             desc = 'Rainy periods likely' + (rainWindow ? ' starting ' + rainWindow : '') + '. Have an umbrella ready.';
         } else if (maxGust >= 35) {
             desc = 'Very windy (' + _fmtWind(maxGust) + ' gusts). Outdoor plans may be disrupted.';
         } else if (avgScore >= 45) {
-            desc = 'Marginal — plan carefully and dress for the conditions.';
+            desc = 'Marginal â plan carefully and dress for the conditions.';
         } else if (avgScore >= 30) {
-            desc = 'Poor conditions — significant discomfort or hazard expected.';
+            desc = 'Poor conditions â significant discomfort or hazard expected.';
         } else {
             desc = 'Not recommended for outdoor activity.';
         }
         if (descEl) descEl.innerText = desc;
     }
 
-    // ── Flood Impact Score ─────────────────────────────────────────────────────
-    // Scores 0–100 basement flood risk using live rain rate, NWS gridpoint QPF,
+    // ââ Flood Impact Score âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // Scores 0â100 basement flood risk using live rain rate, NWS gridpoint QPF,
     // cached 24h antecedent rainfall, and active NWS flood alerts.
     // >2 in/hr hard-caps at 100. Intensity weighted most heavily per user spec.
 
@@ -2763,7 +2763,7 @@
         } catch(e) { return 0; }
     }
 
-    // Sums NWS gridpoint QPF (mm→in) for a time window starting hoursAhead from now.
+    // Sums NWS gridpoint QPF (mmâin) for a time window starting hoursAhead from now.
     function _getNWSQPF(hoursAhead, windowHours) {
         var vals = window.nwsQPFValues || [];
         if (!vals.length) return 0;
@@ -2786,10 +2786,10 @@
             if (overlapEnd > overlapStart)
                 totalMm += entry.value * ((overlapEnd - overlapStart) / durMs);
         });
-        return totalMm / 25.4; // mm → inches
+        return totalMm / 25.4; // mm â inches
     }
 
-    // Average NWS probability of precipitation (0–100) for a time window.
+    // Average NWS probability of precipitation (0â100) for a time window.
     // Uses window.nwsPopValues fetched alongside QPF from the gridpoints endpoint.
     function _getNWSPoP(hoursAhead, windowHours) {
         var vals = window.nwsPopValues || [];
@@ -2829,16 +2829,16 @@
             window.nwsPopValues = (data.properties && data.properties.probabilityOfPrecipitation && data.properties.probabilityOfPrecipitation.values) || [];
         } catch(e) { window.nwsQPFValues = []; window.nwsPopValues = []; }
         computeFloodOutlook();
-        // Always cache QPF immediately after it resolves — fetchRiskLevels may save flood_inputs
+        // Always cache QPF immediately after it resolves â fetchRiskLevels may save flood_inputs
         // before this async call finishes, leaving QPF empty in the offline cache.
         SkyDB.set(SkyDB.S.weather, 'flood_inputs', { ts: Date.now(), eroDay1: window.wpcERODay1 || null, eroDay2: window.wpcERODay2 || null, eroDay3: window.wpcERODay3 || null, qpfValues: window.nwsQPFValues || [], popValues: window.nwsPopValues || [], precip1h: (window.nwsObsPrecip1h !== undefined ? window.nwsObsPrecip1h : null), precip3h: (window.nwsObsPrecip3h !== undefined ? window.nwsObsPrecip3h : null), precip6h: (window.nwsObsPrecip6h !== undefined ? window.nwsObsPrecip6h : null) });
     }
 
-    function onScoreModeChange() { /* no-op — outdoor and flood are now separate boxes */ }
+    function onScoreModeChange() { /* no-op â outdoor and flood are now separate boxes */ }
 
-    // _setFloodDisplay removed — replaced by computeFloodOutlook()
+    // _setFloodDisplay removed â replaced by computeFloodOutlook()
 
-    // General rolling accumulation helper — supports any window size (hours)
+    // General rolling accumulation helper â supports any window size (hours)
     function _getRollingNh(hours) {
         try {
             var KEY = 'sm_precip_cache';
@@ -2858,13 +2858,13 @@
 
     // Given a forecast hour's unix time (seconds), find the flood-alert score floor
     // from an active Flash Flood Warning/Emergency whose onset/expiry window covers
-    // that hour. This makes an active FFW (e.g. 8pm–10pm) keep boosting every hour
+    // that hour. This makes an active FFW (e.g. 8pmâ10pm) keep boosting every hour
     // it's in effect in the hourly modal, not just the current hour.
-    // Scoped to Flash Flood Warning/Emergency ONLY — these are the alerts NWS issues
+    // Scoped to Flash Flood Warning/Emergency ONLY â these are the alerts NWS issues
     // specifically because of heavy rainfall, so they belong in a rain-rate-based
     // hourly score. Plain Flood Warnings (river/drainage, not rain-rate dependent)
     // and Flood Watches/Advisories (precautionary, often span a full day or more)
-    // are intentionally excluded here — flooring every hour of a long watch window
+    // are intentionally excluded here â flooring every hour of a long watch window
     // regardless of that hour's actual forecast rain made the hourly list look
     // permanently elevated even at trace rain rates.
     function _getHourAlertFloor(hourUnixSec) {
@@ -2893,7 +2893,7 @@
     function _computeHourFloodScore(h) {
         var intensity = h.precipIntensity || 0;
         var prob      = Math.max(h.precipProbability || 0, 0.05);
-        // At extreme rates, probability-weighting is misleading — 2+ in/hr is a
+        // At extreme rates, probability-weighting is misleading â 2+ in/hr is a
         // flash flood regardless of model confidence. Bypass the weighted path.
         if (intensity >= 2.0) return 100;
         // Expected weighted intensity
@@ -2913,8 +2913,8 @@
         return Math.round(Math.min(100, Math.max(0, iScore, alertFloor)));
     }
 
-    // ── Multi-day Flood Outlook (replaces computeFloodImpact) ──────────────────
-    // Driven by WPC ERO (Days 1–3) + NWS gridpoint QPF. US-only; hidden outside US.
+    // ââ Multi-day Flood Outlook (replaces computeFloodImpact) ââââââââââââââââââ
+    // Driven by WPC ERO (Days 1â3) + NWS gridpoint QPF. US-only; hidden outside US.
     function computeFloodOutlook() {
         var box = document.getElementById('flood-score-box');
         if (window.isOutsideUS) {
@@ -2927,7 +2927,7 @@
         var headerEl = document.getElementById('flood-outlook-header');
         var labelEl  = document.getElementById('flood-outlook-label');
 
-        // ERO label string → 0–4 severity level
+        // ERO label string â 0â4 severity level
         function _eroLevel(label) {
             if (!label || label === '0') return 0;
             var ul = label.toUpperCase();
@@ -2938,7 +2938,7 @@
             return 0;
         }
 
-        // QPF from TWC daily forecast — same source as the daily forecast cards
+        // QPF from TWC daily forecast â same source as the daily forecast cards
         var now = new Date();
         function _getTWCQPF(i) { return (window.twcDailyQPF && window.twcDailyQPF[i] != null) ? window.twcDailyQPF[i] : 0; }
         var qpf0 = _getTWCQPF(0); // today
@@ -3157,7 +3157,7 @@
                             alertIntervalId = _iv;
                         })(_myAlertGen, expTime, bannerTextPrefix, topP.event);
                     } else if (_onsetMsTop && _onsetMsTop > Date.now()) {
-                        // Future alert — tick down to when it begins
+                        // Future alert â tick down to when it begins
                         (function(_gen, _onset, _prefix) {
                             const _iv = setInterval(function() {
                                 if (alertIntervalGen !== _gen) { clearInterval(_iv); return; }
@@ -3187,7 +3187,7 @@
                         // Each row: [paramKey, Display Label, optional value transform fn]
                         // Listed in display order. Only shown if NWS includes the parameter.
                         // Source: https://vlab.noaa.gov/web/nws-common-alerting-protocol/cap-documentation
-                        // Normalize: some NWS offices send maxWindGust, others send windGust — unify to windGust
+                        // Normalize: some NWS offices send maxWindGust, others send windGust â unify to windGust
                         if (!params2.windGust && params2.maxWindGust) params2.windGust = params2.maxWindGust;
                         // Parses raw NWS eventMotionDescription into human-readable form.
                         // Input: "2026-06-28t00:57:00-00:00...storm...277deg...14kt...36.08,-85.2"
@@ -3196,7 +3196,7 @@
                             var degM = v.match(/(\d+)deg/i); var ktM = v.match(/(\d+)kt/i);
                             if (!degM || !ktM) return v;
                             // NWS CAP deg = direction storm is moving FROM (meteorological convention).
-                            // Add 180° to convert to the direction it is heading TOWARD.
+                            // Add 180Â° to convert to the direction it is heading TOWARD.
                             var deg = (parseInt(degM[1]) + 180) % 360;
                             var mph = Math.round(parseInt(ktM[1]) * 1.15078);
                             var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
@@ -3212,7 +3212,7 @@
                             for (var i = 0; i < _HAIL_REF.length; i++) { if (inches >= _HAIL_REF[i][0]) ref = _HAIL_REF[i][1]; }
                             return inches.toFixed(2) + '"' + (ref ? ' (' + ref + ')' : '');
                         }
-                        // Parses NWS windGust value — may be "60 MPH", "Up to 60 MPH", or just "60"
+                        // Parses NWS windGust value â may be "60 MPH", "Up to 60 MPH", or just "60"
                         function _parseWindGust(v) {
                             var m = v.match(/(\d+)/); if (!m) return v;
                             return m[1] + ' mph';
@@ -3339,7 +3339,7 @@
                             ? 'https://www.weather.gov/images/nws/newicons/fu.png'
                             : 'https://www.weather.gov/images/nws/newicons/hz.png';
                     }
-                    // At night, prepend 'n' to the filename (e.g. tsra.png → ntsra.png).
+                    // At night, prepend 'n' to the filename (e.g. tsra.png â ntsra.png).
                     // onerror on the <img> falls back to the day URL if the night variant 404s.
                     const dayIcon = icon;
                     if (isNightAtStation) icon = icon.replace(/([^/]+\.png)(\?.*)?$/, 'n$1$2');
@@ -3429,7 +3429,7 @@
                         if (_savedAlertScrolls[id]) el.scrollTop = _savedAlertScrolls[id];
                     }
                 });
-                // Restore page scroll via rAF — waits for repaint so height is fully settled
+                // Restore page scroll via rAF â waits for repaint so height is fully settled
                 const _scrollTarget = window._severeSavedScroll || 0;
                 if (_scrollTarget > 0) requestAnimationFrame(function() {
                     window.scrollTo({ top: _scrollTarget, behavior: 'instant' });
@@ -3440,7 +3440,7 @@
             } else {
                 stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>";
             }
-            // Cache alert state for offline restore — convert alert icon <img> srcs to
+            // Cache alert state for offline restore â convert alert icon <img> srcs to
             // data URLs so they display without network access in offline mode.
             (async function(_stk, _ban, _chk) {
                 var _div = document.createElement('div');
@@ -3462,7 +3462,7 @@
                 SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: _div.innerHTML, bannerDisplay: _ban.style.display, bannerText: _ban.innerText, bannerBg: _ban.style.background, bannerClass: _ban.className, checklistText: _chk.style.display === 'block' ? _chk.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
             })(stack, banner, checklist);
             if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
-            // Save outdoor score now — alerts are active so alert-override descriptions are correct
+            // Save outdoor score now â alerts are active so alert-override descriptions are correct
             SkyDB.set(SkyDB.S.weather, 'outdoor_score', { ts: Date.now(), val: (document.getElementById('outdoor-score-val') || {}).innerText || null, desc: (document.getElementById('outdoor-score-desc') || {}).innerText || null, boxDisplay: (document.getElementById('outdoor-score-box') || {}).style.display || null });
             computeFloodOutlook();
         } catch(e) {}
@@ -3501,8 +3501,8 @@
             //   card = innerWidth - 40px body padding
             //   column = (card - 15px grid gap) / 2
             //   text area = column - 20px pad each side - 1px border each side = column - 42
-            // Bold-900 uppercase chars measure ~0.72× font-size wide.
-            // No upper/lower caps — short words ("FAIR") get big, long words ("OPPRESSIVE") scale down to fit.
+            // Bold-900 uppercase chars measure ~0.72Ã font-size wide.
+            // No upper/lower caps â short words ("FAIR") get big, long words ("OPPRESSIVE") scale down to fit.
             const cardW = window.innerWidth - 40;
             const avail = Math.max(50, (cardW - 15) / 2 - 42);
             const px = Math.max(9, Math.min(28, Math.floor(avail / (len * 0.72))));
@@ -3571,7 +3571,7 @@
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
             const d = await resP.json();
             if (d.offset != null) stationTzOffset = d.offset * 3600;
-            // Skip PWS entirely for water locations — nearest station is always on land
+            // Skip PWS entirely for water locations â nearest station is always on land
             // and its readings are completely unrepresentative of an open-water point.
             const wuStations = window.isWaterLocation ? [] : await fetchWUMulti(lat, lon);
             const wu = wuStations[0] || null;
@@ -3597,7 +3597,7 @@
             if (curr.nearestStormDistance != null && curr.nearestStormDistance < 0) curr.nearestStormDistance = null;
             if (curr.nearestStormBearing != null && curr.nearestStormBearing < 0) curr.nearestStormBearing = null;
             if (curr.ozone != null && curr.ozone < 0) curr.ozone = null;
-            // Extended sentinel sanitization — covers all fields PirateWeather may return as -999
+            // Extended sentinel sanitization â covers all fields PirateWeather may return as -999
             var _currSentinelBad = false;
             if (curr.windSpeed != null && curr.windSpeed < 0)                        { curr.windSpeed = null;           _currSentinelBad = true; }
             if (curr.windGust != null && curr.windGust < 0)                          { curr.windGust = null;            _currSentinelBad = true; }
@@ -3614,7 +3614,7 @@
             // _patchSentinelsFromOpenMeteo is called after hourly data is stored below
             const daySummary = d.hourly?.summary || d.daily?.data?.[0]?.summary || null;
             if (daySummary) document.getElementById('vibeCheck').innerText = daySummary;
-            // Always render PirateWeather as the initial baseline — fetchNWSChain resolves
+            // Always render PirateWeather as the initial baseline â fetchNWSChain resolves
             // the final QC-trusted source (PWS1, NWS obs, or neighbor median) and overwrites
             // once, after QC completes. This prevents briefly showing a bad PWS value on screen.
             let temp = curr.temperature;
@@ -3633,18 +3633,18 @@
             if (_needsObsInit) { setWindCompass(liveWindSpd > 0 && windDir !== null ? windDir : null); }
             let humidity = curr.humidity * 100;
             if (_needsObsInit) { (function(){ var _hv = Math.round(humidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })(); }
-            // NWS-standard local feels-like: wind chill ≤50°F, heat index ≥70°F, else actual temp
+            // NWS-standard local feels-like: wind chill â¤50Â°F, heat index â¥70Â°F, else actual temp
             (function() {
                 var T = temp, W = liveWindSpd, RH = humidity, fl = T;
-                RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN → 50
+                RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN â 50
                 if (T <= 50 && W >= 3) {
                     // NWS Wind Chill formula
                     fl = 35.74 + 0.6215*T - 35.75*Math.pow(W,0.16) + 0.4275*T*Math.pow(W,0.16);
                 } else if (T >= 70) {
-                    // NWS Heat Index — simplified screening first
+                    // NWS Heat Index â simplified screening first
                     var hiSimple = 0.5 * (T + 61.0 + (T - 68.0) * 1.2 + RH * 0.094);
                     if (hiSimple >= 80) {
-                        // Full Rothfusz polynomial (valid ≥80°F)
+                        // Full Rothfusz polynomial (valid â¥80Â°F)
                         var hiRoth = -42.379 + 2.04901523*T + 10.14333127*RH
                            - 0.22475541*T*RH - 0.00683783*T*T - 0.05391317*RH*RH
                            + 0.00122874*T*T*RH + 0.00085282*T*RH*RH
@@ -3655,7 +3655,7 @@
                         // NWS adjustment: high humidity / mild temp correction
                         if (RH > 85 && T >= 80 && T <= 87)
                             hiRoth += (RH - 85) / 10 * (87 - T) / 5;
-                        // Rothfusz overestimates vs. the Steadman chart in the 80-90°F range.
+                        // Rothfusz overestimates vs. the Steadman chart in the 80-90Â°F range.
                         // Average T and the polynomial result to match NWS table / TWC values.
                         fl = (T + hiRoth) / 2;
                     } else {
@@ -3673,7 +3673,7 @@
             }
             lastPressureMb = curr.pressure;
             document.getElementById('presVal').innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">' + trend + '</span>';
-            const MAX_PRECIP_INTENSITY = 15.0; // in/hr sanity cap — raised from 2.0; Super Typhoons can exceed 5-10"/hr and PW data should not be clipped
+            const MAX_PRECIP_INTENSITY = 15.0; // in/hr sanity cap â raised from 2.0; Super Typhoons can exceed 5-10"/hr and PW data should not be clipped
             let precip1h = 0;
             if (d.minutely?.data?.length) { precip1h = d.minutely.data.reduce(function(sum, m) { return sum + (Math.min(m.precipIntensity || 0, MAX_PRECIP_INTENSITY) / 60); }, 0); }
             else precip1h = Math.min(d.hourly?.data?.[0]?.precipAccumulation || 0, MAX_PRECIP_INTENSITY);
@@ -3806,12 +3806,12 @@
             _isOffline = false;
             lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
         } catch(e) {
-            // PirateWeather failed — try Open-Meteo as a live backup
+            // PirateWeather failed â try Open-Meteo as a live backup
             try {
                 await fetchOpenMeteoFallback();
             } catch(e2) {
                 _isOffline = true;
-                // Both live sources unavailable — restore from IndexedDB cache
+                // Both live sources unavailable â restore from IndexedDB cache
                 SkyDB.get(SkyDB.S.weather, 'last_conditions').then(function(c) {
                     if (!c) return;
                     (function(){ var _tv = c.temp; var _te = document.getElementById('tempVal'); _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); })();
@@ -3843,12 +3843,12 @@
                     if (_cDescEl && c.comfortDesc) _cDescEl.innerText = c.comfortDesc;
                     if (c.comfortVal != null || c.comfortDesc != null) updateSmartComfort(c.temp, c.feelsLike, c.humidity, c.wind, c.condition, c.uv, 0);
                 });
-                // Restore hourly data → enables hourly strip, comfort modal, UV modal, analytics
+                // Restore hourly data â enables hourly strip, comfort modal, UV modal, analytics
                 SkyDB.get(SkyDB.S.weather, 'hourly_data').then(function(h) {
                     if (!h || !h.data || !h.data.length) return;
                     window.pirateHourlyData = h.data;
                     window.pirateTimezoneOffset = h.tzOffset || 0;
-                    // Do NOT call computeOutdoorScore here — alerts are not restored yet,
+                    // Do NOT call computeOutdoorScore here â alerts are not restored yet,
                     // so alert-override descriptions (heat advisory, etc.) would be wrong.
                     // The saved outdoor_score snapshot (captured after alerts ran online) is
                     // restored below and reflects the correct alert-aware state.
@@ -3959,7 +3959,7 @@
             const d = await res.json();
             const omCur = d.current || {};
 
-            // ── Patch window.pirateCurrently in-memory object ──
+            // ââ Patch window.pirateCurrently in-memory object ââ
             const curr = window.pirateCurrently;
             if (curr) {
                 if (curr.uvIndex == null && omCur.uv_index != null && omCur.uv_index >= 0)             curr.uvIndex = omCur.uv_index;
@@ -3974,7 +3974,7 @@
                 if (curr.cloudCover == null && omCur.cloud_cover != null && omCur.cloud_cover >= 0)     curr.cloudCover = omCur.cloud_cover / 100;
             }
 
-            // ── Re-render UV ──
+            // ââ Re-render UV ââ
             const uv = curr && curr.uvIndex != null ? curr.uvIndex : (omCur.uv_index != null && omCur.uv_index >= 0 ? omCur.uv_index : null);
             if (uv != null && uv >= 0) {
                 liveUV = uv;
@@ -3992,7 +3992,7 @@
                 }
             }
 
-            // ── Re-render Wind (only when WU doesn't supply it) ──
+            // ââ Re-render Wind (only when WU doesn't supply it) ââ
             var _wu = window.wuData;
             var _wuHasWind = _wu && _wu.windSpeed !== null;
             if (!_wuHasWind && curr && curr.windSpeed != null && curr.windSpeed >= 0) {
@@ -4002,27 +4002,27 @@
                 setWindCompass(liveWindSpd > 0 && curr.windBearing != null ? curr.windBearing : null);
             }
 
-            // ── Re-render Temperature (only when WU doesn't supply it) ──
+            // ââ Re-render Temperature (only when WU doesn't supply it) ââ
             var _wuHasTemp = _wu && _wu.temp !== null;
             if (!_wuHasTemp && curr && curr.temperature != null) {
                 window.liveTemp = Math.round(curr.temperature);
                 (function(){ var _tv = Math.round(curr.temperature); var _te = document.getElementById('tempVal'); if (_te) { _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); } })();
             }
 
-            // ── Re-render Humidity (only when WU doesn't supply it) ──
+            // ââ Re-render Humidity (only when WU doesn't supply it) ââ
             var _wuHasHum = _wu && _wu.humidity !== null;
             if (!_wuHasHum && curr && curr.humidity != null) {
                 (function(){ var _hv = Math.round(curr.humidity * 100); var _el = document.getElementById('humVal'); if (_el) { _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); } })();
             }
 
-            // ── Re-render Pressure ──
+            // ââ Re-render Pressure ââ
             if (curr && curr.pressure != null && curr.pressure > 0) {
                 var _presIn = (curr.pressure * 0.02953).toFixed(2);
                 var _presEl = document.getElementById('presVal');
                 if (_presEl) _presEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : _presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
             }
 
-            // ── Recalculate feels-like with any patched temp/wind/humidity ──
+            // ââ Recalculate feels-like with any patched temp/wind/humidity ââ
             if (curr) {
                 var _T  = window.liveTemp || 70;
                 var _W  = liveWindSpd;
@@ -4048,12 +4048,12 @@
                 computeFloodOutlook();
             }
 
-            // ── Patch hourly data ──
+            // ââ Patch hourly data ââ
             if (window.pirateHourlyData && d.hourly && d.hourly.time) {
                 var _omH = d.hourly;
                 var _tzOffSec = (window.pirateTimezoneOffset || 0) * 3600;
 
-                // Build a timestamp → value map for each Open-Meteo hourly field
+                // Build a timestamp â value map for each Open-Meteo hourly field
                 function _buildTsMap(fieldArr) {
                     var map = {};
                     if (!fieldArr) return map;
@@ -4094,13 +4094,13 @@
                     if (h.precipIntensity == null)              { v = _lookup(_prMap, h.time);   if (v != null && v >= 0)  h.precipIntensity = v; }
                     if (h.cloudCover == null)                   { v = _lookup(_ccMap, h.time);   if (v != null && v >= 0)  h.cloudCover = v / 100; }
                     if (h.precipProbability == null)            { v = _lookup(_ppMap, h.time);   if (v != null && v >= 0)  h.precipProbability = v / 100; }
-                    if (h.visibility == null)                   { v = _lookup(_visMap, h.time);  if (v != null && v >= 0)  h.visibility = v / 1609.34; } // m → mi
+                    if (h.visibility == null)                   { v = _lookup(_visMap, h.time);  if (v != null && v >= 0)  h.visibility = v / 1609.34; } // m â mi
                 });
             }
-        } catch(e) { /* silent — best-effort only */ }
+        } catch(e) { /* silent â best-effort only */ }
     }
 
-    // Full Open-Meteo fallback — used when PirateWeather is completely unavailable
+    // Full Open-Meteo fallback â used when PirateWeather is completely unavailable
     // Populates all weather data EXCEPT minutely (not supported by Open-Meteo)
     async function fetchOpenMeteoFallback() {
         function omIcon(code, isDay) {
@@ -4176,7 +4176,7 @@
         const humidity = cur.relative_humidity_2m; // already 0-100
         (function(){ var _hv = Math.round(humidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
 
-        // Feels-like (NWS formula — same as fetchPirate)
+        // Feels-like (NWS formula â same as fetchPirate)
         (function() {
             var T = temp, W = liveWindSpd, RH = humidity, fl = T;
             if (T <= 50 && W >= 3) {
@@ -4223,8 +4223,8 @@
         // Moon phase: Open-Meteo doesn't provide this, and OpenWeather's moon-phase field
         // only lives behind One Call (2.5 is deprecated for this key, 3.0 needs a paid
         // subscription), so an API-based backup here would just fail again. Instead,
-        // compute it directly from a standard synodic-month formula — this can't go down.
-        // 0–1 convention matches PirateWeather exactly (0=new, 0.5=full).
+        // compute it directly from a standard synodic-month formula â this can't go down.
+        // 0â1 convention matches PirateWeather exactly (0=new, 0.5=full).
         var phase = computeMoonPhase(new Date());
         moonPhaseVal = phase;
         document.getElementById('moonVal').innerText = getMoonPhaseName(phase);
@@ -4240,7 +4240,7 @@
         document.getElementById('uv-val').style.color = uvCol;
         document.getElementById('uv-desc').innerText = uvDesc;
 
-        // Convert Open-Meteo columnar hourly → PirateWeather row format for renderPirateHourly
+        // Convert Open-Meteo columnar hourly â PirateWeather row format for renderPirateHourly
         const h = d.hourly;
         const hourlyRows = [];
         for (let i = 0; i < Math.min(h.time.length, 72); i++) {
@@ -4348,7 +4348,7 @@
             if (!d || !d.city) throw new Error('OW bad data');
             stationTzOffset = d.city.timezone;
             const nowMs = Date.now();
-            // Detect polar regions: OpenWeather returns sunrise ≈ sunset when the sun never crosses the horizon
+            // Detect polar regions: OpenWeather returns sunrise â sunset when the sun never crosses the horizon
             (function(rise, set, tz) {
                 var _polar = Math.abs(rise - set) < 120; // within 2 min = no real transit
                 if (_polar) {
@@ -4409,7 +4409,7 @@
         var panel = document.getElementById('pws-qc-panel');
         if (!panel) return;
         function fmt(val, unit) { return (val !== null && val !== undefined) ? Math.round(val) + unit : '--'; }
-        var source = 'PWS (WU QC ✓)';
+        var source = 'PWS (WU QC â)';
         if (!pws1) {
             if (window.isOutsideUS) source = 'PirateWeather (outside US)';
             else if (nwsTemp !== null) source = 'NWS Obs (no QC-passing PWS nearby)';
@@ -4417,24 +4417,24 @@
         }
         var rows = '';
         var pws1Color = pws1 ? '#00e676' : '#9e9e9e';
-        var pws1StatusText = pws1 ? 'WU QC ✓' : 'None nearby';
-        rows += '<tr><td style="padding:3px 0; color:' + pws1Color + ';">⬤ PWS <small style="opacity:0.55;">' + (pws1 ? pws1.stationId : '—') + '</small></td>'
-              + '<td style="text-align:right; padding-right:8px;">' + fmt(pws1 && pws1.temp, '°F') + '</td>'
+        var pws1StatusText = pws1 ? 'WU QC â' : 'None nearby';
+        rows += '<tr><td style="padding:3px 0; color:' + pws1Color + ';">â¬¤ PWS <small style="opacity:0.55;">' + (pws1 ? pws1.stationId : 'â') + '</small></td>'
+              + '<td style="text-align:right; padding-right:8px;">' + fmt(pws1 && pws1.temp, 'Â°F') + '</td>'
               + '<td style="text-align:right; padding-right:8px;">' + fmt(pws1 && pws1.humidity, '%') + '</td>'
               + '<td style="font-size:0.78em; color:' + pws1Color + ';">' + pws1StatusText + '</td></tr>';
         var nwsActive = !pws1 && nwsTemp !== null && !window.isOutsideUS;
         var nwsColor = nwsActive ? '#ffd54f' : '#9e9e9e';
-        rows += '<tr><td style="padding:3px 0; color:' + nwsColor + ';">⬤ NWS Obs</td>'
-              + '<td style="text-align:right; padding-right:8px;">' + fmt(nwsTemp, '°F') + '</td>'
+        rows += '<tr><td style="padding:3px 0; color:' + nwsColor + ';">â¬¤ NWS Obs</td>'
+              + '<td style="text-align:right; padding-right:8px;">' + fmt(nwsTemp, 'Â°F') + '</td>'
               + '<td style="text-align:right; padding-right:8px;">' + fmt(nwsHum, '%') + '</td>'
-              + '<td style="font-size:0.78em; color:' + nwsColor + ';">' + (window.isOutsideUS ? 'N/A (outside US)' : nwsTemp !== null ? (nwsActive ? 'Override ✓' : 'Standby') : 'Unavailable') + '</td></tr>';
+              + '<td style="font-size:0.78em; color:' + nwsColor + ';">' + (window.isOutsideUS ? 'N/A (outside US)' : nwsTemp !== null ? (nwsActive ? 'Override â' : 'Standby') : 'Unavailable') + '</td></tr>';
         var pirateTemp = window.pirateCurrently && window.pirateCurrently.temperature !== null ? window.pirateCurrently.temperature : null;
         var pirateActive = !pws1 && (window.isOutsideUS || nwsTemp === null);
         var pirateColor = pirateActive ? '#ffd54f' : '#9e9e9e';
-        rows += '<tr><td style="padding:3px 0; color:' + pirateColor + ';">⬤ PirateWeather</td>'
-              + '<td style="text-align:right; padding-right:8px;">' + fmt(pirateTemp, '°F') + '</td>'
-              + '<td style="text-align:right; padding-right:8px;">—</td>'
-              + '<td style="font-size:0.78em; color:' + pirateColor + ';">' + (pirateActive ? 'Active ✓' : 'Backup') + '</td></tr>';
+        rows += '<tr><td style="padding:3px 0; color:' + pirateColor + ';">â¬¤ PirateWeather</td>'
+              + '<td style="text-align:right; padding-right:8px;">' + fmt(pirateTemp, 'Â°F') + '</td>'
+              + '<td style="text-align:right; padding-right:8px;">â</td>'
+              + '<td style="font-size:0.78em; color:' + pirateColor + ';">' + (pirateActive ? 'Active â' : 'Backup') + '</td></tr>';
         panel.innerHTML = '<div style="font-weight:700; color:#4fc3f7; margin-bottom:6px;">Active: ' + source + '</div>'
             + '<table style="width:100%; border-collapse:collapse;">'
             + '<thead><tr style="opacity:0.45;"><th style="text-align:left; padding-bottom:4px; font-weight:600;">Source</th>'
@@ -4463,7 +4463,7 @@
             window.isOutsideUS = false; applyUSMode();
             const p = await pointsRes.json();
             // Elevation of the user's requested coordinate (meters), returned by the NWS
-            // /points/ endpoint — used for lapse-rate correction when comparing NWS obs
+            // /points/ endpoint â used for lapse-rate correction when comparing NWS obs
             // (which may be from a much higher station) against local PWS readings.
             const wfo = p.properties.cwa;
             document.getElementById('wfo-label').innerText = wfo;
@@ -4505,7 +4505,7 @@
                     }
                 } catch(e) {}
             }
-            // PirateWeather icon slug → NWS icon URL.
+            // PirateWeather icon slug â NWS icon URL.
             // Night-variant slugs use the night path; generic slugs default to day
             // (PirateWeather only emits day/night distinction on clear & partly-cloudy).
             const PW_ICON_MAP = {
@@ -4536,7 +4536,7 @@
                 const op = obs?.properties || {};
                 nwsCond = (op.textDescription || '').trim();
                 // ASOS automated stations often have null textDescription but populate
-                // the weather[] array instead — try to derive a readable string from it
+                // the weather[] array instead â try to derive a readable string from it
                 if (!nwsCond && Array.isArray(op.weather)) {
                     const wx = op.weather.filter(function(w) { return w && w.weather; }).map(function(w) { return w.weather; });
                     if (wx.length) nwsCond = wx.join(', ');
@@ -4551,7 +4551,7 @@
                 if (_tmpH != null) nwsObsHumidity = _tmpH;
                 if (_tmpW != null) nwsObsWindMph = _tmpW * 0.621371;
                 if (_tmpWD != null) nwsObsWindDir = _tmpWD;
-                // Precipitation — NWS obs always returns mm regardless of locale; convert to inches.
+                // Precipitation â NWS obs always returns mm regardless of locale; convert to inches.
                 // These become the authoritative rain-rate inputs for the US flood score.
                 var _p1 = op.precipitationLastHour   != null ? op.precipitationLastHour.value   : null;
                 var _p3 = op.precipitationLast3Hours != null ? op.precipitationLast3Hours.value : null;
@@ -4561,14 +4561,14 @@
                 window.nwsObsPrecip6h = (_p6 != null && _p6 >= 0) ? _p6 / 25.4 : null;
                 // Feed NWS 1h obs into the rolling antecedent cache when available.
                 if (window.nwsObsPrecip1h !== null) _updatePrecipCache(window.nwsObsPrecip1h);
-                // Recompute flood score whenever any obs precip value arrived — 3h/6h
+                // Recompute flood score whenever any obs precip value arrived â 3h/6h
                 // observed floors apply even if the 1h sensor returned null.
                 if (window.nwsObsPrecip1h !== null || window.nwsObsPrecip3h !== null || window.nwsObsPrecip6h !== null) computeFloodOutlook();
-            } catch(obsErr) { _obsEndpointFailed = true; /* observation fetch failed — will fall back below */ }
-            // Water locations: discard all NWS obs — PirateWeather is the sole data source.
+            } catch(obsErr) { _obsEndpointFailed = true; /* observation fetch failed â will fall back below */ }
+            // Water locations: discard all NWS obs â PirateWeather is the sole data source.
             if (window.isWaterLocation) { nwsCond = ''; nwsObsTempF = null; nwsObsHumidity = null; nwsObsWindMph = null; nwsObsWindDir = null; }
             if (!nwsCond) {
-                // Truly no NWS conditions — fall back to PirateWeather
+                // Truly no NWS conditions â fall back to PirateWeather
                 const pw = window.pirateCurrently;
                 const fbCond = (pw && pw.summary) ? pw.summary
                              : (pw && pw.icon && PW_ICON_TO_TEXT[pw.icon]) ? PW_ICON_TO_TEXT[pw.icon]
@@ -4576,7 +4576,7 @@
                 if (fbCond) {
                     currentCondition = fbCond;
                     document.getElementById('conditionText').innerText = fbCond;
-                    // Only condition text comes from PirateWeather here — temperature still
+                    // Only condition text comes from PirateWeather here â temperature still
                     // comes from PWS or NWS obs. Keep meta-name as the NWS station name so
                     // Station Intel always reflects the actual data source, not the condition fallback.
                     document.getElementById('meta-name').innerText = _nwsStationName;
@@ -4588,25 +4588,25 @@
                     if (fbIcon) { document.getElementById('weatherIcon').src = fbIcon; document.getElementById('weatherIcon').style.display = 'block'; }
                     else document.getElementById('weatherIcon').style.display = 'none';
                 }
-                // else: genuine dead-end — stationName stays, conditionText stays '--'
+                // else: genuine dead-end â stationName stays, conditionText stays '--'
             } else {
                 currentCondition = nwsCond;
                 document.getElementById('conditionText').innerText = nwsCond;
                 if (nwsIcon) { document.getElementById('weatherIcon').src = nwsIcon; document.getElementById('weatherIcon').style.display = 'block'; }
                 else document.getElementById('weatherIcon').style.display = 'none';
             }
-            // If the obs endpoint returned nothing at all (404 or fully empty payload) —
-            // If the obs endpoint returned a non-2xx response (e.g. 404 — station has no
+            // If the obs endpoint returned nothing at all (404 or fully empty payload) â
+            // If the obs endpoint returned a non-2xx response (e.g. 404 â station has no
             // data on record) or the fetch threw entirely, PirateWeather is the sole source.
             // Relabel so the user knows the NWS station is dark rather than showing its name.
             if (_obsEndpointFailed) {
                 document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
             }
-            // ── PWS quality control — best-fit station selection ────────────────────────
-            // Strategy: score every candidate (primary + neighbors) by |temp − reference|
+            // ââ PWS quality control â best-fit station selection ââââââââââââââââââââââââ
+            // Strategy: score every candidate (primary + neighbors) by |temp â reference|
             // and pick the best-fitting one, using distance as a tie-breaker only.
-            // This replaces "nearest wins unless extreme outlier" — a nearby station that
-            // reads 9°F closer to consensus now beats the nearest one, not just ones that
+            // This replaces "nearest wins unless extreme outlier" â a nearby station that
+            // reads 9Â°F closer to consensus now beats the nearest one, not just ones that
             // are so bad they trigger a hard rejection threshold.
             //
             // Reference = neighbor median (computed from neighbors only, so a bad primary
@@ -4616,12 +4616,12 @@
             const _pwTempPre = (_pwNowPre && _pwNowPre.temperature != null) ? _pwNowPre.temperature : null;
             const _med = function(a) { var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2; };
 
-            // Hard validity guard: humidity outside [0,100] is a sensor glitch — null it out.
+            // Hard validity guard: humidity outside [0,100] is a sensor glitch â null it out.
             if (_wu && _wu.humidity !== null && (!isFinite(_wu.humidity) || _wu.humidity < 0 || _wu.humidity > 100)) { _wu.humidity = null; }
             const _wuRawAvail = _wu && _wu.temp !== null && _wu.humidity !== null;
 
             // Station validity: must have temp + humidity, and not a confirmed glitch
-            // (>20°F from PirateWeather baseline). Applied to primary AND neighbors.
+            // (>20Â°F from PirateWeather baseline). Applied to primary AND neighbors.
             const _isValidStation = function(s) {
                 if (!s || s.temp === null || s.humidity === null) return false;
                 if (!isFinite(s.humidity) || s.humidity < 0 || s.humidity > 100) return false;
@@ -4649,14 +4649,14 @@
             if (_isValidStation(_wu)) _pool.push({ s: _wu, rank: 0 });
             _neighbors.forEach(function(n, i) { _pool.push({ s: n, rank: i + 1 }); });
 
-            // Select winner: lowest |temp − reference|; ties broken by distance rank.
+            // Select winner: lowest |temp â reference|; ties broken by distance rank.
             // When no reference exists (no neighbors AND no PirateWeather), primary wins
-            // by default — we have nothing to QC against.
+            // by default â we have nothing to QC against.
             if (_pool.length > 0 && _refTemp !== null) {
                 _pool.sort(function(a, b) {
                     const da = Math.abs(a.s.temp - _refTemp);
                     const db = Math.abs(b.s.temp - _refTemp);
-                    // >1.5°F difference is meaningful; otherwise prefer closer station.
+                    // >1.5Â°F difference is meaningful; otherwise prefer closer station.
                     return Math.abs(da - db) > 1.5 ? da - db : a.rank - b.rank;
                 });
                 const _winner = _pool[0].s;
@@ -4667,19 +4667,19 @@
             }
 
             // Availability: pool non-empty AND (a reference existed OR primary was valid).
-            // If every candidate was filtered as a glitch, pool is empty → fall through to NWS.
+            // If every candidate was filtered as a glitch, pool is empty â fall through to NWS.
             const _wuDevFromPirate = _wuRawAvail && _pool.length === 0 && _refTemp !== null;
             const _wuAvail = _pool.length > 0 && _wuRawAvail;
             window.wuDeviates = !_wuAvail;
-            // Hide the "Observed at KXXX" label whenever the PWS is rejected —
+            // Hide the "Observed at KXXX" label whenever the PWS is rejected â
             // regardless of which fallback branch we end up in below.
             if (window.wuDeviates) document.getElementById('wuStation').style.display = 'none';
 
-            // ── NWS obs lapse-rate correction ────────────────────────────────────────
+            // ââ NWS obs lapse-rate correction ââââââââââââââââââââââââââââââââââââââââ
             // NWS ASOS stations in mountainous areas can sit thousands of feet above the
             // user's location, producing a large systematic cold bias in the fallback.
-            // Correct using standard environmental lapse rate: 3.5°F per 1000 ft.
-            // corrected = raw + (nwsStationElevFt − userElevFt) × 3.5/1000
+            // Correct using standard environmental lapse rate: 3.5Â°F per 1000 ft.
+            // corrected = raw + (nwsStationElevFt â userElevFt) Ã 3.5/1000
             let nwsObsTempFAdj = nwsObsTempF;
             let _lapseApplied = false;
             if (nwsObsTempF !== null) {
@@ -4691,13 +4691,13 @@
                 }
             }
 
-            // Fallback chain: QC-passing PWS → NWS obs (lapse-corrected) → PirateWeather
+            // Fallback chain: QC-passing PWS â NWS obs (lapse-corrected) â PirateWeather
             const _useNWSFallback = !_wuAvail && !window.isOutsideUS && !window.isWaterLocation && nwsObsTempFAdj !== null;
 
             // Update the source QC diagnostic panel
             _renderPWSQCPanel(_wu, nwsObsTempF, nwsObsHumidity);
 
-            // Only temperature is required — NWS ASOS stations (e.g. O'Hare) often return
+            // Only temperature is required â NWS ASOS stations (e.g. O'Hare) often return
             // null for relativeHumidity (calculated field). A null humidity must NOT block
             // the entire NWS override; update each field only when it is available.
             if (_useNWSFallback) {
@@ -4707,7 +4707,7 @@
                     (function(){ var _hv = Math.round(nwsObsHumidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
                 }
                 document.getElementById('wuStation').style.display = 'none';
-                // Restore NWS station name — may have been overwritten by "LOCAL OBSERVATION"
+                // Restore NWS station name â may have been overwritten by "LOCAL OBSERVATION"
                 // if the condition text was missing, even though temperature comes from NWS obs.
                 document.getElementById('stationName').innerText = _nwsStationName;
                 document.getElementById('meta-name').innerText = _nwsStationName;
@@ -4723,7 +4723,7 @@
                     var _humEl = document.getElementById('humVal');
                     var _humFallback = (_humEl && _humEl.innerText) ? parseInt(_humEl.innerText) : 50;
                     var RH = (nwsObsHumidity !== null) ? nwsObsHumidity : _humFallback;
-                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN → 50
+                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN â 50
                     if (T <= 50 && W >= 3) {
                         fl = 35.74 + 0.6215*T - 35.75*Math.pow(W,0.16) + 0.4275*T*Math.pow(W,0.16);
                     } else if (T >= 70) {
@@ -4750,7 +4750,7 @@
                 updateSmartComfort(Math.round(nwsObsTempFAdj), liveFeelsLike, _rhForComfort, liveWindSpd,
                     _pw ? (_pw.summary || '') : '', liveUV, _pw ? ((_pw.precipProbability || 0) * 100) : 0);
             } else if (_wuAvail && !window.wuDeviates) {
-                // PWS passed WU QC — overwrite the PirateWeather baseline that fetchPirate()
+                // PWS passed WU QC â overwrite the PirateWeather baseline that fetchPirate()
                 // laid down with the actual trusted station values. Single render, no flash.
                 var _wuT = _wu.temp, _wuH = _wu.humidity;
                 window.liveTemp = Math.round(_wuT);
@@ -4761,7 +4761,7 @@
                     document.getElementById('windVal').innerText = _isMetric() ? Math.round(liveWindSpd * 1.60934) + ' km/h' : liveWindSpd + ' mph';
                     setWindCompass(liveWindSpd > 0 && _wu.windDir !== null ? _wu.windDir : null);
                 }
-                // Update callsign link to the actual station used — may be a promoted
+                // Update callsign link to the actual station used â may be a promoted
                 // neighbor rather than the raw nearest station set by fetchPirate().
                 if (_wu.stationId) {
                     var _wuLinkEl = document.getElementById('wuLink');
@@ -4771,7 +4771,7 @@
                 document.getElementById('wuStation').style.display = 'block';
                 (function() {
                     var T = _wuT, W = liveWindSpd, RH = _wuH, fl = T;
-                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN → 50
+                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN â 50
                     if (T <= 50 && W >= 3) {
                         fl = 35.74 + 0.6215*T - 35.75*Math.pow(W,0.16) + 0.4275*T*Math.pow(W,0.16);
                     } else if (T >= 70) {
@@ -4836,7 +4836,7 @@
                 comfortVal:   (document.getElementById('aqi-val') || {}).innerText || null,
                 comfortDesc:  (document.getElementById('aqi-desc') || {}).innerText || null,
                 comfortColor: (document.getElementById('aqi-val') || {}).style.color || null,
-                // Authoritative live values — may differ from PirateWeather baseline when NWS
+                // Authoritative live values â may differ from PirateWeather baseline when NWS
                 // obs or a trusted PWS overwrote them. Restored offline so the display exactly
                 // matches what was shown online at the time of the last successful sync.
                 liveTemp:      (function(){ var el=document.getElementById('tempVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })(),
@@ -4844,7 +4844,7 @@
                 liveWindSpd:   (function(){ var el=document.getElementById('windVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })(),
                 liveHumidity:  (function(){ var el=document.getElementById('humVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })()
             });
-            _wxReveal(); // Authoritative chain complete — make observed fields visible
+            _wxReveal(); // Authoritative chain complete â make observed fields visible
         } catch(e) {
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
             // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
@@ -4899,10 +4899,10 @@
                         liveFeelsLike, pw.humidity != null ? Math.round(pw.humidity * 100) : 50,
                         liveWindSpd, fbCond, liveUV, (pw.precipProbability || 0) * 100);
                 })();
-                _wxReveal(); // Water location — PirateWeather is the sole source; reveal now
+                _wxReveal(); // Water location â PirateWeather is the sole source; reveal now
                 return;
             }
-            // NWS chain failed — restore cached station metadata and condition text,
+            // NWS chain failed â restore cached station metadata and condition text,
             // then ensure temperature is not left stuck at '--'.
             SkyDB.get(SkyDB.S.weather, 'nws_obs').then(function(c) {
                 if (!c) return;
@@ -4929,7 +4929,7 @@
                 // Restore NWS-chain comfort (overrides PirateWeather save with authoritative value)
                 if (c.comfortVal) { var _cvEl = document.getElementById('aqi-val'); if (_cvEl) { _cvEl.innerText = c.comfortVal; if (c.comfortColor) _cvEl.style.color = c.comfortColor; } }
                 if (c.comfortDesc) { var _cdEl = document.getElementById('aqi-desc'); if (_cdEl) _cdEl.innerText = c.comfortDesc; }
-                // Restore authoritative temp/feels-like/wind/humidity — these were written by
+                // Restore authoritative temp/feels-like/wind/humidity â these were written by
                 // the NWS obs or trusted PWS branch and may differ from the PirateWeather values
                 // that last_conditions captured. Applying them here ensures offline shows exactly
                 // what was on screen at the time of the last successful sync.
@@ -4969,7 +4969,7 @@
                     }
                 }
             })();
-            _wxReveal(); // NWS chain failed — reveal whatever values are available
+            _wxReveal(); // NWS chain failed â reveal whatever values are available
         }
     }
 
@@ -5183,7 +5183,7 @@
         skyAnimId = requestAnimationFrame(drawSky);
     }
 
-    // ——— v1.0.4: LIGHTNING ESTIMATOR simplified — inline risk only ———
+    // âââ v1.0.4: LIGHTNING ESTIMATOR simplified â inline risk only âââ
 
     function updateLightningEstimate() {
         const dist = window.currentStormDist;
@@ -5202,80 +5202,80 @@
         if (document.getElementById('severe-tab').classList.contains('active')) updateLightningEstimate();
     }, 30000);
 
-    // ——— v1.0.6: THREAT LEVEL — genuinely intelligent multi-layer scoring ———
+    // âââ v1.0.6: THREAT LEVEL â genuinely intelligent multi-layer scoring âââ
 
     // Context-aware description builder
     function buildThreatDescription(tier, hazardCats, flags) {
-        // ── Tier 1: Life-Threatening (most severe first) ──────────────────
-        if (flags.torEmergency) return 'A TORNADO EMERGENCY is in progress — an extremely rare, catastrophic situation. TAKE COVER in the lowest interior room IMMEDIATELY.';
+        // ââ Tier 1: Life-Threatening (most severe first) ââââââââââââââââââ
+        if (flags.torEmergency) return 'A TORNADO EMERGENCY is in progress â an extremely rare, catastrophic situation. TAKE COVER in the lowest interior room IMMEDIATELY.';
         if (flags.pdsTor) return 'A Particularly Dangerous Situation (PDS) Tornado Warning is in effect. This is a RARE, LIFE-THREATENING event. TAKE COVER NOW.';
-        if (flags.ffe) return 'A FLASH FLOOD EMERGENCY is occurring. Life-threatening flooding is imminent or occurring. SEEK HIGHER GROUND immediately — do not wait.';
-        if (flags.stormSurgeWarning) return 'A Storm Surge Warning is in effect. Life-threatening inundation from rising water is possible. Follow all evacuation orders immediately — do not wait.';
+        if (flags.ffe) return 'A FLASH FLOOD EMERGENCY is occurring. Life-threatening flooding is imminent or occurring. SEEK HIGHER GROUND immediately â do not wait.';
+        if (flags.stormSurgeWarning) return 'A Storm Surge Warning is in effect. Life-threatening inundation from rising water is possible. Follow all evacuation orders immediately â do not wait.';
         if (flags.hurricaneWarning) return 'A Hurricane Warning is in effect for your area. Prepare for potentially catastrophic wind, storm surge, and flooding. Complete preparations and follow evacuation orders now.';
-        if (flags.typhoonWarning) return 'A TYPHOON WARNING is in effect for your area. This is a life-threatening situation — catastrophic winds, storm surge, and flooding are expected. Complete all preparations and follow evacuation orders immediately.';
-        if (flags.tsunamiWarning) return 'A TSUNAMI WARNING is in effect. Life-threatening waves and flooding are possible along the coast. Move immediately to high ground or inland — do not wait to see the wave before moving.';
+        if (flags.typhoonWarning) return 'A TYPHOON WARNING is in effect for your area. This is a life-threatening situation â catastrophic winds, storm surge, and flooding are expected. Complete all preparations and follow evacuation orders immediately.';
+        if (flags.tsunamiWarning) return 'A TSUNAMI WARNING is in effect. Life-threatening waves and flooding are possible along the coast. Move immediately to high ground or inland â do not wait to see the wave before moving.';
         if (flags.extremeWindWarning) return 'An EXTREME WIND WARNING is in effect. Life-threatening, hurricane-force winds are imminent or occurring. Take shelter immediately in an interior room away from windows.';
-        // ── Tier 2: Critical ──────────────────────────────────────────────
+        // ââ Tier 2: Critical ââââââââââââââââââââââââââââââââââââââââââââââ
         if (flags.torObserved) {
-            if (flags.night) return 'A confirmed tornado is on the ground nearby. Tornadoes are nearly impossible to see at night — take shelter immediately in the lowest interior room of a sturdy building. Do not wait.';
+            if (flags.night) return 'A confirmed tornado is on the ground nearby. Tornadoes are nearly impossible to see at night â take shelter immediately in the lowest interior room of a sturdy building. Do not wait.';
             return 'A confirmed tornado is on the ground near your location. Take immediate shelter in an interior room on the lowest floor of a sturdy building.';
         }
         if (flags.destructiveSVR) return 'A Destructive Severe Thunderstorm Warning is in effect. Catastrophic wind damage and very large hail are occurring or imminent. Stay away from windows and take shelter now.';
-        if (flags.considerableFFW) return 'A Flash Flood Warning with Considerable flooding impacts is in effect. Life-threatening flooding may be occurring. Move to higher ground immediately — do not wait for official evacuation orders.';
-        // ── Tier 3: Dangerous warnings ────────────────────────────────────
+        if (flags.considerableFFW) return 'A Flash Flood Warning with Considerable flooding impacts is in effect. Life-threatening flooding may be occurring. Move to higher ground immediately â do not wait for official evacuation orders.';
+        // ââ Tier 3: Dangerous warnings ââââââââââââââââââââââââââââââââââââ
         if (flags.torWarning) {
-            if (flags.night) return 'A tornado warning is in effect for your area. Nighttime tornadoes are especially deadly — take cover now even without visible warning signs.';
+            if (flags.night) return 'A tornado warning is in effect for your area. Nighttime tornadoes are especially deadly â take cover now even without visible warning signs.';
             return 'A tornado warning is in effect for your area. Move immediately to an interior room on the lowest floor of a sturdy building.';
         }
         if (flags.blizzardWarning) return 'A Blizzard Warning is in effect. Whiteout conditions, dangerous wind chills, and heavy snow will make travel life-threatening. Stay indoors and off roads until the storm passes.';
         if (flags.iceStormWarning) return 'An Ice Storm Warning is in effect. Significant ice accumulation will make travel treacherous and cause widespread power outages. Avoid all travel and stay off roads.';
         if (flags.dustStormWarning) return 'A Dust Storm Warning is in effect. Near-zero visibility may occur suddenly. If driving, pull off the road, turn off your lights, and wait for conditions to improve.';
         if (flags.snowSquallWarning) return 'A Snow Squall Warning is in effect. Sudden whiteout conditions and rapidly accumulating snow will make roads immediately dangerous. Reduce speed and increase following distance.';
-        // ── Tier 4: Specific warnings (less severe) ───────────────────────
+        // ââ Tier 4: Specific warnings (less severe) âââââââââââââââââââââââ
         if (flags.winterStormWarning) return 'A Winter Storm Warning is in effect. Heavy snow, sleet, or freezing rain will create hazardous travel conditions. Avoid unnecessary travel.';
         if (flags.windChillWarning) return 'A Wind Chill Warning is in effect. Dangerously cold wind chills may cause frostbite on exposed skin in minutes. Limit time outdoors and dress in layers.';
         if (flags.highWindWarning) return 'A High Wind Warning is in effect. Damaging winds may knock down trees and power lines and make driving difficult. Secure loose outdoor items.';
-        // ── Multi-hazard check (before single-category fallbacks) ─────────
+        // ââ Multi-hazard check (before single-category fallbacks) âââââââââ
         const cats = Object.keys(hazardCats);
-        if (cats.length >= 3) return 'Multiple simultaneous hazards are active. This is a complex weather event — follow all active NWS guidance closely.';
-        // ── Single-category fallbacks ─────────────────────────────────────
+        if (cats.length >= 3) return 'Multiple simultaneous hazards are active. This is a complex weather event â follow all active NWS guidance closely.';
+        // ââ Single-category fallbacks âââââââââââââââââââââââââââââââââââââ
         if (hazardCats.tropical) return 'Tropical weather hazards are active. Hurricane-force conditions may include devastating winds, surge, and flooding. Follow all evacuation orders.';
         if (hazardCats.convective && (tier === 'DANGEROUS' || tier === 'CRITICAL')) return 'Severe convective weather is active near you, with potential for large hail, damaging winds, or tornadoes. Take shelter immediately.';
         if (flags.tornadoWatch) return 'A Tornado Watch is in effect. Conditions are favorable for tornadoes. Have a shelter plan ready and stay tuned to NWS updates.';
         if (flags.svrWatch) return 'A Severe Thunderstorm Watch is in effect. Large hail and damaging winds are possible. Be ready to move to shelter quickly if warnings are issued.';
         if (hazardCats.convective) return 'Thunderstorm watches or hazards are in effect. Be prepared to shelter quickly if conditions deteriorate.';
-        if (flags.highSurfWarning) return 'A High Surf Warning is in effect. Dangerously large breaking waves are expected. Stay off rocks, jetties, and beaches — waves can sweep you into the ocean without warning.';
+        if (flags.highSurfWarning) return 'A High Surf Warning is in effect. Dangerously large breaking waves are expected. Stay off rocks, jetties, and beaches â waves can sweep you into the ocean without warning.';
         if (flags.highSurfAdvisory) return 'A High Surf Advisory is in effect. Surf conditions are rough and may be hazardous, especially for inexperienced swimmers. Exercise caution near the water.';
         if (flags.coastalFloodWarning) return 'A Coastal Flood Warning is in effect. Ocean or bay water is inundating coastal areas. Stay away from the shoreline, move vehicles and valuables to higher ground, and follow all local evacuation orders.';
         if (flags.coastalFloodAdvisory) return 'A Coastal Flood Advisory is in effect. Minor flooding of low-lying coastal areas is expected at high tide. Avoid vulnerable shoreline areas and secure waterfront property.';
-        if (flags.lakeshoreFloodWarning) return 'A Lakeshore Flood Warning is active for the area. Powerful wave action and rising lake levels are flooding low-lying coastal areas and causing significant beach erosion. Avoid the shoreline, piers, and breakwalls. Never drive or walk through flooded coastal roads—turn around, don\'t drown.';
-        if (flags.floodWarning && flags.heavyRain) return 'A Flood Warning is in effect and heavy rain is falling. Rivers or streams are rising to flood stage — stay away from waterways and do not attempt to cross flooded roads.';
-        if (flags.floodWarning) return 'A Flood Warning is in effect. Rivers or streams are at or approaching flood stage. Stay away from waterways and do not drive through flooded roads — turn around, don\'t drown.';
+        if (flags.lakeshoreFloodWarning) return 'A Lakeshore Flood Warning is active for the area. Powerful wave action and rising lake levels are flooding low-lying coastal areas and causing significant beach erosion. Avoid the shoreline, piers, and breakwalls. Never drive or walk through flooded coastal roadsâturn around, don\'t drown.';
+        if (flags.floodWarning && flags.heavyRain) return 'A Flood Warning is in effect and heavy rain is falling. Rivers or streams are rising to flood stage â stay away from waterways and do not attempt to cross flooded roads.';
+        if (flags.floodWarning) return 'A Flood Warning is in effect. Rivers or streams are at or approaching flood stage. Stay away from waterways and do not drive through flooded roads â turn around, don\'t drown.';
         if (flags.floodAdvisory) return 'A Flood Advisory is in effect. Minor flooding is occurring or possible in low-lying and flood-prone areas. Motorists should avoid flooded roadways.';
         if (hazardCats.flood && flags.heavyRain) return 'Active flooding combined with heavy rainfall creates an extremely dangerous situation. Avoid all low-lying areas and roadways.';
-        if (hazardCats.flood && (tier === 'DANGEROUS' || tier === 'CRITICAL')) return 'Flash flooding is developing or imminent. Avoid flooded roads and low-lying areas — turn around, don\'t drown.';
+        if (hazardCats.flood && (tier === 'DANGEROUS' || tier === 'CRITICAL')) return 'Flash flooding is developing or imminent. Avoid flooded roads and low-lying areas â turn around, don\'t drown.';
         if (hazardCats.flood) return 'Flooding conditions are possible. Stay aware of developing rainfall and avoid flood-prone roads and low-lying areas.';
         if (hazardCats.winter) return 'Winter weather alerts are in effect. Expect hazardous travel and reduced visibility from snow, ice, or freezing rain.';
         if (hazardCats.wind) return 'Elevated wind hazards are in the area. Gusty winds may cause localized damage and difficult driving conditions.';
-        if (flags.extremeHeatWarning) return 'An Extreme Heat Warning is in effect — dangerously high temperatures pose a life-threatening risk. Stay indoors in air conditioning, drink plenty of water, and check on elderly neighbors and pets.';
+        if (flags.extremeHeatWarning) return 'An Extreme Heat Warning is in effect â dangerously high temperatures pose a life-threatening risk. Stay indoors in air conditioning, drink plenty of water, and check on elderly neighbors and pets.';
         if (flags.heatAdvisory) return 'A Heat Advisory is in effect. Hot temperatures and humidity may cause fatigue or heat illness, especially for those without air conditioning. Stay hydrated and limit prolonged outdoor activity.';
         if (hazardCats.heat) return 'Elevated heat conditions are in the area. Limit outdoor exposure, stay hydrated, and check on vulnerable individuals.';
-        if (hazardCats.fire) return 'Critical fire weather conditions exist. Extreme fire behavior is possible — follow evacuation orders and air quality guidance.';
+        if (hazardCats.fire) return 'Critical fire weather conditions exist. Extreme fire behavior is possible â follow evacuation orders and air quality guidance.';
         if (flags.denseFogAdvisory) return 'A Dense Fog Advisory is in effect. Visibility may drop below a quarter mile. Slow down, use low-beam headlights, and allow extra following distance.';
-        // ── Observed-condition descriptions (no alerts required) ─────────
+        // ââ Observed-condition descriptions (no alerts required) âââââââââ
         // These fire before the generic tier fallbacks so a score driven purely by
         // observed wind / storm proximity never claims "alerts are in effect."
         if (liveWindSpd >= 58) return 'Dangerously high winds observed (' + _fmtWind(liveWindSpd) + '). Secure loose outdoor items, avoid driving high-profile vehicles, and stay away from trees and power lines.';
         if (liveWindSpd >= 40) return 'Strong winds observed (' + _fmtWind(liveWindSpd) + '). Gusty conditions may cause localized damage and make driving difficult, especially for high-profile vehicles.';
         if (liveWindSpd >= 30) return 'Breezy to windy conditions observed (' + _fmtWind(liveWindSpd) + '). Use caution outdoors and secure lightweight objects.';
         var _stDist = window.currentStormDist;
-        if (_stDist !== null && _stDist !== undefined && _stDist < 5) return 'A storm cell is very close by. Lightning and gusty winds are possible — stay indoors and away from windows until it passes.';
+        if (_stDist !== null && _stDist !== undefined && _stDist < 5) return 'A storm cell is very close by. Lightning and gusty winds are possible â stay indoors and away from windows until it passes.';
         if (_stDist !== null && _stDist !== undefined && _stDist < 15) return 'A storm cell is nearby. Monitor conditions and be ready to shelter quickly if it approaches.';
-        // ── Tier fallbacks ────────────────────────────────────────────────
+        // ââ Tier fallbacks ââââââââââââââââââââââââââââââââââââââââââââââââ
         if (tier === 'LIFE THREATENING') return 'A life-threatening weather situation is ongoing. Take immediate protective action and follow all NWS instructions.';
-        if (tier === 'CRITICAL') return 'A critical weather situation is occurring near you. Significant harm or death is possible — take shelter immediately and monitor NWS updates closely.';
+        if (tier === 'CRITICAL') return 'A critical weather situation is occurring near you. Significant harm or death is possible â take shelter immediately and monitor NWS updates closely.';
         if (tier === 'DANGEROUS') return 'Hazardous conditions are active near you. Remain sheltered and closely monitor NWS alerts for updates.';
-        if (tier === 'SIGNIFICANT') return 'Significantly elevated weather concerns are in effect. High-impact conditions are possible — stay alert and be ready to act quickly.';
+        if (tier === 'SIGNIFICANT') return 'Significantly elevated weather concerns are in effect. High-impact conditions are possible â stay alert and be ready to act quickly.';
         if (tier === 'ACTIVE WEATHER') return 'Elevated weather conditions are present. Stay weather-aware and be ready to act if conditions worsen.';
         if (tier === 'ELEVATED') return 'Weather concerns are present today. Monitor forecasts and have a plan ready in case conditions deteriorate.';
         return 'No significant weather hazards detected. Conditions are currently calm.';
@@ -5292,7 +5292,7 @@
         const factorList = [];
         const hazardCats = {}; // tracks distinct hazard categories active
 
-        // ── 1. SPC Convective Outlook ─────────────────or ────────────────────
+        // ââ 1. SPC Convective Outlook âââââââââââââââââor ââââââââââââââââââââ
         const spc = window.spcRisk;
         const SPC_SCORES = { TSTM: 0, MRGL: 1, SLGT: 2, ENH: 3, MDT: 5, HIGH: 7 };
         const SPC_COLORS = { HIGH: '#e040fb', MDT: '#ff1744', ENH: '#ff9100', SLGT: '#ffeb3b', MRGL: '#7BB07B', TSTM: '#4fc3f7' };
@@ -5301,8 +5301,8 @@
             factorList.push({ label: SPC_LABELS[spc] || ('SPC ' + spc), color: SPC_COLORS[spc] || '#7BB07B' });
         }
 
-        // ── 2. Storm Proximity ────────────────────────────────────────────────
-        // nearestStormDistance=0 from PirateWeather just means "currently in rain" —
+        // ââ 2. Storm Proximity ââââââââââââââââââââââââââââââââââââââââââââââââ
+        // nearestStormDistance=0 from PirateWeather just means "currently in rain" â
         // NOT necessarily a dangerous cell. Full proximity points only apply when
         // an active storm WARNING confirms there is a real severe threat nearby.
         const dist = window.currentStormDist;
@@ -5310,12 +5310,12 @@
         if (dist !== undefined && dist !== null) {
             let proxScore = 0, proxColor = '#ffeb3b';
             if (window.activeTornadoWarning || window.activeSVRWarning) {
-                // Active CONVECTIVE storm warning → proximity to the cell matters significantly
+                // Active CONVECTIVE storm warning â proximity to the cell matters significantly
                 if (dist < 5)       { proxScore = 3; proxColor = '#ff1744'; }
                 else if (dist < 12) { proxScore = 2; proxColor = '#ff9100'; }
                 else if (dist < 25) { proxScore = 1; proxColor = '#ffeb3b'; }
             } else {
-                // No convective warning → nearestStormDist=0 just means "it's raining"
+                // No convective warning â nearestStormDist=0 just means "it's raining"
                 if (dist < 5) { proxScore = 1; proxColor = '#ffeb3b'; }
             }
             if (proxScore > 0) {
@@ -5324,9 +5324,9 @@
             }
         }
 
-        // ── 3. Per-Alert-Type Base Scoring ────────────────────────────────
+        // ââ 3. Per-Alert-Type Base Scoring ââââââââââââââââââââââââââââââââ
         // Each entry: [match-substring, points, display-label, color, hazard-category]
-        // Entries matched in order — first match wins per alert event.
+        // Entries matched in order â first match wins per alert event.
         var ALERT_TABLE = [
             // Convective warnings (tornado handled separately below)
             ['severe thunderstorm warning', 6, 'SVR Warning',             '#ff9100', 'convective'],
@@ -5378,10 +5378,10 @@
             ['gale warning',                4, 'Gale Warning',            '#4fc3f7', 'wind'],
             ['dust storm warning',          5, 'Dust Storm Warning',      '#a1887f', 'wind'],
             ['blowing dust advisory',       2, 'Blowing Dust Advisory',   '#a1887f', 'wind'],
-            // Heat (warnings only — heat/cold watches are filtered before this table)
+            // Heat (warnings only â heat/cold watches are filtered before this table)
             ['excessive heat warning',      5, 'Excessive Heat Warning',  '#ff5722', 'heat'],
             ['heat advisory',               2, 'Heat Advisory',           '#ff8a65', 'heat'],
-            // Fire / smoke / air-quality are environmental, not acute meteorological hazards —
+            // Fire / smoke / air-quality are environmental, not acute meteorological hazards â
             // they are excluded via _NEVER_SCORE before this table is consulted.
             // Other
             ['dense fog advisory',          2, 'Dense Fog Advisory',      '#b0bec5', 'other'],
@@ -5401,7 +5401,7 @@
             var evtLower = evtName.toLowerCase();
             if (evtLower.includes('tornado warning')) return; // handled below with full sub-type logic
 
-            // ── Fire, smoke, and air-quality: environmental conditions, not acute weather threats ──
+            // ââ Fire, smoke, and air-quality: environmental conditions, not acute weather threats ââ
             var _NEVER_SCORE = [
                 'fire weather', 'red flag warning', 'fire warning', 'dense smoke', 'air quality alert',
                 'excessive heat watch', 'extreme heat watch',
@@ -5410,7 +5410,7 @@
             ];
             if (_NEVER_SCORE.some(function(s) { return evtLower.includes(s); })) return;
 
-            // ── Any alert not yet in effect should not influence threat level ──
+            // ââ Any alert not yet in effect should not influence threat level ââ
             var _onsetMs = (window.activeAlertOnsets || {})[evtName] || 0;
             if (_onsetMs > 0 && _onsetMs > Date.now()) return;
 
@@ -5425,7 +5425,7 @@
             }
         });
 
-        // ── 4. Tornado Warning — full sub-type aware scoring ──────────────
+        // ââ 4. Tornado Warning â full sub-type aware scoring ââââââââââââââ
         if (window.activeTornadoWarning) {
             hazardCats['convective'] = (hazardCats['convective'] || 0) + 1;
             if (window.activeTornadoEmergency) {
@@ -5444,7 +5444,7 @@
             }
         }
 
-        // ── 5. SVR Sub-Parameter Intelligence ────────────────────────────
+        // ââ 5. SVR Sub-Parameter Intelligence ââââââââââââââââââââââââââââ
         if (window.activeSVRWarning) {
             if (window.activeSVRDestructive) {
                 score += 1;
@@ -5462,7 +5462,7 @@
             }
         }
 
-        // ── 6. NWS Alert Parameter Boosters ──────────────────────────────
+        // ââ 6. NWS Alert Parameter Boosters ââââââââââââââââââââââââââââââ
         // Large hail (NWS-reported max hail size from warning)
         if (window.alertMaxHailIn >= 3.0)      { score += 2; factorList.push({ label: 'Hail ' + (_isMetric() ? (window.alertMaxHailIn * 2.54).toFixed(1) + ' cm' : window.alertMaxHailIn.toFixed(1) + '"'), color: '#ff5722' }); }
         else if (window.alertMaxHailIn >= 1.75) { score += 1; factorList.push({ label: 'Hail ' + (_isMetric() ? (window.alertMaxHailIn * 2.54).toFixed(1) + ' cm' : window.alertMaxHailIn.toFixed(1) + '"'), color: '#ff9100' }); }
@@ -5476,22 +5476,22 @@
             score += 3; factorList.push({ label: 'Catastrophic flooding', color: '#00e5ff' });
         }
 
-        // ── 7. Multi-Hazard Stacking ──────────────────────────────────────
+        // ââ 7. Multi-Hazard Stacking ââââââââââââââââââââââââââââââââââââââ
         // Only fires when 3+ genuinely distinct hazard categories are simultaneously active
-        // (e.g. convective + flood + winter at the same time — not just two convective alerts)
+        // (e.g. convective + flood + winter at the same time â not just two convective alerts)
         const distinctCats = Object.keys(hazardCats).length;
         if (distinctCats >= 3) { score += 2; factorList.push({ label: 'Multi-hazard event', color: '#e040fb' }); }
 
-        // ── 8. Nearby User Reports (BETA) ─────────────────────────────────
+        // ââ 8. Nearby User Reports (BETA) âââââââââââââââââââââââââââââââââ
         if (localStorage.getItem('user_reports_enabled') === 'true' && Array.isArray(window.nearbyUserReports) && window.nearbyUserReports.length) {
-            // Tornado / Funnel Cloud: serious confirmed sighting → +3
+            // Tornado / Funnel Cloud: serious confirmed sighting â +3
             var hasNearbyTornado  = window.nearbyUserReports.some(function(r) { return r.type && (r.type.includes('Tornado') || r.type.includes('Funnel')); });
-            // Nearby rotation only (no confirmed tornado): radar-detected or visual rotation → +1
+            // Nearby rotation only (no confirmed tornado): radar-detected or visual rotation â +1
             var hasNearbyRotation = window.nearbyUserReports.some(function(r) { return r.type && r.type.includes('Rotation') && !r.type.includes('Tornado') && !r.type.includes('Funnel'); });
             var hasNearbyHail     = window.nearbyUserReports.some(function(r) { return r.type && r.type.includes('Hail'); });
             var hasNearbyWind     = window.nearbyUserReports.some(function(r) { return r.type && (r.type.includes('Wind') || r.type.includes('Thunderstorm')); });
             var hasNearbyFlood  = window.nearbyUserReports.some(function(r) { return r.type && (r.type.toLowerCase().includes('flood')); });
-            // These stack independently — a tornado report AND a rotation report both contribute
+            // These stack independently â a tornado report AND a rotation report both contribute
             if (hasNearbyTornado)  { score += 3; factorList.push({ label: 'Tornado/funnel cloud reported', color: '#e040fb' }); }
             if (hasNearbyRotation) { score += 1; factorList.push({ label: 'Nearby rotation reported', color: '#ff1744' }); }
             if ((hasNearbyHail || hasNearbyWind) && !hasNearbyTornado && !hasNearbyRotation) { score += 1; factorList.push({ label: 'Nearby storm reports', color: '#ff9100' }); }
@@ -5500,13 +5500,13 @@
             }
         }
 
-        // ── 9. Observed Atmospheric Conditions ────────────────────────────
+        // ââ 9. Observed Atmospheric Conditions ââââââââââââââââââââââââââââ
         // Wind speed (station-observed)
         if (liveWindSpd >= 58)     { score += 3; factorList.push({ label: 'Wind ' + _fmtWind(liveWindSpd), color: '#ff1744' }); }
         else if (liveWindSpd >= 40) { score += 2; factorList.push({ label: 'Wind ' + _fmtWind(liveWindSpd), color: '#ff9100' }); }
         else if (liveWindSpd >= 30) { score += 1; factorList.push({ label: 'Wind ' + _fmtWind(liveWindSpd), color: '#ffeb3b' }); }
 
-        // Precipitation intensity — only elevates score when a Flash Flood Warning is active
+        // Precipitation intensity â only elevates score when a Flash Flood Warning is active
         // (regular Flood Warnings are river/drainage events, not rain-rate dependent)
         const hasFlashFloodWarning = (window.activeAlertEvents || []).some(function(e) { return e.toLowerCase().includes('flash flood warning'); });
         if (livePrecipInt >= 0.3 && hasFlashFloodWarning)      { score += 2; factorList.push({ label: 'Heavy rainfall', color: '#00bcd4' }); }
@@ -5524,14 +5524,14 @@
         const presEl = document.getElementById('presVal');
         if (presEl && presEl.innerHTML.includes('\u2198\uFE0F')) { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
 
-        // ── 10. Mandatory Life-Threatening Floors ─────────────────────────
+        // ââ 10. Mandatory Life-Threatening Floors âââââââââââââââââââââââââ
         if (window.activeTornadoEmergency) score = Math.max(score, 20);
         if (window.activePDSTornado)       score = Math.max(score, 18);
         if (window.activeFFE)              score = Math.max(score, 16);
 
-        // ── 11. Tier Classification ───────────────────────────────────────
+        // ââ 11. Tier Classification âââââââââââââââââââââââââââââââââââââââ
         // LIFE THREATENING, CRITICAL, and DANGEROUS are strictly flag-driven.
-        // No score, no matter how high, can reach these tiers — only specific alert types can.
+        // No score, no matter how high, can reach these tiers â only specific alert types can.
         const _tierEvtsLower = (window.activeAlertEvents || []).map(function(e) { return e.toLowerCase(); });
         const _hasExtremeWindWarning = _tierEvtsLower.some(function(e) { return e.includes('extreme wind warning'); });
         const _hasTyphoonWarning     = _tierEvtsLower.some(function(e) { return e.includes('typhoon warning'); });
@@ -5539,7 +5539,7 @@
         const _hasTsunamiWarning     = _tierEvtsLower.some(function(e) { return e.includes('tsunami warning'); });
 
         // LIFE THREATENING: Tornado Emergency, PDS Tornado Warning, Flash Flood Emergency,
-        // Extreme Wind Warning, and Typhoon/Hurricane/Tsunami Warning — these are all
+        // Extreme Wind Warning, and Typhoon/Hurricane/Tsunami Warning â these are all
         // instant, no-score-needed life-threatening situations.
         const _isLifeThreatening = window.activeTornadoEmergency || window.activePDSTornado || window.activeFFE ||
             _hasExtremeWindWarning || _hasTyphoonWarning || _hasHurricaneWarningNow || _hasTsunamiWarning;
@@ -5570,9 +5570,9 @@
         else if (score >= 3)           { tier = 'ELEVATED';         tierClass = 'threat-tier-elev';     emoji = '\uD83D\uDFE1'; badgeColor = '#ffeb3b'; }
         else                           { tier = 'LOW';              tierClass = 'threat-tier-low';      emoji = '\uD83D\uDFE2'; badgeColor = '#00e676'; }
 
-        // ── 12. Smart Contextual Description ─────────────────────────────
+        // ââ 12. Smart Contextual Description âââââââââââââââââââââââââââââ
         const _activeEvtsLower = (window.activeAlertEvents || []).map(function(e) { return e.toLowerCase(); });
-        // Build lowercase-keyed onset map — activeAlertOnsets stores keys with original casing
+        // Build lowercase-keyed onset map â activeAlertOnsets stores keys with original casing
         const _onsetsByLower = {};
         Object.keys(window.activeAlertOnsets || {}).forEach(function(k) { _onsetsByLower[k.toLowerCase()] = window.activeAlertOnsets[k]; });
         const _activeNow = function(kw) { return _activeEvtsLower.some(function(e) { var ms = _onsetsByLower[e] || 0; return e.includes(kw) && (!ms || ms <= Date.now()); }); };
@@ -5589,7 +5589,7 @@
             // Heat
             extremeHeatWarning: _activeNow('extreme heat warning'),
             heatAdvisory:       _activeNow('heat advisory') && !_activeNow('extreme heat warning'),
-            // Winter — specific before generic
+            // Winter â specific before generic
             blizzardWarning:    _activeNow('blizzard warning'),
             iceStormWarning:    _activeNow('ice storm warning'),
             winterStormWarning: _activeNow('winter storm warning') && !_activeNow('blizzard warning') && !_activeNow('ice storm warning'),
@@ -5601,7 +5601,7 @@
             // Watches
             tornadoWatch:       _activeNow('tornado watch'),
             svrWatch:           _activeNow('severe thunderstorm watch') && !_activeNow('tornado watch'),
-            // Flood — specific before generic (coastal > river > flash > advisory)
+            // Flood â specific before generic (coastal > river > flash > advisory)
             highSurfWarning:      _activeNow('high surf warning'),
             highSurfAdvisory:     _activeNow('high surf advisory') && !_activeNow('high surf warning'),
             coastalFloodWarning:  _activeNow('coastal flood warning'),
@@ -5632,7 +5632,7 @@
         }
     }
 
-    // ——— ANALYTICS (v1.0.4: only shown in Advanced mode) ———
+    // âââ ANALYTICS (v1.0.4: only shown in Advanced mode) âââ
     function renderAnalytics() {
         if (!window.pirateHourlyData || !window.pirateHourlyData.length) return;
         if (typeof Chart === 'undefined') return;
@@ -5682,7 +5682,7 @@
         makeChart('chart-precip', 'line', { data: precipVals, label: _isMetric() ? 'Precip Accum (mm)' : 'Precip Accum (in)', borderColor: '#29b6f6', backgroundColor: 'rgba(41,182,246,0.12)', borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.3, fill: true, spanGaps: true }, { yMin: 0, yCallback: function(v) { return (_isMetric() ? Math.round(v) + ' mm' : parseFloat(v.toFixed(2)) + '"'); } });
     }
 
-    // ——— SPC RISK LEVELS ———
+    // âââ SPC RISK LEVELS âââ
     async function fetchRiskLevels() {
         // When offline, the cached risks were already restored in the PirateWeather
         // fallback block. Running the fetches here would just overwrite that cache
@@ -5693,7 +5693,7 @@
         const banner = document.getElementById('spc-banner');
         if (banner) { banner.style.display = 'none'; banner.onclick = null; }
         if (!container || !box) return;
-        // Build HTML locally — never append to container mid-flight so concurrent calls can't interleave
+        // Build HTML locally â never append to container mid-flight so concurrent calls can't interleave
         let riskHtml = ''; let hasRisk = false;
         async function checkArcGIS(url) {
             try {
@@ -5785,7 +5785,7 @@
                 });
             }
         } catch(e) {}
-        // Set DOM once — prevents interleaving when two loadAll() calls race on first load
+        // Set DOM once â prevents interleaving when two loadAll() calls race on first load
         container.innerHTML = riskHtml;
         box.style.display = hasRisk ? 'block' : 'none';
         // Cache risks + flood inputs for offline display
@@ -5803,7 +5803,7 @@
         else startWPCCountdown(day);
     }
 
-    // ——— TWC FORECAST (v1.0.4: removed windPhrase/precipType/thunderCat; added swipe) ———
+    // âââ TWC FORECAST (v1.0.4: removed windPhrase/precipType/thunderCat; added swipe) âââ
     async function fetchTWCForecast() {
         const url = 'https://api.weather.com/v3/wx/forecast/daily/5day?geocode=' + lat + ',' + lon + '&format=json&units=e&language=en-US&apiKey=' + TWC_API_KEY;
         try {
@@ -5836,7 +5836,7 @@
             };
             // Cache today's thunder flag globally so _renderBeach() can read it
             // synchronously. Use wxPhraseLong[0] (today's daytime phrase) and
-            // wxPhraseLong[1] (tonight's phrase) — these only say "Thunderstorm" /
+            // wxPhraseLong[1] (tonight's phrase) â these only say "Thunderstorm" /
             // "T-Storms" when thunder is the primary expected condition, so they
             // never produce the false positives that thunderCategory "Thunder Possible"
             // does on otherwise clear days. Both dayparts are included so the beach
@@ -5850,7 +5850,7 @@
             window._twcThunderToday = /thunder|t-storm|tstm/.test(_todayPhrase) ||
                                       /thunder|t-storm|tstm/.test(_tonightPhrase);
             // Icons are now hosted locally at icons/wu/{n}.svg and pre-cached by the
-            // service worker during install — no data-URL conversion needed.
+            // service worker during install â no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
         } catch(e) {
             SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
@@ -5897,8 +5897,8 @@
         function snowPart(j) { return dp.qpfSnow?.[j] ?? 0; }
         function pcPart(j)   { return dp.precipChance?.[j] ?? 0; }
         function fmtT(f) {
-            if (f == null) return '--°';
-            return _isMetric() ? Math.round((f - 32) * 5 / 9) + '°' : Math.round(f) + '°';
+            if (f == null) return '--Â°';
+            return _isMetric() ? Math.round((f - 32) * 5 / 9) + 'Â°' : Math.round(f) + 'Â°';
         }
         function fmtRain(inches) {
             return _isMetric() ? (inches * 25.4).toFixed(0) + ' mm' : inches.toFixed(2) + '"';
@@ -5909,7 +5909,7 @@
 
         var s1 = null, s2 = null;
 
-        // ── Priority 1: Snow ─────────────────────────────────────────────────
+        // ââ Priority 1: Snow âââââââââââââââââââââââââââââââââââââââââââââââââ
         for (var j = 0; j < n * 2 && !s1; j++) {
             var snow = snowPart(j);
             var wx   = wxPart(j);
@@ -5920,7 +5920,7 @@
             }
         }
 
-        // ── Priority 2: Thunderstorms ────────────────────────────────────────
+        // ââ Priority 2: Thunderstorms ââââââââââââââââââââââââââââââââââââââââ
         for (var j = 0; j < n * 2 && !s1; j++) {
             var wx = wxPart(j);
             if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm')) {
@@ -5928,7 +5928,7 @@
             }
         }
 
-        // ── Priority 3: Heavy rain — driven by TWC narrative keyword ────────
+        // ââ Priority 3: Heavy rain â driven by TWC narrative keyword ââââââââ
         // Only flag "heavy rain" when TWC explicitly says so in the day/night
         // narrative (e.g. "Potential for heavy rainfall."). QPF alone can reach
         // 1"+ from prolonged moderate rain with no heavy-rain signal at all.
@@ -5940,7 +5940,7 @@
             }
         }
 
-        // ── Priority 4: Rain / showers (≥40% chance) ────────────────────────
+        // ââ Priority 4: Rain / showers (â¥40% chance) ââââââââââââââââââââââââ
         // Multi-day cases stay at day level; single-day case pinpoints day vs night.
         if (!s1) {
             var rainDaySet = [];
@@ -5959,7 +5959,7 @@
             }
         }
 
-        // ── Temperature trend (used as s2 if s1 exists, or s1 as last resort) ──
+        // ââ Temperature trend (used as s2 if s1 exists, or s1 as last resort) ââ
         var todayHigh    = highs[0];
         var tomorrowHigh = highs[1];
         var lastHigh     = highs[n - 1];
@@ -5983,7 +5983,7 @@
             if (!s1) s1 = tempSentence; else s2 = tempSentence;
         }
 
-        // ── Fallback: dry / quiet ────────────────────────────────────────────
+        // ââ Fallback: dry / quiet ââââââââââââââââââââââââââââââââââââââââââââ
         if (!s1) {
             var anyPrecip = false;
             for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 25) { anyPrecip = true; break; } }
@@ -5995,7 +5995,7 @@
         return s2 ? s1 + ' ' + s2 : s1;
     }
 
-    // Map TWC icon codes → weather emoji for offline fallback (no network needed)
+    // Map TWC icon codes â weather emoji for offline fallback (no network needed)
     function _twcIconEmoji(code) {
         var c = Number(code);
         if (c <= 3 || c === 37 || c === 38 || c === 47) return '\u26C8\uFE0F';   // tornado/thunderstorm
@@ -6034,7 +6034,7 @@
                 else twcMaxFeelsLike = t;
             }
         })();
-        // Re-run outdoor score now that twcMaxFeelsLike is set — fetchPirate() ran first
+        // Re-run outdoor score now that twcMaxFeelsLike is set â fetchPirate() ran first
         // so the initial computeOutdoorScore call had twcMaxFeelsLike = null and fell back
         // to Pirate's (potentially lagged) hourly apparentTemperature for the description.
         if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
@@ -6055,7 +6055,7 @@
             const precipAmt = ((daypart.qpf?.[baseIdx] ?? 0) + (daypart.qpf?.[baseIdx + 1] ?? 0));
             const card = document.createElement('div'); card.className = 'forecast-card'; card.style.cursor = 'pointer'; card.style.position = 'relative';
             card.onclick = (function(idx) { return function() { openTWCDetailModal(data, idx); }; })(i);
-            // Icons are locally hosted and SW-cached — serve the same path online and offline.
+            // Icons are locally hosted and SW-cached â serve the same path online and offline.
             const iconHtml = '<img src="icons/wu/' + (iconNum || '50') + '.svg" alt="icon" style="width:48px;display:block;margin:auto;" onerror="this.onerror=null;this.style.display=\'none\';">';
             card.innerHTML = '<div style="font-size:0.9em; font-weight:bold; color:var(--primary);">' + label + '</div>' + iconHtml + '<div style="font-size:1.2em; color:var(--accent); font-weight:bold;">' + (_isMetric() && high !== '--' ? Math.round((high-32)*5/9) + '\u00b0' : high + '\u00b0') + ' / <span style="color:white">' + (_isMetric() && low !== '--' ? Math.round((low-32)*5/9) + '\u00b0' : low + '\u00b0') + '</span></div><div style="font-size:0.8em;color:#bbb;height:2.1em; display:flex; align-items:center; justify-content:center;">' + escapeHtml(shortText) + '</div>' + (precipPct > 0 ? '<div style="font-size:0.7em;color:#4fc3f7;margin-top:3px;">\uD83D\uDCA7 ' + precipPct + '%' + (precipAmt > 0 ? ' / ' + (_isMetric() ? (precipAmt * 25.4).toFixed(1) + ' mm' : precipAmt.toFixed(2) + '"') : '') + '</div>' : '');
             const dayNarr = (daypart.narrative?.[baseIdx] || '').toLowerCase();
@@ -6067,7 +6067,7 @@
             cont.appendChild(card);
         }
 
-        // Daily outlook summary — sits beneath the forecast strip
+        // Daily outlook summary â sits beneath the forecast strip
         var summEl = document.getElementById('daily-summary');
         if (summEl) summEl.innerText = buildDailySummary(data);
     }
@@ -6118,7 +6118,7 @@
 
         for (let part = 0; part < 2; ++part) {
             if (narratives[part] == null) continue;
-            // v1.0.4: Only humidity, UV, sky cover, snow — no wind/precipType/thunderCat
+            // v1.0.4: Only humidity, UV, sky cover, snow â no wind/precipType/thunderCat
             const detailRows = [
                 humidity[part] != null ? '<span style="opacity:0.55">\uD83D\uDCA7 Humidity</span><span>' + humidity[part] + '%</span>' : null,
                 (uvIndex[part] != null && uvIndex[part] > 0) ? '<span style="opacity:0.55">\u2600\uFE0F UV Index</span><span>' + uvIndex[part] + (uvDesc2[part] ? ' \u2014 ' + uvDesc2[part] : '') + '</span>' : null,
@@ -6134,7 +6134,7 @@
         document.getElementById('twc-prev-btn').onclick = function(e) { e.stopPropagation(); openTWCDetailModal(data, (dayIdx - 1 + data.dayOfWeek.length) % data.dayOfWeek.length); };
         document.getElementById('twc-next-btn').onclick = function(e) { e.stopPropagation(); openTWCDetailModal(data, (dayIdx + 1) % data.dayOfWeek.length); };
 
-        // v1.0.4: Swipe between days (only horizontal swipes — ignore scroll)
+        // v1.0.4: Swipe between days (only horizontal swipes â ignore scroll)
         const inner = document.getElementById('twc-modal-inner');
         if (!inner._swipeAttached) {
             inner._swipeAttached = true;
@@ -6340,7 +6340,7 @@
         }
     }
 
-    // ── Multi-day Flood Outlook Modal ──────────────────────────────────────────
+    // ââ Multi-day Flood Outlook Modal ââââââââââââââââââââââââââââââââââââââââââ
     function openFloodModal() {
         setModalOpen(true);
         var modal = document.getElementById('flood-modal');
@@ -6368,7 +6368,7 @@
         var ERO_DESC = [
             '',
             'Isolated flash flooding possible in susceptible areas.',
-            'Flash flooding likely in some areas — stay alert.',
+            'Flash flooding likely in some areas â stay alert.',
             'Flash flooding likely and may be life-threatening in spots.',
             'Widespread, life-threatening flash flooding expected.'
         ];
@@ -6446,7 +6446,7 @@
         document.getElementById('flood-modal-inner').innerHTML = html;
     }
 
-    // ——— v1.0.4 NEW: REPORTING MAP ———
+    // âââ v1.0.4 NEW: REPORTING MAP âââ
     let reportingMap = null;
     let lsrLayer = null;
     let alertPolygonLayer = null;
@@ -6514,7 +6514,7 @@
             const btn = document.createElement('button');
             btn.style.cssText = 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#e0e0e0;padding:9px 4px;border-radius:9px;cursor:pointer;font-size:0.77em;display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;transition:border-color 0.15s,background 0.15s;';
             btn.dataset.catType = cat.type;
-            btn.innerHTML = '<span style="font-size:1.55em;line-height:1;">' + cat.emoji + '</span><span style="text-align:center;line-height:1.2;">' + cat.label + '</span>' + (cat.sub ? '<span style="font-size:0.65em;opacity:0.45;">▼</span>' : '');
+            btn.innerHTML = '<span style="font-size:1.55em;line-height:1;">' + cat.emoji + '</span><span style="text-align:center;line-height:1.2;">' + cat.label + '</span>' + (cat.sub ? '<span style="font-size:0.65em;opacity:0.45;">â¼</span>' : '');
             btn.onclick = function() { selectReportCategory(cat); };
             grid.appendChild(btn);
         });
@@ -6574,11 +6574,45 @@
         });
     }
 
-    function formatReportTime(isoString) {
-        if (!isoString) return '';
-        const reportDate = new Date(isoString);
-        if (isNaN(reportDate.getTime())) return String(isoString);
+    // Report timestamps are absolute instants. When the source includes a UTC
+    // suffix or an explicit offset (for example, a Discord timestamp ending in
+    // "Z"), the browser converts it to the viewer's local timezone. That means
+    // an alert issued at 12:27 PM CDT appears as 1:27 PM to a viewer in EDT.
+    function parseReportDate(value) {
+        if (value == null || value === '') return null;
+        if (value instanceof Date) {
+            return isNaN(value.getTime()) ? null : value;
+        }
+        if (typeof value === 'number' && isFinite(value)) {
+            return new Date(Math.abs(value) < 1e12 ? value * 1000 : value);
+        }
+        const raw = String(value).trim();
+        if (!raw) return null;
+        // Accept Unix seconds/milliseconds as well as ISO/RFC3339 strings.
+        if (/^-?\d+(?:\.\d+)?$/.test(raw)) {
+            const numeric = Number(raw);
+            return isFinite(numeric)
+                ? new Date(Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric)
+                : null;
+        }
+        // Worker/database timestamps are UTC even when serialized without a
+        // trailing "Z". Mark timezone-less date-times as UTC before letting
+        // toLocaleTimeString convert them to the viewer's local timezone.
+        const hasTime = /T|\d{1,2}:\d{2}/.test(raw);
+        const hasExplicitZone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(raw);
+        const parsed = new Date(hasTime && !hasExplicitZone
+            ? raw.replace(' ', 'T') + 'Z'
+            : raw);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatReportTime(value) {
+        if (!value) return '';
+        const reportDate = parseReportDate(value);
+        if (!reportDate) return String(value);
         const now = new Date();
+        // No timeZone is supplied intentionally: report-map times are shown in
+        // the viewer's local timezone, not UTC and not the issuer's timezone.
         const timeStr = reportDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         const todayKey = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
         const reportKey = Date.UTC(
@@ -6588,8 +6622,14 @@
         );
         const daysDiff = Math.round((todayKey - reportKey) / 86400000);
         if (daysDiff === 0) return timeStr;
-        if (daysDiff === 1) return timeStr + ' YESTERDAY';
-        return timeStr;
+        if (daysDiff === 1) return timeStr + ' yesterday';
+
+        // Older reports retain their calendar date. Omit the year when it is
+        // the current year, but include it around New Year's or for any other
+        // cross-year timestamp so the date cannot be ambiguous.
+        const dateStr = (reportDate.getMonth() + 1) + '/' + reportDate.getDate()
+            + (reportDate.getFullYear() === now.getFullYear() ? '' : '/' + reportDate.getFullYear());
+        return timeStr + ' ' + dateStr;
     }
 
     // Reporting-map popups use one shared, bounded popup. This keeps long
@@ -6821,11 +6861,14 @@
                     || senderB.includes('nws ' + wantedOffice)
                 ) ? 1 : 0;
                 if (officeA !== officeB) return officeB - officeA;
-                return new Date(b.effective || 0).getTime() - new Date(a.effective || 0).getTime();
+                 const bTime = parseReportDate(b.sent || b.effective || b.updated || 0);
+                 const aTime = parseReportDate(a.sent || a.effective || a.updated || 0);
+                 return (bTime ? bTime.getTime() : 0) - (aTime ? aTime.getTime() : 0);
             });
             const alert = alertCandidates[0];
             if (!alert) return '';
              const rows = [
+                 ['Issued', formatReportTime(alert.sent || alert.effective || alert.updated)],
                  ['Issued by', alert.senderName || wfo],
                  ['Alert text', alert.description],
                  ['Instructions', alert.instruction]
@@ -7083,8 +7126,8 @@
 
     function formatReportingMinutesUntil(value) {
         if (!value) return '';
-        const parsed = new Date(value);
-        if (isNaN(parsed.getTime())) return '';
+        const parsed = parseReportDate(value);
+        if (!parsed) return '';
         const totalMinutes = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / 60000));
         if (totalMinutes < 60) return totalMinutes + ' minutes';
         const hours = Math.floor(totalMinutes / 60);
@@ -7157,21 +7200,31 @@
                         shortSummary = (actionMatch ? description.slice(0, actionMatch.index) : description).trim();
                     }
                 }
-                const issued = customSkyAlertValue(props, [
-                    'updated',
-                    'updatedAt',
-                    'updated_at',
-                    'modified',
-                    'modifiedAt',
-                    'modified_at',
-                    'issued',
-                    'issuedAt',
-                    'issued_at',
-                    'effective',
-                    'createdAt',
-                    'created_at',
-                    'time'
-                ], '');
+                 const issued = customSkyAlertValue(props, [
+                     // The map intentionally shows the alert's latest
+                     // updated time. Prefer it over the original issuance
+                     // time when both values are present.
+                     'updated',
+                     'updatedAt',
+                     'updated_at',
+                     'modified',
+                     'modifiedAt',
+                     'modified_at',
+                     'issued',
+                     'issuedAt',
+                     'issued_at',
+                     'effective',
+                     'effectiveAt',
+                     'effective_at',
+                     'createdAt',
+                     'created_at',
+                     'created',
+                     'time',
+                     'timestamp',
+                     'sent',
+                     'publishedAt',
+                     'published_at'
+                 ], '');
                 const expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
                 const color = customSkyAlertColor(props);
                 shortSummary = shortSummary.replace(/^\s*Full alert\s*:?\s*/i, '').trim();
@@ -7187,7 +7240,7 @@
                 });
                  const customDetail = reportingPopupDetailRows([
                      ['Issued by', issuer],
-                     ['Issued', issued ? formatReportingDateTimeNoSeconds(issued) : '']
+                      ['Updated', issued ? formatReportingDateTimeNoSeconds(issued) : '']
                  ]) + (isMd ? mdContent : summaryLine + actionLine);
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
@@ -7231,7 +7284,7 @@
         if (reportPinMarker) {
             reportPinMarker.setLatLng([la, lo]);
         } else {
-            // Marker wasn't created on map init (manual location) — create it on demand now
+            // Marker wasn't created on map init (manual location) â create it on demand now
             const _dotIcon = L_ref.divIcon({
                 className: '',
                 html: '<div style="width:16px;height:16px;background:#4fc3f7;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #4fc3f7,0 2px 8px rgba(0,0,0,0.7);cursor:grab;"></div>',
@@ -7341,19 +7394,19 @@
         reportingMap = L_ref.map('reporting-map', { zoomControl: true }).setView([rawLat, rawLon], 8);
         window.reportingMap = reportingMap;
 
-        // Layer 1 — physical geography only (no labels), sits below radar
+        // Layer 1 â physical geography only (no labels), sits below radar
         L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors &copy; <a href="https://carto.com">CARTO</a>',
             subdomains: 'abcd', maxZoom: 19
         }).addTo(reportingMap);
 
-        // Layer 2 — radar, covers physical tiles
+        // Layer 2 â radar, covers physical tiles
         reportingRadarLayer = L_ref.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {
             opacity: 0.65, attribution: 'Radar: IEM', maxZoom: 18
         });
         reportingRadarLayer.addTo(reportingMap);
 
-        // Layer 3 — roads + labels only (transparent background), floats above radar
+        // Layer 3 â roads + labels only (transparent background), floats above radar
         L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
             subdomains: 'abcd', maxZoom: 19, pane: 'overlayPane'
         }).addTo(reportingMap);
@@ -7362,7 +7415,7 @@
         customSkyAlertLayer = L_ref.layerGroup();
         lsrLayer = L_ref.layerGroup().addTo(reportingMap);
 
-        // Restore saved toggle state — sync iOS toggle checkboxes
+        // Restore saved toggle state â sync iOS toggle checkboxes
         if (!radarVisible) {
             reportingMap.removeLayer(reportingRadarLayer);
             const cb = document.getElementById('radar-toggle-cb');
@@ -7427,7 +7480,7 @@
 
         updatePinCoordsDisplay();
 
-        // Double-click/double-tap to move pin — manual timer is more reliable than native dblclick on mobile
+        // Double-click/double-tap to move pin â manual timer is more reliable than native dblclick on mobile
         let _dblTapTimer = null;
         reportingMap.on('click', function(e) {
             if (_dblTapTimer) {
@@ -7479,7 +7532,7 @@
                     const sig = (f.properties.significance || '').toUpperCase();
                     if (sig !== 'W') return; // warnings only
                     if (!shortFusedPhenomena[ph]) return;
-                    // Explicitly exclude Marine Weather Statements — only allow Special Marine Warnings (MA.W)
+                    // Explicitly exclude Marine Weather Statements â only allow Special Marine Warnings (MA.W)
                     if ((f.properties.type || '').toLowerCase().includes('statement')) return;
                     if (!f.geometry) return;
                     const color = shortFusedPhenomena[ph];
@@ -7610,7 +7663,8 @@
                 const maxAgeMs = showOlder ? 48 * 3600 * 1000 : FRESH_MS;
                 reports.forEach(function(r) {
                     if (r.lat == null || r.lon == null) return;
-                    const ageMs = now - new Date(r.time).getTime();
+                     const reportDate = parseReportDate(r.time);
+                     const ageMs = reportDate ? now - reportDate.getTime() : NaN;
                     if (!isNaN(ageMs) && ageMs > maxAgeMs) return;
                     const isOld = showOlder && ageMs > FRESH_MS;
                     const timeStr = formatReportTime(r.time);
@@ -7678,7 +7732,7 @@
         if (btn) { btn.textContent = 'SUBMIT REPORT'; btn.disabled = false; }
     }
 
-    // ——— NEARBY USER REPORTS (home tab, BETA) ———
+    // âââ NEARBY USER REPORTS (home tab, BETA) âââ
     async function fetchNearbyReportsForHome() {
         const widget = document.getElementById('nearby-reports-widget');
         const list   = document.getElementById('nearby-reports-list');
@@ -7764,8 +7818,8 @@
                 return '<div onclick="openReportOnMap(' + rLat + ',' + rLon + ')" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseenter="this.style.background=\'rgba(79,195,247,0.08)\'" onmouseleave="this.style.background=\'\'">'
                     + '<span style="font-size:1.1em;">' + reportEmoji(r.type) + '</span>'
                     + '<span style="flex:1;"><b>' + (r.type || 'Report') + '</b>'
-                    + (r.notes ? ' <span style="opacity:0.6;font-size:0.9em;">— ' + escapeHtml(r.notes) + '</span>' : '') + '</span>'
-                    + '<span style="color:#888;font-size:0.8em;white-space:nowrap;">' + distStr + ' · ' + timeStr + '</span>'
+                    + (r.notes ? ' <span style="opacity:0.6;font-size:0.9em;">â ' + escapeHtml(r.notes) + '</span>' : '') + '</span>'
+                    + '<span style="color:#888;font-size:0.8em;white-space:nowrap;">' + distStr + ' Â· ' + timeStr + '</span>'
                     + '<span style="font-size:0.75em;color:var(--primary);margin-left:4px;">&#8594;</span></div>';
             }).join('');
             widget.style.display = 'block';
@@ -7791,7 +7845,7 @@
         setTimeout(doPan, 250);
     }
 
-    // ——— LOAD ALL ———
+    // âââ LOAD ALL âââ
     async function fetchTropicalStorms() {
         const widget = document.getElementById('tropical-widget');
         if (!widget) return;
@@ -7809,7 +7863,7 @@
         }
         function _tc(s){return String(s).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());}
 
-        // ——— NHC card (used when NHC direct fetch succeeds) ———
+        // âââ NHC card (used when NHC direct fetch succeeds) âââ
         function _nhcCard(s){
             const kt=parseInt(s.intensity)||0, mph=Math.round(kt*1.15078);
             const clsMap={HU:'Hurricane',TY:'Typhoon',TS:'Tropical Storm',TD:'Tropical Depression',TC:'Tropical Cyclone',SS:'Subtropical Storm',SD:'Subtropical Depression',EX:'Extratropical'};
@@ -7856,7 +7910,7 @@
             return h;
         }
 
-        // ——— Cloudflare Worker → NHC CurrentStorms.json (CORS-safe, 5-min edge cache) ———
+        // âââ Cloudflare Worker â NHC CurrentStorms.json (CORS-safe, 5-min edge cache) âââ
         try {
             const res = await fetch(NHC_WORKER_URL);
             if (!res.ok) { widget.style.display='none'; return; }
@@ -7879,17 +7933,17 @@
                 const sLon = s.longitudeNumeric ?? _pc(s.longitude ?? s.lon ?? s.centerLon ?? null);
                 return Object.assign({}, s, { _dist: Math.round(_haverMi(userLat, userLon, sLat, sLon)) });
             }).filter(s => {
-                // Cone polygon available → exact PIP check (the correct path)
+                // Cone polygon available â exact PIP check (the correct path)
                 if (s.conePgn && s.conePgn.coordinates) return _pip(userLat, userLon, s.conePgn);
-                // No cone yet (Worker not redeployed / cone fetch failed) → distance fallback
-                // Keep NaN distances too — better to show and be wrong than miss real threats
+                // No cone yet (Worker not redeployed / cone fetch failed) â distance fallback
+                // Keep NaN distances too â better to show and be wrong than miss real threats
                 return isNaN(s._dist) || s._dist <= MAX_MI;
             }).sort((a, b) => (isNaN(a._dist) ? MAX_MI : a._dist) - (isNaN(b._dist) ? MAX_MI : b._dist));
             if (storms.length) {
                 widget.style.borderColor='rgba(79,195,247,0.18)';
                 document.getElementById('tropical-storms-list').innerHTML=storms.map(_nhcCard).join('');
                 widget.style.display='block';
-                // ——— Leaflet mini-map (non-interactive, dark tiles, cone + track + markers) ———
+                // âââ Leaflet mini-map (non-interactive, dark tiles, cone + track + markers) âââ
                 const mapEl=document.getElementById('tropical-map');
                 if(mapEl){
                     mapEl.style.display='block';
@@ -7931,7 +7985,7 @@
 
     }
 
-    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e;�─
+    // âââ AIR QUALITY (Open-Meteo Air Quality API) ââââââââââââââââââââââââââe;ï¿½â
     var _aqiLastFetch = 0; var _aqiLastLat = null; var _aqiLastLon = null;
 
     function _aqiInfo(aqi) {
@@ -7940,7 +7994,7 @@
         if (aqi <= 100) return {cat:'Moderate', color:'#ffff00', health:'Acceptable air quality. Unusually sensitive individuals may notice minor effects.'};
         if (aqi <= 150) return {cat:'Unhealthy for Sensitive Groups', color:'#ff7e00', health:'Sensitive groups (elderly, children, heart/lung conditions) may experience health effects. General public is unlikely to be affected.'};
         if (aqi <= 200) return {cat:'Unhealthy', color:'#ff0000', health:'Everyone may begin to experience health effects. Sensitive groups may experience more serious effects. Reduce prolonged outdoor exertion.'};
-        if (aqi <= 300) return {cat:'Very Unhealthy', color:'#8f3f97', health:'Health alert — everyone may experience more serious health effects. Avoid prolonged outdoor exertion. Sensitive groups should remain indoors.'};
+        if (aqi <= 300) return {cat:'Very Unhealthy', color:'#8f3f97', health:'Health alert â everyone may experience more serious health effects. Avoid prolonged outdoor exertion. Sensitive groups should remain indoors.'};
         return {cat:'Hazardous', color:'#7e0023', health:'Emergency health conditions. The entire population is likely to be affected. Avoid all outdoor exertion. Sensitive groups should stay indoors with windows closed.'};
     }
 
@@ -7953,14 +8007,14 @@
         var outerR = 128, innerR = 100;
         ctx.clearRect(0, 0, W, H);
 
-        // aqiAngle uses MATH convention (y-up): AQI 0 → π (left), AQI 500 → 0 (right).
+        // aqiAngle uses MATH convention (y-up): AQI 0 â Ï (left), AQI 500 â 0 (right).
         // The needle uses cy - r*sin(angle) so math angles point upward correctly.
         // ctx.arc() uses CANVAS convention (y-down), so we negate: canvas_angle = -math_angle.
         // To draw a band in the UPPER semicircle: CCW from -ea to -sa on the outer circle,
         // then CW from -sa to -ea on the inner circle.
         function aqiAngle(v) { return Math.PI - (Math.min(Math.max(v, 0), 500) / 500) * Math.PI; }
 
-        // Colored arc bands — drawn in the UPPER semicircle using negated angles
+        // Colored arc bands â drawn in the UPPER semicircle using negated angles
         var bands = [
             {from:0,   to:50,  color:'#00e400'},
             {from:50,  to:100, color:'#ffff00'},
@@ -7981,7 +8035,7 @@
         });
 
         // Dark inner half-disk covering the upper semicircle within innerR
-        // arc: CW from -π to 0 traces the upper semicircle (through -π/2 = top)
+        // arc: CW from -Ï to 0 traces the upper semicircle (through -Ï/2 = top)
         ctx.beginPath();
         ctx.arc(cx, cy, innerR, -Math.PI, 0, false);
         ctx.closePath();  // chord from (cx+innerR,cy) back to (cx-innerR,cy)
@@ -7989,7 +8043,7 @@
         ctx.fill();
 
         // Tick marks and labels at band boundaries
-        // Positions use math convention: (cx + r*cosA, cy - r*sinA) → upper area
+        // Positions use math convention: (cx + r*cosA, cy - r*sinA) â upper area
         var ticks = [
             {v:50,  label:'50'},
             {v:100, label:'100'},
@@ -8046,7 +8100,7 @@
             ctx.restore();
         }
 
-        // Needle — uses math convention: cy - nLen*sin(angle) → points upward
+        // Needle â uses math convention: cy - nLen*sin(angle) â points upward
         var angle = aqiAngle(Math.min(aqi, 500));
         var nLen = innerR - 10;
         ctx.save();
@@ -8089,7 +8143,7 @@
             var proxy  = 'https://corsproxy.io/?url=';
             var coordsFcst = 'latitude=' + curLat + '&longitude=' + curLon + '&distance=200&API_KEY=' + AIRNOW_KEY;
             // Try 50 miles first; if no stations found, widen to 200 miles.
-            // A 404 from AirNow indicates a non-US location — fall back to Open-Meteo.
+            // A 404 from AirNow indicates a non-US location â fall back to Open-Meteo.
             var obsData;
             var isNonUS = false;
             for (var dist of [50, 100, 200]) {
@@ -8118,7 +8172,7 @@
         }
     }
 
-    // Open-Meteo Air Quality fallback — used for non-US locations where AirNow returns 404.
+    // Open-Meteo Air Quality fallback â used for non-US locations where AirNow returns 404.
     // Forecast is not available from Open-Meteo, so the forecast strip is hidden.
     async function _fetchAQIFromOpenMeteo(curLat, curLon) {
         try {
@@ -8140,7 +8194,7 @@
         if (!section) return;
         section.style.display = '';
 
-        // Hide forecast strip — Open-Meteo does not provide AQI forecasts
+        // Hide forecast strip â Open-Meteo does not provide AQI forecasts
         var fcstContainer = document.getElementById('aqi-forecast-container');
         if (fcstContainer) fcstContainer.style.display = 'none';
         var actionEl = document.getElementById('air-action-day');
@@ -8229,7 +8283,7 @@
                     var dParts = dateStr.split(/[-\/]/);
                     var dObj = dParts.length >= 3 ? new Date(parseInt(dParts[0]), parseInt(dParts[1])-1, parseInt(dParts[2])) : null;
                     var label = di === 0 ? 'Today' : (dObj ? DAY_NAMES[dObj.getDay()] : 'Day\u00a0' + (di+1));
-                    // Hex → rgba helper
+                    // Hex â rgba helper
                     var hexToRgba = function(hex, a) {
                         var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
                         return 'rgba('+r+','+g+','+b+','+a+')';
@@ -8266,25 +8320,25 @@
 
         if (numEl)    { numEl.innerText = Math.round(curAQI); numEl.style.color = info.color; }
         if (catEl)    { catEl.innerText = info.cat; catEl.style.color = info.color; }
-        if (pollEl)   pollEl.innerText = (pollutant ? 'Dominant: ' + pollutant : '') + (area ? '  ·  ' + area : '');
+        if (pollEl)   pollEl.innerText = (pollutant ? 'Dominant: ' + pollutant : '') + (area ? '  Â·  ' + area : '');
         if (healthEl) healthEl.innerText = info.health;
 
         _renderAQIDial(curAQI, info.cat, info.color);
         SkyDB.set(SkyDB.S.weather, 'aqi', { ts: Date.now(), aqi: curAQI, cat: info.cat, color: info.color, health: info.health, pollutant: pollutant, area: area, cardsHtml: (cardsEl ? cardsEl.innerHTML : ''), actionDay: !!(actionEl && actionEl.style.display !== 'none'), source: 'airnow' });
     }
-    // ─────────────────────────────────────────────────────────────────────────
+    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-    // ─── BEACH FORECAST ──────────────────────────────────────────────────────────
+    // âââ BEACH FORECAST ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
     (function() {
         var _NDBC_BUOYS = [
-            // Great Lakes – Lake Michigan
+            // Great Lakes â Lake Michigan
             {id:'45198', name:'Chicago Buoy',       lat:41.800, lon:-87.600},
             {id:'45186', name:'Waukegan',            lat:42.474, lon:-87.567},
             {id:'45187', name:'Winthrop Harbor',     lat:42.613, lon:-87.502},
             {id:'45007', name:'S Lake Michigan',     lat:41.721, lon:-86.972},
             {id:'45002', name:'C Lake Michigan',     lat:45.352, lon:-86.411},
             {id:'45008', name:'NW Lake Michigan',    lat:44.294, lon:-86.411},
-            // Great Lakes – other
+            // Great Lakes â other
             {id:'45012', name:'Lake Erie',           lat:42.900, lon:-79.000},
             {id:'45028', name:'Green Bay',           lat:45.192, lon:-87.059},
             {id:'45005', name:'W Lake Erie',         lat:41.682, lon:-82.393},
@@ -8458,8 +8512,8 @@
             html += '</div>';
             html += '</div>'; // end conditions bar
 
-            // ── Alert banners (own divs, below conditions bar) ────────────────
-            // ── Thunder warning ──────────────────────────────────────────────
+            // ââ Alert banners (own divs, below conditions bar) ââââââââââââââââ
+            // ââ Thunder warning ââââââââââââââââââââââââââââââââââââââââââââââ
             // window._twcThunderToday is set by fetchTWCForecast() when it resolves;
             // the beach section is re-rendered after fetchAlerts() in loadAll() by
             // which point TWC has always resolved, so this is reliably populated.
@@ -8504,7 +8558,7 @@
             var result = _findNearest(la, lo);
             try {
                 if (result) {
-                    // Buoy within 25 miles — use NDBC
+                    // Buoy within 25 miles â use NDBC
                     var buoy = result.buoy;
                     var obs = await _fetchNDBC(buoy.id);
                     if (!obs) return;
@@ -8533,7 +8587,7 @@
                     }
                     _renderBeach(obs, glfText);
                 } else {
-                    // No buoy within 25 miles — fall back to Open-Meteo Marine API
+                    // No buoy within 25 miles â fall back to Open-Meteo Marine API
                     var mRes = await fetch(
                         'https://marine-api.open-meteo.com/v1/marine?latitude=' + la +
                         '&longitude=' + lo +
@@ -8552,10 +8606,10 @@
                     if (obs.wvht == null && obs.wtmp == null) return;
                     _renderBeach(obs, null);
                 }
-            } catch(e) { /* best-effort — silently skip on network failure */ }
+            } catch(e) { /* best-effort â silently skip on network failure */ }
         };
     })();
-    // ─────────────────────────────────────────────────────────────────────────────
+    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     async function loadAll() {
         twcMaxFeelsLike = null;
@@ -8567,7 +8621,7 @@
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
         try {
-            // Water location detection — Nominatim reverse geocode tells us if coords are on
+            // Water location detection â Nominatim reverse geocode tells us if coords are on
             // open water (sea, bay, lake, waterway). If so, skip PWS entirely.
             try {
                 var _nomR = await fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon));
@@ -8587,19 +8641,19 @@
                 }
             } catch(e) { window.isWaterLocation = false; }
 
-            // Beach detection — Nominatim /reverse never reliably surfaces a
+            // Beach detection â Nominatim /reverse never reliably surfaces a
             // natural=beach polygon (point features like paths/showers always
             // rank higher). Use /search with a 1 km viewbox instead: it queries
             // by name token so "Montrose Beach", "North Avenue Beach", etc. all
             // match "beach", and the class/type check confirms it is actually a
-            // beach polygon rather than an address result.  0.01° ≈ 1 km, large
+            // beach polygon rather than an address result.  0.01Â° â 1 km, large
             // enough that even a long beach polygon's centroid falls inside the box.
             try {
                 var _savedQ = (localStorage.getItem('waddle_city') || '').toLowerCase();
                 if (_savedQ.indexOf('beach') !== -1 || _savedQ.indexOf('shore') !== -1) {
                     window.isBeachLocation = true;
                 } else {
-                    var _d = 0.01; // ~1 km — covers centroids of large beach polygons
+                    var _d = 0.01; // ~1 km â covers centroids of large beach polygons
                     var _vbox = (lon - _d) + ',' + (lat + _d) + ',' + (lon + _d) + ',' + (lat - _d);
                     var _bchR = await fetch(
                         'https://corsproxy.io/?url=' + encodeURIComponent(
@@ -8624,7 +8678,7 @@
             fetchBeachForecast(lat, lon);
             await Promise.all([fetchNWSChain(), fetchOpenWeather(), fetchTWCForecast()]);
             await fetchAlerts();
-            // Re-render beach section now that alerts are resolved — fetchBeachForecast
+            // Re-render beach section now that alerts are resolved â fetchBeachForecast
             // fires before fetchAlerts() so the BHS banner needs a second pass to show.
             // Check location flags, not display state: the NDBC fetch inside
             // fetchBeachForecast may still be in flight when fetchAlerts resolves,
@@ -8686,11 +8740,11 @@
 
     setInterval(function() { loadAll(); syncPushLocation(); }, 60000);
 
-    // Live-update nearby user reports independently — shorter interval so the
+    // Live-update nearby user reports independently â shorter interval so the
     // home widget and threat level stay current without waiting for a full 60s refresh
     setInterval(function() { fetchNearbyReportsForHome(); }, 30000);
 
-    // ——— Notification deep-link: handle #severe / #severe-risks on load ———
+    // âââ Notification deep-link: handle #severe / #severe-risks on load âââ
     // When a user taps a push notification, sw.js opens/navigates to a URL like
     // /sky-monitor/#severe or /sky-monitor/#severe-risks. This block reads the
     // fragment on startup and routes to the right tab / scroll position.
@@ -8711,7 +8765,7 @@
         history.replaceState(null, '', window.location.pathname);
     })();
 
-    // ——— v1.0.4: SWIPE TABS + PULL-TO-REFRESH (respects _modalOpen flag) ———
+    // âââ v1.0.4: SWIPE TABS + PULL-TO-REFRESH (respects _modalOpen flag) âââ
     const tabs = ['home', 'severe', 'specs', 'reporting'];
     const navIds = ['nav-home', 'nav-severe', 'nav-specs', 'nav-reporting'];
     let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
@@ -8809,23 +8863,23 @@
         // Gate: reporting tab requires reCAPTCHA verification once per session
         if (tabId === 'reporting' && !_recaptchaVerified) {
             showRecaptchaGate();
-            return; // don't switch yet — gate will re-trigger switchTab after verification
+            return; // don't switch yet â gate will re-trigger switchTab after verification
         }
         _origSwitchTab(tabId, element);
         currentTabIdx = tabs.indexOf(tabId);
         if (currentTabIdx < 0) currentTabIdx = 0;
     };
 
-    // ——— PUSH NOTIFICATIONS BACKEND URL ———
+    // âââ PUSH NOTIFICATIONS BACKEND URL âââ
     // If your HTML is on GitHub Pages, set this to your deployed Replit URL:
     // var SKYMONITOR_API = 'https://your-app-name.replit.app';
     // If your HTML is served from the same server as the API, leave it as '':
     var SKYMONITOR_API = 'https://skymonitor-push.skymonitor-account.workers.dev';
 
-    // ——— PWA SERVICE WORKER + PUSH NOTIFICATIONS (v1.1.0) ———
+    // âââ PWA SERVICE WORKER + PUSH NOTIFICATIONS (v1.1.0) âââ
     var _swReg = null;
 
-    // ——— APP ICON BADGE (iOS 16.4+ home-screen PWAs) ———
+    // âââ APP ICON BADGE (iOS 16.4+ home-screen PWAs) âââ
     // Clears the little red number on the home-screen icon whenever the user
     // opens or returns to the app, and tells the service worker to reset its
     // own running unread-alert counter so future pushes start from 0 again.
@@ -8852,7 +8906,7 @@
                 _clearAppBadge();
             }).catch(function() {});
 
-            // Evict large weather API responses from SW cache — only the app shell should persist.
+            // Evict large weather API responses from SW cache â only the app shell should persist.
             // These URLs change every refresh anyway so caching them wastes 50+ MB.
             if ('caches' in window) {
                 caches.keys().then(function(cacheNames) {
@@ -8937,7 +8991,7 @@
                 }).then(function(data) {
                     if (!data) return;
                     return Notification.requestPermission().then(function(perm) {
-                        if (perm !== 'granted') { alert('Notification permission was denied. Check iOS Settings → SkyMonitor → Notifications.'); return; }
+                        if (perm !== 'granted') { alert('Notification permission was denied. Check iOS Settings â SkyMonitor â Notifications.'); return; }
                         return _swReg.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: _urlB64ToUint8(data.publicKey)
@@ -8959,7 +9013,7 @@
         });
     }
 
-    // ── Notification preferences ──────────────────────────────
+    // ââ Notification preferences ââââââââââââââââââââââââââââââ
     function getNotifPrefs() {
         return {
             alertEnabled:      localStorage.getItem('pref_alert_enabled') !== 'false',
@@ -9035,7 +9089,7 @@
 
     window.addEventListener('DOMContentLoaded', function() {
         const savedMode = localStorage.getItem('input_mode') || 'live';
-        // Restore live tracking silently on startup — also re-syncs location to push subscription via window.onload
+        // Restore live tracking silently on startup â also re-syncs location to push subscription via window.onload
         setInputView(savedMode);
         const savedComplexity = localStorage.getItem('data_complexity') || 'normal';
         const normalBtn = document.getElementById('opt-data-normal');
@@ -9083,15 +9137,15 @@
 </script>
 
 <script>
-    // Dynamic Type bridge — probes iOS system body font size (respects user's text size
+    // Dynamic Type bridge â probes iOS system body font size (respects user's text size
     // preference) and applies it to the root so rem/em values scale accordingly.
-    // At the default iOS text size this reads 17px, so (17/17)*100 = 100% — nothing changes.
+    // At the default iOS text size this reads 17px, so (17/17)*100 = 100% â nothing changes.
     // At larger sizes the root scales up proportionally; clamp() caps on large display
     // elements prevent them from growing beyond their default pixel size.
     function _applyDynType() {
         // -apple-system-body is a WebKit-only system font keyword. On non-WebKit
         // browsers (Chrome/Edge/Firefox on desktop, etc.) it's invalid, and the
-        // probe span silently falls back to an unrelated computed size — which is
+        // probe span silently falls back to an unrelated computed size â which is
         // how desktop ended up with a tiny root font-size. Restrict this probe to
         // iOS/iPadOS Safari, where Dynamic Type actually applies. iPadOS Safari
         // reports a desktop-style "Macintosh" user agent, so touch support is used
