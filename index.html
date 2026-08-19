@@ -7786,10 +7786,10 @@
         if (customSkyAlertsVisible) {
             customSkyAlertLayer.addTo(reportingMap);
         }
+        const _lsrCb = document.getElementById('lsr-toggle-cb');
+        if (_lsrCb) _lsrCb.checked = lsrVisible;
         if (!lsrVisible) {
             reportingMap.removeLayer(lsrLayer);
-            const cb = document.getElementById('lsr-toggle-cb');
-            if (cb) cb.checked = false;
         }
         // Restore persisted states for show-older-reports and privacy-mode
         const _showOlderCb = document.getElementById('show-older-reports');
