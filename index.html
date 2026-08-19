@@ -4907,8 +4907,11 @@
             }
             const _pwNow = window.pirateCurrently;
             const _pwTemp = (_pwNow && _pwNow.temperature != null) ? _pwNow.temperature : null;
-            // Reference: prefer neighbor median; fall back to PirateWeather.
-            const _refTemp = _neighborMedianTemp !== null ? _neighborMedianTemp : _pwTemp;
+            // Reference: prefer the independent NWS observation when available.
+            // PirateWeather is a model estimate and can reinforce a bad PWS reading.
+            const _refTemp = nwsObsTempF !== null
+                ? nwsObsTempF
+                : (_neighborMedianTemp !== null ? _neighborMedianTemp : _pwTemp);
 
             // Build pool: primary (if valid) + all valid neighbors, each tagged with a
             // distance rank (0 = primary = nearest, 1-3 = neighbors in distance order).
@@ -4936,7 +4939,7 @@
             // Availability: pool non-empty AND (a reference existed OR primary was valid).
             // If every candidate was filtered as a glitch, pool is empty → fall through to NWS.
             const _wuDevFromPirate = _wuRawAvail && _pool.length === 0 && _refTemp !== null;
-            const _wuAvail = _pool.length > 0 && _wuRawAvail;
+            const _wuAvail = _pool.length > 0 && _isValidStation(_wu);
             window.wuDeviates = !_wuAvail;
             // Hide the "Observed at KXXX" label whenever the PWS is rejected —
             // regardless of which fallback branch we end up in below.
