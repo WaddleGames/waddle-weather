@@ -1271,7 +1271,41 @@
     }
 
     const SKYMONITOR_GITHUB_RELEASE_URL = 'https://api.github.com/repos/chicagoeas/sky-monitor/releases/latest';
-    const SKYMONITOR_LAST_SEEN_RELEASE_KEY = 'skymonitor_last_seen_github_release';
+    // v1.1.7: version the storage key so devices that silently treated the
+    // first fetched release as a baseline get one clean announcement.
+    const SKYMONITOR_LAST_SEEN_RELEASE_KEY = 'skymonitor_last_seen_github_release_v2';
+    const SKYMONITOR_LAST_SEEN_RELEASE_COOKIE = 'skymonitor_last_seen_github_release_v2';
+
+    function getLastSeenGitHubRelease() {
+        let localTag = '';
+        try {
+            localTag = String(localStorage.getItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY) || '').trim();
+        } catch (error) {}
+        if (localTag) return localTag;
+
+        const cookiePrefix = SKYMONITOR_LAST_SEEN_RELEASE_COOKIE + '=';
+        const cookie = document.cookie.split('; ').find(function(entry) {
+            return entry.indexOf(cookiePrefix) === 0;
+        });
+        if (!cookie) return '';
+        try {
+            return decodeURIComponent(cookie.slice(cookiePrefix.length)).trim();
+        } catch (error) {
+            return '';
+        }
+    }
+
+    function rememberGitHubRelease(releaseTag) {
+        const tag = encodeURIComponent(String(releaseTag || '').trim());
+        if (!tag) return;
+        try {
+            localStorage.setItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY, decodeURIComponent(tag));
+        } catch (error) {}
+        // A normal "cached files" clear does not remove cookies. Keep this
+        // alongside localStorage so the notice remains once per browser/device.
+        document.cookie = SKYMONITOR_LAST_SEEN_RELEASE_COOKIE + '=' + tag
+            + '; Max-Age=315360000; Path=/; SameSite=Lax';
+    }
 
     function formatGitHubReleaseAge(value) {
         const releaseDate = new Date(value);
@@ -1379,7 +1413,7 @@
         const modal = document.getElementById('github-release-modal');
         if (!modal) return;
         const tag = modal.dataset.releaseTag;
-        if (tag) localStorage.setItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY, tag);
+        if (tag) rememberGitHubRelease(tag);
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
         setModalOpen(false);
@@ -1398,13 +1432,7 @@
             const release = await response.json();
             const tag = String(release.tag_name || '').trim();
             if (!tag) return;
-            const lastSeenTag = localStorage.getItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY);
-            // Treat the release that exists when this feature is first installed
-            // as the baseline. Future releases will still open the popup.
-            if (!lastSeenTag) {
-                localStorage.setItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY, tag);
-                return;
-            }
+            const lastSeenTag = getLastSeenGitHubRelease();
             if (lastSeenTag === tag) return;
             openGitHubReleaseModal(release);
         } catch (error) {
