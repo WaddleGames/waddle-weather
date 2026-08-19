@@ -2490,7 +2490,7 @@
     }
 
     // Fetch the nearest WU PWS station that passes WU's own quality control.
-    // Always picks the nearest PWS (index 0 — API returns stations in distance order) as primary.
+    // Always picks the geographically nearest PWS as primary.
     // qcStatus is intentionally NOT used for primary selection: WU computes it against its own
     // reference stations, which produces false failures for islands, peninsulas, and other
     // geographically isolated locations (e.g. Avalon on Catalina Island picks a mainland station
@@ -2516,21 +2516,35 @@
                           Math.sin(dLon/2)*Math.sin(dLon/2);
                 return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             };
+            // Do not trust the API's array order: it can change between requests.
+            // Calculate distance for every returned station and use that for the
+            // primary station and distance ranking.
+            const stationOrder = stationIds.map(function(_, i) { return i; });
+            const stationDistance = function(i) {
+                if (stationLats[i] != null && stationLons[i] != null) {
+                    return _dist(latP, lonP, stationLats[i], stationLons[i]);
+                }
+                return locData?.location?.distanceMi?.[i] ?? Infinity;
+            };
+            stationOrder.sort(function(a, b) {
+                return stationDistance(a) - stationDistance(b);
+            });
+            const primaryIndex = stationOrder[0];
             // Neighbor candidates: skip confirmed-bad (qcStatus=-1) and stations >5 mi away.
-            // Sort: qcStatus=1 first, then qcStatus=0, then by original index (= distance order).
+            // Sort: qcStatus=1 first, then qcStatus=0, then by actual distance.
             const MAX_NEIGHBOR_MI = 5;
             const neighborCandidates = [];
-            for (let i = 1; i < stationIds.length; i++) {
+            for (let j = 1; j < stationOrder.length; j++) {
+                const i = stationOrder[j];
                 if (qcStatuses.length && qcStatuses[i] === -1) continue; // skip confirmed-bad neighbors
-                if (stationLats[i] != null && stationLons[i] != null &&
-                    _dist(latP, lonP, stationLats[i], stationLons[i]) > MAX_NEIGHBOR_MI) continue;
-                neighborCandidates.push(i);
+                if (stationDistance(i) > MAX_NEIGHBOR_MI) continue;
+                neighborCandidates.push({ index: i, distance: stationDistance(i) });
             }
             neighborCandidates.sort(function(a, b) {
-                const qa = qcStatuses[a] ?? 0, qb = qcStatuses[b] ?? 0;
-                return qa !== qb ? qb - qa : a - b; // prefer higher qcStatus, then closer
+                const qa = qcStatuses[a.index] ?? 0, qb = qcStatuses[b.index] ?? 0;
+                return qa !== qb ? qb - qa : a.distance - b.distance; // prefer higher qcStatus, then closer
             });
-            const neighborIndices = neighborCandidates.slice(0, 3);
+            const neighborIndices = neighborCandidates.slice(0, 3).map(function(c) { return c.index; });
             const _fetchObs = async function(sid) {
                 try {
                     const r = await fetch('https://api.weather.com/v2/pws/observations/current?stationId=' + sid + '&format=json&units=e&apiKey=' + TWC_API_KEY);
@@ -2544,7 +2558,7 @@
                              elev: o.imperial?.elev ?? null };
                 } catch(e) { return null; }
             };
-            const obsResults = await Promise.all([0, ...neighborIndices].map(function(i) { return _fetchObs(stationIds[i]); }));
+             const obsResults = await Promise.all([primaryIndex, ...neighborIndices].map(function(i) { return _fetchObs(stationIds[i]); }));
             if (!obsResults[0]) return []; // primary station fetch failed
             return obsResults.filter(function(r) { return r !== null; });
         } catch(e) { return []; }
