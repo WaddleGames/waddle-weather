@@ -1198,6 +1198,7 @@
     let liveUV = 0;
     let isNightAtStation = false;
     let stationTzOffset = 0; // always in seconds
+    let weatherLoadGeneration = 0;
     let activeSPCDay = 1;
     let activeOutlookCenter = 'spc';
     let nhcBasin = 'atl';
@@ -2654,7 +2655,7 @@
         var base = 'https://api.weather.gov/icons/land/' + dn + '/';
         var sz   = '?size=medium';
 
-        // ── Severe / life-threatening ──────────────────────────To�───────────
+        // ── Severe / life-threatening ──────────────────────────To ───────────
         if (s.includes('tornado'))                                           return base + 'tornado'        + sz;
         if (s.includes('hurricane'))                                         return base + 'hurricane'      + sz;
         if (s.includes('tropical storm'))                                    return base + 'tropical_storm' + sz;
@@ -3821,7 +3822,8 @@
     var _lastPirateFetch = 0;
     var _lastPirateLat = null;
     var _lastPirateLon = null;
-    async function fetchPirate() {
+    async function fetchPirate(loadGeneration) {
+        if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         const now = Date.now();
         const locationChanged = (lat !== _lastPirateLat || lon !== _lastPirateLon);
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
@@ -3836,6 +3838,7 @@
             // Skip PWS entirely for water locations — nearest station is always on land
             // and its readings are completely unrepresentative of an open-water point.
             const wuStations = window.isWaterLocation ? [] : await fetchWUMulti(lat, lon);
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             const wu = wuStations[0] || null;
             const wuAvailable = wu && wu.temp !== null && wu.humidity !== null;
             // fetchWUMulti returns [primary, ...neighbors]; neighbors feed the QC median check.
@@ -4718,7 +4721,8 @@
         });
     }
 
-    async function fetchNWSChain() {
+    async function fetchNWSChain(loadGeneration) {
+        if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         try {
             const pointsRes = await fetch('https://api.weather.gov/points/' + lat + ',' + lon);
             if (!pointsRes.ok) { window.isOutsideUS = true; applyInternationalMode(); return; }
@@ -4864,6 +4868,7 @@
             if (_obsEndpointFailed) {
                 document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
             }
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // ── PWS quality control — best-fit station selection ────────────────────────
             // Strategy: score every candidate (primary + neighbors) by |temp − reference|
             // and pick the best-fitting one, using distance as a tie-breaker only.
@@ -8320,7 +8325,7 @@
 
     }
 
-    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e;�─
+    // ─── AIR QUALITY (Open-Meteo Air Quality API) ──────────────────────────e; ─
     var _aqiLastFetch = 0; var _aqiLastLat = null; var _aqiLastLon = null;
 
     function _aqiInfo(aqi) {
@@ -8947,6 +8952,7 @@
     // ─────────────────────────────────────────────────────────────────────────────
 
     async function loadAll() {
+        const loadGeneration = ++weatherLoadGeneration;
         twcMaxFeelsLike = null;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
         window.isBeachLocation = false;
@@ -9008,10 +9014,12 @@
                 }
             } catch(e) { window.isBeachLocation = false; }
 
-            await fetchPirate();
+            await fetchPirate(loadGeneration);
+            if (loadGeneration !== weatherLoadGeneration) return;
             fetchAQI();
             fetchBeachForecast(lat, lon);
-            await Promise.all([fetchNWSChain(), fetchOpenWeather(), fetchTWCForecast()]);
+            await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
+            if (loadGeneration !== weatherLoadGeneration) return;
             await fetchAlerts();
             // Re-render beach section now that alerts are resolved — fetchBeachForecast
             // fires before fetchAlerts() so the BHS banner needs a second pass to show.
