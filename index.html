@@ -7086,7 +7086,8 @@
         const issuedDate = parseReportDate(issued);
         const createdDate = parseReportDate(created);
         const updatedDate = parseReportDate(updated);
-        const sentDate = parseReportDate(customSkyAlertValue(props, ['sent', 'sentAt', 'sent_at'], ''));
+        const sent = customSkyAlertValue(props, ['sent', 'sentAt', 'sent_at'], '');
+        const sentDate = parseReportDate(sent);
         const effectiveDate = parseReportDate(customSkyAlertValue(props, ['effective', 'effectiveAt', 'effective_at'], ''));
         const isNwsAlert = Boolean(props && (
             props.senderName || props.messageType || props.category
