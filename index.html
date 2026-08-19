@@ -374,6 +374,80 @@
 
         /* Data source QC panel — runs in background only, never shown to users */
         #pws-qc-panel { display: none !important; }
+
+        /* GitHub release update popup */
+        #github-release-modal {
+            display: none; position: fixed; inset: 0; z-index: 6000;
+            background: rgba(0,0,0,0.78); backdrop-filter: blur(7px);
+            align-items: center; justify-content: center; padding: 18px; box-sizing: border-box;
+        }
+        #github-release-modal.is-open { display: flex; }
+        .github-release-window {
+            width: min(100%, 680px); max-height: min(84vh, 720px); overflow: hidden;
+            display: flex; flex-direction: column; background: #14294b;
+            border: 1px solid rgba(255,255,255,0.18); border-radius: 18px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.75);
+        }
+        .github-release-head {
+            display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+            padding: 22px 24px 18px; background: linear-gradient(135deg, #091525, #14294b);
+        }
+        .github-release-kicker {
+            color: #ffd54f; font-size: 0.72em; font-weight: 900; letter-spacing: 1.5px;
+            margin-bottom: 7px; text-transform: uppercase;
+        }
+        .github-release-title {
+            margin: 0; color: #fff; font-size: clamp(1.35rem, 3vw, 2rem);
+            line-height: 1.15; letter-spacing: -0.4px;
+        }
+        .github-release-date {
+            margin-top: 8px; color: #c7d5e8; font-size: 0.78em; font-weight: 600;
+        }
+        .github-release-close {
+            flex: 0 0 auto; border: none; background: transparent; color: #fff;
+            cursor: pointer; font-size: 1.8em; line-height: 1; padding: 0 0 4px 8px;
+        }
+        .github-release-notes {
+            overflow-y: auto; padding: 20px 24px; color: #f1f4f8;
+            font-size: 0.9em; line-height: 1.58; -webkit-overflow-scrolling: touch;
+        }
+        .github-release-notes p { margin: 0 0 14px; }
+        .github-release-notes p:last-child { margin-bottom: 0; }
+        .github-release-notes h3 {
+            color: #fff; font-size: 1.05em; margin: 18px 0 8px;
+        }
+        .github-release-notes h3:first-child { margin-top: 0; }
+        .github-release-notes ul, .github-release-notes ol { margin: 0 0 14px; padding-left: 22px; }
+        .github-release-notes li { margin: 4px 0; }
+        .github-release-notes a { color: #7dd3fc; text-decoration: underline; }
+        .github-release-notes code {
+            background: rgba(0,0,0,0.25); border-radius: 4px; padding: 1px 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+        }
+        .github-release-footer {
+            display: flex; gap: 10px; justify-content: flex-end; align-items: center;
+            padding: 14px 24px; border-top: 1px solid rgba(255,255,255,0.12);
+            background: rgba(0,0,0,0.12);
+        }
+        .github-release-link, .github-release-dismiss {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-height: 36px; padding: 8px 14px; border-radius: 8px; box-sizing: border-box;
+            font-size: 0.78em; font-weight: 800; cursor: pointer; text-decoration: none;
+        }
+        .github-release-link {
+            color: #07131d; background: #4fc3f7; border: 1px solid #4fc3f7;
+        }
+        .github-release-dismiss {
+            color: #e5edf7; background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+        @media(max-width: 600px) {
+            #github-release-modal { padding: 10px; }
+            .github-release-head { padding: 18px 18px 15px; }
+            .github-release-notes { padding: 17px 18px; font-size: 0.84em; }
+            .github-release-footer { padding: 12px 18px; }
+            .github-release-link, .github-release-dismiss { flex: 1; }
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -394,6 +468,24 @@
 
     <div id="ptr-indicator">&#8635; Release to refresh</div>
     <span id="sync-indicator">&#9679; UPDATING</span>
+
+    <div id="github-release-modal" aria-hidden="true" onclick="if(event.target===this)closeGitHubReleaseModal()">
+        <div class="github-release-window" role="dialog" aria-modal="true" aria-labelledby="github-release-title">
+            <div class="github-release-head">
+                <div>
+                    <div class="github-release-kicker">&#128640; APP UPDATES</div>
+                    <h2 id="github-release-title" class="github-release-title">New SkyMonitor update</h2>
+                    <div id="github-release-date" class="github-release-date"></div>
+                </div>
+                <button class="github-release-close" type="button" aria-label="Close update notes" onclick="closeGitHubReleaseModal()">&#10005;</button>
+            </div>
+            <div id="github-release-notes" class="github-release-notes"></div>
+            <div class="github-release-footer">
+                <a id="github-release-link" class="github-release-link" href="#" target="_blank" rel="noopener noreferrer">View release on GitHub</a>
+                <button class="github-release-dismiss" type="button" onclick="closeGitHubReleaseModal()">Got it</button>
+            </div>
+        </div>
+    </div>
 
     <h1>
         <span>SkyMonitor <span style="font-size:0.4em; color:#888; font-weight:normal;">v1.1.6</span></span>
@@ -1176,6 +1268,140 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    const SKYMONITOR_GITHUB_RELEASE_URL = 'https://api.github.com/repos/chicagoeas/sky-monitor/releases/latest';
+    const SKYMONITOR_LAST_SEEN_RELEASE_KEY = 'skymonitor_last_seen_github_release';
+
+    function formatGitHubReleaseAge(value) {
+        const releaseDate = new Date(value);
+        if (isNaN(releaseDate.getTime())) return '';
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - releaseDate.getTime()) / 1000));
+        if (elapsedSeconds < 60) return 'just now';
+        const minutes = Math.floor(elapsedSeconds / 60);
+        if (minutes < 60) return minutes + (minutes === 1 ? ' minute' : ' minutes') + ' ago';
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return hours + (hours === 1 ? ' hour' : ' hours') + ' ago';
+        const days = Math.floor(hours / 24);
+        if (days < 30) return days + (days === 1 ? ' day' : ' days') + ' ago';
+        const months = Math.floor(days / 30);
+        if (months < 12) return months + (months === 1 ? ' month' : ' months') + ' ago';
+        const years = Math.floor(days / 365);
+        return years + (years === 1 ? ' year' : ' years') + ' ago';
+    }
+
+    function formatGitHubReleaseInlineMarkdown(value) {
+        return escapeHtml(value)
+            .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/_([^_]+)_/g, '<em>$1</em>');
+    }
+
+    function formatGitHubReleaseNotes(value) {
+        const lines = String(value || '').replace(/\r\n/g, '\n').split('\n');
+        if (!String(value || '').trim()) {
+            return '<p>No release notes were included with this release.</p>';
+        }
+        let html = '';
+        let listTag = '';
+        function closeList() {
+            if (listTag) {
+                html += '</' + listTag + '>';
+                listTag = '';
+            }
+        }
+        lines.forEach(function(line) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                closeList();
+                return;
+            }
+            const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
+            if (heading) {
+                closeList();
+                html += '<h3>' + formatGitHubReleaseInlineMarkdown(heading[1]) + '</h3>';
+                return;
+            }
+            const unordered = trimmed.match(/^[-*+]\s+(.+)$/);
+            const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+            if (unordered || ordered) {
+                const nextListTag = ordered ? 'ol' : 'ul';
+                if (listTag !== nextListTag) {
+                    closeList();
+                    listTag = nextListTag;
+                    html += '<' + listTag + '>';
+                }
+                html += '<li>' + formatGitHubReleaseInlineMarkdown((unordered || ordered)[1]) + '</li>';
+                return;
+            }
+            closeList();
+            html += '<p>' + formatGitHubReleaseInlineMarkdown(trimmed) + '</p>';
+        });
+        closeList();
+        return html;
+    }
+
+    function openGitHubReleaseModal(release) {
+        const modal = document.getElementById('github-release-modal');
+        if (!modal) return;
+        const tag = String(release.tag_name || '').trim();
+        if (!tag) return;
+        const title = String(release.name || (tag + ' UPDATE')).trim();
+        const titleEl = document.getElementById('github-release-title');
+        const dateEl = document.getElementById('github-release-date');
+        const notesEl = document.getElementById('github-release-notes');
+        const linkEl = document.getElementById('github-release-link');
+        if (titleEl) titleEl.textContent = title;
+        if (dateEl) {
+            const age = formatGitHubReleaseAge(release.published_at || release.created_at);
+            dateEl.textContent = age ? 'Last update: ' + age : 'Latest release: ' + tag;
+        }
+        if (notesEl) notesEl.innerHTML = formatGitHubReleaseNotes(release.body);
+        if (linkEl) {
+            if (release.html_url) {
+                linkEl.href = release.html_url;
+                linkEl.style.display = 'inline-flex';
+            } else {
+                linkEl.style.display = 'none';
+            }
+        }
+        modal.dataset.releaseTag = tag;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        setModalOpen(true);
+    }
+
+    function closeGitHubReleaseModal() {
+        const modal = document.getElementById('github-release-modal');
+        if (!modal) return;
+        const tag = modal.dataset.releaseTag;
+        if (tag) localStorage.setItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY, tag);
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        setModalOpen(false);
+    }
+
+    async function checkForGitHubRelease() {
+        try {
+            const response = await fetch(SKYMONITOR_GITHUB_RELEASE_URL, {
+                headers: {
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                cache: 'no-store'
+            });
+            if (!response.ok) return;
+            const release = await response.json();
+            const tag = String(release.tag_name || '').trim();
+            if (!tag || localStorage.getItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY) === tag) return;
+            openGitHubReleaseModal(release);
+        } catch (error) {
+            // Release notices are additive; a GitHub/network failure must not affect weather data.
+        }
     }
 
     function updateTimestamp() {
@@ -9205,6 +9431,7 @@
         loadAll().then(function() {
             syncPushLocation();
             _dismissLaunch();
+            checkForGitHubRelease();
         });
     };
 </script>
