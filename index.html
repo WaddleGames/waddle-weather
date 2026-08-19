@@ -473,7 +473,7 @@
         <div class="github-release-window" role="dialog" aria-modal="true" aria-labelledby="github-release-title">
             <div class="github-release-head">
                 <div>
-                    <div class="github-release-kicker">&#128640; APP UPDATES</div>
+                    <div class="github-release-kicker">APP UPDATE</div>
                     <h2 id="github-release-title" class="github-release-title">New SkyMonitor update</h2>
                     <div id="github-release-date" class="github-release-date"></div>
                 </div>
@@ -1397,7 +1397,15 @@
             if (!response.ok) return;
             const release = await response.json();
             const tag = String(release.tag_name || '').trim();
-            if (!tag || localStorage.getItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY) === tag) return;
+            if (!tag) return;
+            const lastSeenTag = localStorage.getItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY);
+            // Treat the release that exists when this feature is first installed
+            // as the baseline. Future releases will still open the popup.
+            if (!lastSeenTag) {
+                localStorage.setItem(SKYMONITOR_LAST_SEEN_RELEASE_KEY, tag);
+                return;
+            }
+            if (lastSeenTag === tag) return;
             openGitHubReleaseModal(release);
         } catch (error) {
             // Release notices are additive; a GitHub/network failure must not affect weather data.
