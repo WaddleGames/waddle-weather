@@ -954,7 +954,7 @@
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <span style="font-size:0.82em; color:#ccc;">&#128204; Local Storm Reports</span>
-                    <label class="ios-toggle"><input type="checkbox" id="lsr-toggle-cb" checked onchange="toggleLSR()"><span class="ios-toggle-track"></span></label>
+                    <label class="ios-toggle"><input type="checkbox" id="lsr-toggle-cb" onchange="toggleLSR()"><span class="ios-toggle-track"></span></label>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -6880,7 +6880,7 @@
         }
     }
 
-    let lsrVisible = localStorage.getItem('report_lsr_on') !== '0';
+    let lsrVisible = localStorage.getItem('report_lsr_on') === '1';
 
     function syncReportingMapLayers() {
         if (!reportingMap) return;
@@ -7226,7 +7226,7 @@
         const parsed = parseReportDate(value);
         if (!parsed) return '';
         const totalMinutes = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / 60000));
-        if (totalMinutes < 60) return totalMinutes + ' minutes';
+        if (totalMinutes < 60) return totalMinutes + (totalMinutes === 1 ? ' minute' : ' minutes');
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
         return hours + (hours === 1 ? ' hour' : ' hours') +
