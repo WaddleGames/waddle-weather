@@ -7022,6 +7022,11 @@
             'issued',
             'issuedAt',
             'issued_at',
+            'issue',
+            'issueTime',
+            'issue_time',
+            'initTime',
+            'init_time',
             'sent',
             'sentAt',
             'sent_at',
@@ -7048,6 +7053,17 @@
             'lastModified',
             'last_modified'
         ], '');
+        const created = customSkyAlertValue(props, [
+            'createdAt',
+            'created_at',
+            'created',
+            'issued',
+            'issuedAt',
+            'issued_at',
+            'issue',
+            'issueTime',
+            'issue_time'
+        ], '');
         const messageType = customSkyAlertValue(props, [
             'msgType',
             'messageType',
@@ -7055,21 +7071,44 @@
             'alertStatus',
             'alert_status'
         ], '').toLowerCase();
+        const vtecStatus = customSkyAlertValue(props, [
+            'status',
+            'vtecStatus',
+            'vtec_status'
+        ], '').toUpperCase();
         const explicitlyUpdated = messageType.includes('update')
             || messageType.includes('amend')
             || messageType.includes('correct');
+        const statusIndicatesUpdate = ['CON', 'EXT', 'EXA', 'COR', 'UPD', 'AMD']
+            .some(function(status) {
+                return vtecStatus === status || vtecStatus.includes(status);
+            });
         const issuedDate = parseReportDate(issued);
+        const createdDate = parseReportDate(created);
         const updatedDate = parseReportDate(updated);
-        const sameTimestamp = issued && updated && (
-            String(issued).trim() === String(updated).trim()
-            || (issuedDate && updatedDate && issuedDate.getTime() === updatedDate.getTime())
-        );
-        const hasBeenUpdated = Boolean(updated) && (
-            explicitlyUpdated || !issued || !sameTimestamp
-        );
+        const sentDate = parseReportDate(customSkyAlertValue(props, ['sent', 'sentAt', 'sent_at'], ''));
+        const effectiveDate = parseReportDate(customSkyAlertValue(props, ['effective', 'effectiveAt', 'effective_at'], ''));
+        const isNwsAlert = Boolean(props && (
+            props.senderName || props.messageType || props.category
+            || props.phenomena || props.significance || props.wfo
+        ));
+        // Custom alerts have issued_at with milliseconds but created_at and
+        // updated_at rounded to whole seconds. Treat that initial sub-second
+        // difference as the same timestamp; a real edit is later than that.
+        const customWasEdited = !isNwsAlert && updatedDate && createdDate
+            && updatedDate.getTime() - createdDate.getTime() > 1000;
+        // Some NWS/IEM feeds omit messageType but still expose a later sent
+        // time or a VTEC continuation/extension/correction status.
+        const nwsWasUpdated = isNwsAlert && sentDate && effectiveDate
+            && sentDate.getTime() - effectiveDate.getTime() > 60000;
+        const hasBeenUpdated = explicitlyUpdated
+            || statusIndicatesUpdate
+            || customWasEdited
+            || nwsWasUpdated;
+        const updateValue = updated || (isNwsAlert && sent) || issued;
         return {
             label: hasBeenUpdated ? 'Updated' : 'Issued',
-            value: hasBeenUpdated ? (updated || issued) : (issued || updated)
+            value: hasBeenUpdated ? updateValue : (issued || updated)
         };
     }
 
@@ -7243,9 +7282,7 @@
                 const headline = isMd
                     ? 'Mesoscale Discussion' + (discussionNumber ? ' #' + discussionNumber : '')
                     : rawHeadline;
-                const alertType = isMd
-                    ? 'MD'
-                    : customSkyAlertValue(props, ['alertType', 'event', 'category', 'type'], 'Custom alert');
+                const alertType = 'Custom alert';
                 const issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'discordUsername', 'discord_username', 'uploadedBy', 'uploaded_by', 'uploader', 'publisher', 'author', 'username', 'source', 'wfo', 'office'], 'SkyMonitor');
                 const description = customSkyAlertValue(props, ['description', 'details', 'body'], '');
                 let shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
