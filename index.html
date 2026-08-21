@@ -183,15 +183,18 @@
            minutely chart, but should be tighter when that chart is hidden. */
         #hourly-outlook { margin-top:22px !important; margin-bottom:12px !important; }
         #hourly-outlook + div { margin-bottom:4px !important; }
-        /* Keep compact hourly icons on one line; narrow phones can scroll the
-           forecast strip instead of wrapping a two-symbol night icon. */
-        #hourly-outlook-cards {
-            overflow-x:auto !important; overflow-y:hidden !important;
-            justify-content:flex-start; scrollbar-width:thin;
-            -webkit-overflow-scrolling:touch; padding-bottom:4px;
-        }
-        #hourly-outlook-cards > div {
-            flex:0 0 50px !important; min-width:50px !important;
+        /* Mobile only: keep compact hourly icons on one line. Narrow phones
+           can scroll the forecast strip instead of wrapping a night icon.
+           Desktop keeps the original equal-width, non-scrolling layout. */
+        @media(max-width:767px) {
+            #hourly-outlook-cards {
+                overflow-x:auto !important; overflow-y:hidden !important;
+                justify-content:flex-start; scrollbar-width:thin;
+                -webkit-overflow-scrolling:touch; padding-bottom:4px;
+            }
+            #hourly-outlook-cards > div {
+                flex:0 0 60px !important; min-width:60px !important;
+            }
         }
 
         @keyframes radar-pulse {
