@@ -183,6 +183,16 @@
            minutely chart, but should be tighter when that chart is hidden. */
         #hourly-outlook { margin-top:22px !important; margin-bottom:12px !important; }
         #hourly-outlook + div { margin-bottom:4px !important; }
+        /* Keep compact hourly icons on one line; narrow phones can scroll the
+           forecast strip instead of wrapping a two-symbol night icon. */
+        #hourly-outlook-cards {
+            overflow-x:auto !important; overflow-y:hidden !important;
+            justify-content:flex-start; scrollbar-width:thin;
+            -webkit-overflow-scrolling:touch; padding-bottom:4px;
+        }
+        #hourly-outlook-cards > div {
+            flex:0 0 50px !important; min-width:50px !important;
+        }
 
         @keyframes radar-pulse {
             0% { transform: scale(1); opacity: 1; }
@@ -4720,7 +4730,7 @@
                 : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>';
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
-                '<div style="font-size:1.35em; line-height:1.45; height:1.45em;">' + (iconMap[h.icon] || '🌤️') + '</div>' +
+                '<div style="font-size:1.35em; line-height:1.45; height:1.45em; white-space:nowrap;">' + (iconMap[h.icon] || '🌤️') + '</div>' +
                 chanceHtml +
                 '<div style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
             cardsEl.appendChild(card);
