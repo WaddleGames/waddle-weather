@@ -175,6 +175,14 @@
         .spc-btn-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0; }
         .sky-hd { display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#f1f5f9; font-size:0.92em; margin-bottom:12px; letter-spacing:0.2px; }
         .sky-hd::after { content:'›'; color:#4b5563; font-size:1.15em; font-weight:400; }
+        #minute-heading:empty { display:none; }
+        #hourly-outlook-title { display:flex; justify-content:space-between; align-items:center; }
+        #hourly-outlook-title::after { content:'›'; color:#4b5563; font-size:1.35em; font-weight:400; line-height:1; margin-left:10px; }
+        /* Balance the compact outlook vertically against the PWS label above
+           and Daily Forecast below. The following spacer is also used by the
+           minutely chart, but should be tighter when that chart is hidden. */
+        #hourly-outlook { margin-top:22px !important; margin-bottom:12px !important; }
+        #hourly-outlook + div { margin-bottom:4px !important; }
 
         @keyframes radar-pulse {
             0% { transform: scale(1); opacity: 1; }
@@ -775,14 +783,21 @@
             <div id="tropical-map" style="height:200px; border-radius:10px; overflow:hidden; margin-top:10px; display:none;"></div>
         </div>
 
-        <div class="sky-hd" style="margin-top:4px;">Minutely Forecast</div>
+        <div id="minute-heading" class="sky-hd" style="margin-top:4px;">Minutely Forecast</div>
         <div id="minuteSummary" style="font-size:0.88em; color:var(--accent); margin-top:-8px; margin-bottom:10px;">--</div>
 
-        <div class="chart-frame">
+        <div id="minute-chart-wrap">
+            <div class="chart-frame">
             <div class="y-axis"><div>Heavy</div><div>Mod</div><div>Light</div></div>
             <div id="timeline"></div>
+            </div>
+            <div class="x-axis" style="margin-bottom:8px;"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
         </div>
-        <div class="x-axis" style="margin-bottom:8px;"><span>NOW</span><span>15m</span><span>30m</span><span>45m</span><span>60m</span></div>
+        <div id="hourly-outlook" style="display:none; background:rgba(255,255,255,0.045); border:1px solid rgba(255,255,255,0.10); border-radius:14px; padding:12px 10px 10px; margin:22px 0 12px; overflow:hidden;">
+            <div id="hourly-outlook-title" style="font-size:1.05em; font-weight:800; color:#f4f7fa; margin:0 4px 5px;"></div>
+            <div id="hourly-outlook-summary" style="font-size:0.83em; line-height:1.35; color:#b8c1c9; margin:0 4px 10px;"></div>
+            <div id="hourly-outlook-cards" style="display:flex; gap:0; overflow:hidden;"></div>
+        </div>
         <div style="display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap;">
             <div id="precip1h" style="font-size:0.7em; background:rgba(79,195,247,0.2); padding:3px 6px; border-radius:4px; display:none;">1h: --</div>
         </div>
@@ -2024,6 +2039,12 @@
         document.getElementById('stationName').innerText = 'LOADING LOCATION...';
         document.getElementById('conditionText').innerText = '--';
         document.getElementById('presVal').innerText = '--';
+        var _outlookEl = document.getElementById('hourly-outlook');
+        if (_outlookEl) _outlookEl.style.display = 'none';
+        var _minuteHeadEl = document.getElementById('minute-heading');
+        if (_minuteHeadEl) _minuteHeadEl.innerText = 'Minutely Forecast';
+        var _minuteChartEl = document.getElementById('minute-chart-wrap');
+        if (_minuteChartEl) _minuteChartEl.style.display = '';
         // Hide observed fields without blanking — values reappear once authoritative data arrives
         (function(){['tempVal','feelsVal','windVal','humVal'].forEach(function(id){
             var el=document.getElementById(id);
@@ -3971,9 +3992,21 @@
             document.getElementById('precip1h').style.display = (precip1h > 0.005) ? '' : 'none';
             livePrecipInt = Math.min(d.currently?.precipIntensity || 0, MAX_PRECIP_INTENSITY);
             window.livePrecipInt = livePrecipInt; _updatePrecipCache(livePrecipInt);
-            document.getElementById('minuteSummary').innerText = d.minutely?.summary || 'Conditions holding steady.';
-            const timeline = document.getElementById('timeline'); timeline.innerHTML = '';
-            if (d.minutely) {
+            const _minuteHasPrecip = !!(d.minutely && Array.isArray(d.minutely.data) &&
+                d.minutely.data.some(function(m) {
+                    return m && ((m.precipIntensity != null && m.precipIntensity > 0) ||
+                                 (m.precipAccumulation != null && m.precipAccumulation > 0));
+                }));
+            const _minuteHeading = document.getElementById('minute-heading');
+            const _minuteChartWrap = document.getElementById('minute-chart-wrap');
+            const _hourlyOutlook = document.getElementById('hourly-outlook');
+            const timeline = document.getElementById('timeline');
+            if (_minuteHasPrecip) {
+                if (_minuteHeading) _minuteHeading.innerText = 'Minutely Forecast';
+                document.getElementById('minuteSummary').innerText = d.minutely.summary || 'Precipitation possible in the next hour.';
+                if (_minuteChartWrap) _minuteChartWrap.style.display = '';
+                if (_hourlyOutlook) _hourlyOutlook.style.display = 'none';
+                timeline.innerHTML = '';
                 d.minutely.data.forEach(function(m) {
                     const bar = document.createElement('div'); bar.className = 'bar';
                     const intensity = m.precipIntensity || 0;
@@ -3986,6 +4019,11 @@
                     }
                     timeline.appendChild(bar);
                 });
+            } else {
+                if (_minuteHeading) _minuteHeading.innerText = '';
+                document.getElementById('minuteSummary').innerText = '';
+                if (_minuteChartWrap) _minuteChartWrap.style.display = 'none';
+                renderHourlyOutlook(d.hourly && d.hourly.data ? d.hourly.data : [], d.offset || 0);
             }
             const currentDist = d.currently?.nearestStormDistance;
             const currentBearing = d.currently?.nearestStormBearing;
@@ -4504,8 +4542,13 @@
         livePrecipInt = precip1h;
         window.livePrecipInt = livePrecipInt; _updatePrecipCache(livePrecipInt);
 
-        // Minutely: Open-Meteo has no minutely data
-        document.getElementById('minuteSummary').innerText = 'Minutely data unavailable.';
+        // Open-Meteo has no minutely data, so show the same six-hour outlook
+        // used when PirateWeather reports a quiet/non-precipitating hour.
+        var _omMinuteHeading = document.getElementById('minute-heading');
+        var _omMinuteChart = document.getElementById('minute-chart-wrap');
+        if (_omMinuteHeading) _omMinuteHeading.innerText = '';
+        document.getElementById('minuteSummary').innerText = '';
+        if (_omMinuteChart) _omMinuteChart.style.display = 'none';
         document.getElementById('timeline').innerHTML = '';
 
         // Storm detection: Open-Meteo has no nearest-storm data
@@ -4558,6 +4601,7 @@
             });
         }
         window.pirateHourlyData = hourlyRows;
+        renderHourlyOutlook(hourlyRows, window.pirateTimezoneOffset || 0);
         SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
         computeOutdoorScore(hourlyRows);
         computeFloodOutlook();
@@ -4581,6 +4625,85 @@
 
         _isOffline = false;
         lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
+    }
+
+    function renderHourlyOutlook(hourlyData, timezoneOffset) {
+        const wrap = document.getElementById('hourly-outlook');
+        const titleEl = document.getElementById('hourly-outlook-title');
+        const summaryEl = document.getElementById('hourly-outlook-summary');
+        const cardsEl = document.getElementById('hourly-outlook-cards');
+        if (!wrap || !titleEl || !summaryEl || !cardsEl) return;
+
+        const nowSec = Date.now() / 1000;
+        const offsetHours = Number(timezoneOffset) || 0;
+        const upcoming = (hourlyData || []).filter(function(h) {
+            return h && h.time != null && h.time >= nowSec - 1800;
+        }).slice(0, 6);
+        if (!upcoming.length) {
+            wrap.style.display = 'none';
+            return;
+        }
+
+        // Use station-local time rather than the phone's time zone. Converting
+        // UTC epoch seconds and reading UTC hours avoids applying the phone's
+        // offset twice (which previously made 1 PM appear as nighttime).
+        const stationHour = new Date((Date.now() / 1000 + offsetHours * 3600) * 1000).getUTCHours();
+        const isTonight = stationHour >= 18 || stationHour < 6;
+        titleEl.innerText = isTonight ? "Tonight's Outlook" : "Today's Outlook";
+
+        const first = upcoming[0];
+        const high = Math.max.apply(null, upcoming.map(function(h) { return Number(h.temperature); }).filter(isFinite));
+        const rainChance = Math.max.apply(null, upcoming.map(function(h) {
+            return Math.round((Number(h.precipProbability) || 0) * 100);
+        }));
+        const wind = Number(first.windSpeed);
+        const gust = Number(first.windGust);
+        const windText = isFinite(wind) && wind > 0
+            ? ' Winds ' + (first.windBearing != null ? getBearingLabel(Number(first.windBearing)) + ' ' : '') +
+              Math.round(wind) + (isFinite(gust) && gust > wind + 2 ? ' to ' + Math.round(gust) : '') + ' mph.'
+            : '';
+        const highText = isFinite(high) ? ' High ' + _fmtTemp(high) + '.' : '';
+        const rainText = rainChance > 0 ? ' Chance of rain ' + rainChance + '%.' : '';
+        // Prefer the TWC daypart narrative when it is available. PirateWeather
+        // hourly summaries are only used as a fallback, so this text agrees
+        // with the TWC daily forecast shown immediately below.
+        var twcNarrative = null;
+        var twcData = window.twcForecastData;
+        var twcPart = isTonight ? 1 : 0;
+        if (twcData && twcData.daypart && twcData.daypart[0] &&
+            Array.isArray(twcData.daypart[0].narrative)) {
+            twcNarrative = twcData.daypart[0].narrative[twcPart] || null;
+        }
+        if (twcNarrative) {
+            summaryEl.innerText = twcNarrative;
+        } else {
+            summaryEl.innerText = (first.summary || 'Conditions holding steady.') + '.' + highText + windText + rainText;
+        }
+
+        const iconMap = {
+            'clear-day':'☀️', 'clear-night':'🌙', 'rain':'🌧️', 'snow':'❄️',
+            'sleet':'🌨️', 'wind':'💨', 'fog':'🌫️', 'cloudy':'☁️',
+            'partly-cloudy-day':'⛅', 'partly-cloudy-night':'☁️🌙',
+            'thunderstorm':'⛈️'
+        };
+        cardsEl.innerHTML = '';
+        upcoming.forEach(function(h, i) {
+            const date = new Date((h.time + offsetHours * 3600) * 1000);
+            const hourLabel = i === 0 ? 'Now' : date.toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
+            const card = document.createElement('div');
+            card.style.cssText = 'flex:1; min-width:0; text-align:center; color:#d9e1e7;';
+            const chance = Math.round((Number(h.precipProbability) || 0) * 100);
+            const chanceHtml = chance > 0
+                ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
+                : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>';
+            card.innerHTML =
+                '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
+                '<div style="font-size:1.35em; line-height:1.45; height:1.45em;">' + (iconMap[h.icon] || '🌤️') + '</div>' +
+                chanceHtml +
+                '<div style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
+            cardsEl.appendChild(card);
+        });
+        wrap.style.display = '';
     }
 
     function renderPirateHourly(hourlyData, timezoneOffset, targetCont) {
@@ -6377,6 +6500,13 @@
         // Daily outlook summary — sits beneath the forecast strip
         var summEl = document.getElementById('daily-summary');
         if (summEl) summEl.innerText = buildDailySummary(data);
+        // TWC may finish after PirateWeather because both providers load in
+        // parallel. Refresh the compact outlook so its narrative uses the
+        // same TWC daypart data as the daily forecast.
+        if (document.getElementById('hourly-outlook')?.style.display !== 'none' &&
+            window.pirateHourlyData) {
+            renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+        }
     }
 
     let _twcData = null;
