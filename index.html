@@ -337,6 +337,14 @@
             display: block; margin-top: 2px; color: #d4deec; font-weight: 600;
             font-size: 0.92em;
         }
+        .reporting-popup-report-link {
+            float: right; display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; margin: -2px 7px 0 5px; border-radius: 5px;
+            color: #ff5b5b; background: rgba(255,23,68,0.14);
+            border: 1px solid rgba(255,23,68,0.4); text-decoration: none;
+            font-size: 1.05em; line-height: 1; cursor: pointer;
+        }
+        .reporting-popup-report-link:hover { color: #fff; background: rgba(255,23,68,0.42); }
         .reporting-popup-card-chevron {
             float: right; color: #fff; font-size: 1.15em; line-height: 1;
         }
@@ -1193,6 +1201,8 @@
     const REPORTS_WORKER_URL = 'https://skymonitor-reports.skymonitor-account.workers.dev';
     // Cloudflare Worker URL for active custom SkyMonitor alerts
     const CUSTOM_SKY_ALERTS_WORKER_URL = 'https://skymonitor-api.skymonitor-account.workers.dev/';
+    // Google Form prefilled Alert ID field (entry.598068649)
+    const CUSTOM_SKY_ALERT_REPORT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfgRzOSJSsbV6faOodFd7H6ET6-6PysP51yvMNJSxuz96RGBQ/viewform?usp=pp_url&entry.598068649=';
 
     let lat = 41.8781, lon = -87.6298;
     var _liveWatchId = null;
@@ -7193,8 +7203,14 @@
     function buildReportingPopupCard(entry, index) {
         const id = reportingPopupEntryIdFor(entry);
         const color = entry.color || '#4fc3f7';
+        const reportLink = entry.reportUrl
+            ? '<a class="reporting-popup-report-link" href="' + escapeHtml(entry.reportUrl)
+                + '" target="_blank" rel="noopener noreferrer" title="Report alert" aria-label="Report alert"'
+                + ' onclick="event.stopPropagation();">&#128227;</a>'
+            : '';
         return '<div class="reporting-popup-card" id="' + id + '" style="border-left-color:' + color + ';">'
             + '<div class="reporting-popup-card-head" onclick="toggleReportingPopupCard(\'' + id + '\')">'
+            + reportLink
             + '<span class="reporting-popup-card-chevron" id="' + id + '-chevron">&#8250;</span>'
             + '<span class="reporting-popup-card-title">' + (entry.title || 'Report') + '</span>'
             + '<span class="reporting-popup-card-meta">' + (entry.meta || '') + '</span>'
@@ -7762,13 +7778,20 @@
                      [timeInfo.label, timeInfo.value ? formatReportingDateTimeNoSeconds(timeInfo.value) : ''],
                      ['Issued by', issuer]
                  ]) + (isMd ? mdContent : summaryLine + actionLine);
+                 const alertId = customSkyAlertValue(props, [
+                     'alertId', 'alert_id', 'alertID', 'id', 'uuid', 'alertUuid', 'alert_uuid'
+                 ], '') || (feature.id != null ? String(feature.id) : '');
+                 const reportUrl = alertId
+                     ? CUSTOM_SKY_ALERT_REPORT_FORM_URL + encodeURIComponent(alertId)
+                     : '';
                 registerReportingPopup(polygon, {
                     source: 'custom-skymonitor',
                     isPolygon: true,
                     color: color,
                     title: escapeHtml(headline),
                      meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires in ' + escapeHtml(formatReportingMinutesUntil(expires)) : ''),
-                    detail: customDetail
+                     detail: customDetail,
+                     reportUrl: reportUrl
                 });
                 polygon.on('dblclick', function(e) {
                     L_ref.DomEvent.stop(e);
