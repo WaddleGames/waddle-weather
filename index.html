@@ -4644,13 +4644,6 @@
             return;
         }
 
-        // Use station-local time rather than the phone's time zone. Converting
-        // UTC epoch seconds and reading UTC hours avoids applying the phone's
-        // offset twice (which previously made 1 PM appear as nighttime).
-        const stationHour = new Date((Date.now() / 1000 + offsetHours * 3600) * 1000).getUTCHours();
-        const isTonight = stationHour >= 18 || stationHour < 6;
-        titleEl.innerText = isTonight ? "Tonight's Outlook" : "Today's Outlook";
-
         const first = upcoming[0];
         const high = Math.max.apply(null, upcoming.map(function(h) { return Number(h.temperature); }).filter(isFinite));
         const rainChance = Math.max.apply(null, upcoming.map(function(h) {
@@ -4664,16 +4657,35 @@
             : '';
         const highText = isFinite(high) ? ' High ' + _fmtTemp(high) + '.' : '';
         const rainText = rainChance > 0 ? ' Chance of rain ' + rainChance + '%.' : '';
-        // Prefer the TWC daypart narrative when it is available. PirateWeather
-        // hourly summaries are only used as a fallback, so this text agrees
-        // with the TWC daily forecast shown immediately below.
+        // TWC's current daypart is the source of truth for this compact outlook.
+        // Do not infer Today/Tonight from a hard-coded clock cutoff: TWC can
+        // switch the newest available period to Tonight earlier in the day.
+        // The daypart array is ordered from the currently available period
+        // forward, so its first populated slot is the newest forecast TWC has
+        // made available for this location.
         var twcNarrative = null;
         var twcData = window.twcForecastData;
-        var twcPart = isTonight ? 1 : 0;
+        var twcPart = 0;
+        var twcPartName = '';
         if (twcData && twcData.daypart && twcData.daypart[0] &&
             Array.isArray(twcData.daypart[0].narrative)) {
-            twcNarrative = twcData.daypart[0].narrative[twcPart] || null;
+            var twcDp = twcData.daypart[0];
+            var twcSlots = Math.max(
+                twcDp.narrative.length,
+                Array.isArray(twcDp.daypartName) ? twcDp.daypartName.length : 0,
+                Array.isArray(twcDp.wxPhraseLong) ? twcDp.wxPhraseLong.length : 0
+            );
+            for (var ti = 0; ti < twcSlots; ti++) {
+                if (twcDp.narrative[ti] || twcDp.daypartName?.[ti] || twcDp.wxPhraseLong?.[ti]) {
+                    twcPart = ti;
+                    twcPartName = String(twcDp.daypartName?.[ti] || '');
+                    twcNarrative = twcDp.narrative[ti] || null;
+                    break;
+                }
+            }
         }
+        var isTonight = /night/i.test(twcPartName);
+        titleEl.innerText = isTonight ? "Tonight's Outlook" : "Today's Outlook";
         if (twcNarrative) {
             summaryEl.innerText = twcNarrative;
         } else {
