@@ -183,16 +183,54 @@
            minutely chart, but should be tighter when that chart is hidden. */
         #hourly-outlook { margin-top:22px !important; margin-bottom:12px !important; }
         #hourly-outlook + div { margin-bottom:4px !important; }
+        /* The compact outlook is a six-column strip on larger screens. Using
+           grid here prevents flex items from collapsing to their content width
+           when the surrounding dashboard is resized. */
+        #hourly-outlook-cards {
+            display:grid !important;
+            grid-template-columns:repeat(6, minmax(0, 1fr));
+            align-items:start;
+            width:100%;
+        }
+        .hourly-outlook-card {
+            min-width:0;
+            width:100%;
+            box-sizing:border-box;
+            text-align:center;
+            color:#d9e1e7;
+            overflow:hidden;
+        }
+        .hourly-outlook-icon {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            width:100%;
+            height:1.45em;
+            overflow:hidden;
+            white-space:nowrap;
+            font-size:1.35em;
+            line-height:1.25;
+        }
+        .hourly-outlook-icon--night {
+            letter-spacing:-0.12em;
+        }
+        .hourly-outlook-icon--night span {
+            display:inline-block;
+            flex:0 0 auto;
+        }
+        .hourly-outlook-icon--night span + span {
+            margin-left:-0.14em;
+        }
         /* Mobile only: keep compact hourly icons on one line. Narrow phones
-           can scroll the forecast strip instead of wrapping a night icon.
-           Desktop keeps the original equal-width, non-scrolling layout. */
+           can scroll the forecast strip instead of wrapping a night icon. */
         @media(max-width:767px) {
             #hourly-outlook-cards {
+                display:flex !important;
                 overflow-x:auto !important; overflow-y:hidden !important;
                 justify-content:flex-start; scrollbar-width:thin;
                 -webkit-overflow-scrolling:touch; padding-bottom:4px;
             }
-            #hourly-outlook-cards > div {
+            #hourly-outlook-cards > .hourly-outlook-card {
                 flex:0 0 60px !important; min-width:60px !important;
             }
         }
@@ -4726,14 +4764,18 @@
             const date = new Date((h.time + offsetHours * 3600) * 1000);
             const hourLabel = i === 0 ? 'Now' : date.toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
             const card = document.createElement('div');
-            card.style.cssText = 'flex:1; min-width:0; text-align:center; color:#d9e1e7;';
+            card.className = 'hourly-outlook-card';
             const chance = Math.round((Number(h.precipProbability) || 0) * 100);
             const chanceHtml = chance > 0
                 ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
                 : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>';
+            const icon = iconMap[h.icon] || '🌤️';
+            const iconHtml = h.icon === 'partly-cloudy-night'
+                ? '<span class="hourly-outlook-icon hourly-outlook-icon--night"><span>☁️</span><span>🌙</span></span>'
+                : '<span class="hourly-outlook-icon">' + icon + '</span>';
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
-                '<div style="font-size:1.35em; line-height:1.45; height:1.45em; white-space:nowrap;">' + (iconMap[h.icon] || '🌤️') + '</div>' +
+                iconHtml +
                 chanceHtml +
                 '<div style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
             cardsEl.appendChild(card);
