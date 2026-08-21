@@ -3836,23 +3836,33 @@
     var _lastPirateFetch = 0;
     var _lastPirateLat = null;
     var _lastPirateLon = null;
+    window._pirateLoadFailed = false;
     async function fetchPirate(loadGeneration) {
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         const now = Date.now();
         const locationChanged = (lat !== _lastPirateLat || lon !== _lastPirateLon);
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
-        _lastPirateFetch = now;
-        _lastPirateLat = lat;
-        _lastPirateLon = lon;
+        window._pirateLoadFailed = false;
         try {
             const resP = await fetch('https://api.pirateweather.net/forecast/' + PIRATE_API_KEY + '/' + lat + ',' + lon + '?units=us');
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
             const d = await resP.json();
+            if (!d || !d.currently) throw new Error('Pirate response missing currently data');
             if (d.offset != null) stationTzOffset = d.offset * 3600;
             // Skip PWS entirely for water locations — nearest station is always on land
             // and its readings are completely unrepresentative of an open-water point.
-            const wuStations = window.isWaterLocation ? [] : await fetchWUMulti(lat, lon);
+            // A PWS outage must not discard an otherwise valid PirateWeather response.
+            let wuStations = [];
+            if (!window.isWaterLocation) {
+                try { wuStations = await fetchWUMulti(lat, lon); } catch(e) { wuStations = []; }
+            }
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
+            // Mark the throttle only after the PirateWeather response has been
+            // validated. If rendering or the request fails, the next refresh
+            // must be allowed to retry immediately.
+            _lastPirateFetch = Date.now();
+            _lastPirateLat = lat;
+            _lastPirateLon = lon;
             const wu = wuStations[0] || null;
             const wuAvailable = wu && wu.temp !== null && wu.humidity !== null;
             // fetchWUMulti returns [primary, ...neighbors]; neighbors feed the QC median check.
@@ -4083,12 +4093,20 @@
                 comfortDesc: (document.getElementById('aqi-desc') || {}).innerText || null
             });
             _isOffline = false;
+            window._pirateLoadFailed = false;
             lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
         } catch(e) {
+            // Do not throttle a failed attempt. This is especially important
+            // on mobile, where a transient suspended-network request is common.
+            _lastPirateFetch = 0;
+            _lastPirateLat = null;
+            _lastPirateLon = null;
             // PirateWeather failed — try Open-Meteo as a live backup
             try {
                 await fetchOpenMeteoFallback();
+                window._pirateLoadFailed = false;
             } catch(e2) {
+                window._pirateLoadFailed = true;
                 _isOffline = true;
                 // Both live sources unavailable — restore from IndexedDB cache
                 SkyDB.get(SkyDB.S.weather, 'last_conditions').then(function(c) {
@@ -4751,8 +4769,13 @@
             window.nwsGridOffice = p.properties.gridId;
             window.nwsGridX = p.properties.gridX;
             window.nwsGridY = p.properties.gridY;
-            fetchNWSQPF(window.nwsGridOffice, window.nwsGridX, window.nwsGridY);
-            updateWeatherStory(wfo);
+            // These are part of the weather load, not background decoration.
+            // Await them so UPDATING does not disappear while they are still
+            // populating the page.
+            await Promise.all([
+                fetchNWSQPF(window.nwsGridOffice, window.nwsGridX, window.nwsGridY),
+                updateWeatherStory(wfo)
+            ]);
             try {
                 const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo);
                 const hwoList = await hwoRes.json();
@@ -8971,6 +8994,7 @@
     async function loadAll() {
         const loadGeneration = ++weatherLoadGeneration;
         twcMaxFeelsLike = null;
+        var loadFailed = false;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
         window.isBeachLocation = false;
         window.isWaterLocation = false;
@@ -9032,9 +9056,9 @@
             } catch(e) { window.isBeachLocation = false; }
 
             await fetchPirate(loadGeneration);
+            if (window._pirateLoadFailed) loadFailed = true;
             if (loadGeneration !== weatherLoadGeneration) return;
-            fetchAQI();
-            fetchBeachForecast(lat, lon);
+            await Promise.all([fetchAQI(), fetchBeachForecast(lat, lon)]);
             await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
             if (loadGeneration !== weatherLoadGeneration) return;
             await fetchAlerts();
@@ -9046,7 +9070,7 @@
             var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
             if (window.isBeachLocation || window.isWaterLocation ||
                 _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
-                fetchBeachForecast(lat, lon);
+                await fetchBeachForecast(lat, lon);
             }
             await fetchRiskLevels();
             if (activeOutlookCenter === 'nhc') {
@@ -9060,8 +9084,7 @@
             computeThreatLevel();
             // Save threat level immediately after the definitive post-alerts computation
             (function() { var _b=document.getElementById('threat-level-box'),_g=document.getElementById('threat-badge'),_d=document.getElementById('threat-desc'),_f=document.getElementById('threat-factors'); if(_b&&_g) SkyDB.set(SkyDB.S.weather,'threat_level',{ts:Date.now(),boxClass:_b.className||null,badgeText:_g.textContent||null,badgeColor:_g.style.color||null,descText:(_d||{}).textContent||null,factorsHtml:(_f||{}).innerHTML||null}); })();
-            fetchNearbyReportsForHome();
-            fetchTropicalStorms();
+            await Promise.all([fetchNearbyReportsForHome(), fetchTropicalStorms()]);
             updateLightningEstimate();
             const radarFrame = document.getElementById('radar-frame');
             if (radarFrame) {
@@ -9075,13 +9098,32 @@
                 lastSyncTime = new Date();
                 localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
             }
-        } catch(e) {}
+        } catch(e) {
+            loadFailed = true;
+        }
+        // A newer location load owns the indicator. An older, slower request
+        // must never hide the newer request's UPDATING state.
+        if (loadGeneration !== weatherLoadGeneration) return Promise.resolve();
         window._syncPending = window._syncPending || 0;
         window._syncMinDone = false;
+        window._syncLoadComplete = false;
+        window._syncLoadFailed = loadFailed;
         window._maybeHideSync = function() {
-            if (window._syncMinDone && window._syncPending <= 0 && sync) sync.style.opacity = '0';
+            if (window._syncMinDone &&
+                window._syncLoadComplete &&
+                !window._syncLoadFailed &&
+                window._syncPending <= 0 &&
+                sync) sync.style.opacity = '0';
         };
-        setTimeout(function() { window._syncMinDone = true; window._maybeHideSync(); }, 2000);
+        // Keep UPDATING visible after an incomplete load. It is intentionally
+        // a health signal: if it remains visible, the user knows a provider
+        // failed instead of mistaking a partial page for a finished refresh.
+        window._syncLoadComplete = true;
+        setTimeout(function() {
+            if (loadGeneration !== weatherLoadGeneration) return;
+            window._syncMinDone = true;
+            window._maybeHideSync();
+        }, 2000);
         return Promise.resolve();
     }
 
