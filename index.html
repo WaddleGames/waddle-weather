@@ -7833,9 +7833,18 @@
                      [timeInfo.label, timeInfo.value ? formatReportingDateTimeNoSeconds(timeInfo.value) : ''],
                      ['Issued by', issuer]
                  ]) + (isMd ? mdContent : summaryLine + actionLine);
-                 const alertId = customSkyAlertValue(props, [
-                     'alertId', 'alert_id', 'alertID', 'id', 'uuid', 'alertUuid', 'alert_uuid'
-                 ], '') || (feature.id != null ? String(feature.id) : '');
+                  const alertId = customSkyAlertValue(props, [
+                      'revision_id', 'revisionId', 'alertId', 'alertID', 'id', 'uuid', 'alertUuid', 'alert_uuid'
+                  ], '') || (feature.id != null ? String(feature.id) : '');
+                  const revisionNumber = customSkyAlertValue(props, [
+                      'revision_number', 'revisionNumber'
+                  ], '');
+                  const revisionLabel = revisionNumber ? 'R' + revisionNumber : '';
+                  const idLine = alertId
+                      ? '<div style="margin-top:6px;"><b style="font-size:0.9em;">Alert ID</b><br><span style="overflow-wrap:anywhere;">' +
+                        escapeHtml(alertId) + (revisionLabel && !/R\d+$/i.test(alertId) ? ' (' + revisionLabel + ')' : '') +
+                        '</span></div>'
+                      : '';
                  const reportUrl = alertId
                      ? CUSTOM_SKY_ALERT_REPORT_FORM_URL + encodeURIComponent(alertId)
                      : '';
@@ -7845,7 +7854,7 @@
                     color: color,
                     title: escapeHtml(headline),
                      meta: escapeHtml(alertType) + (expires ? ' \u00B7 Expires in ' + escapeHtml(formatReportingMinutesUntil(expires)) : ''),
-                     detail: customDetail,
+                      detail: customDetail + idLine,
                      reportUrl: reportUrl
                 });
                 polygon.on('dblclick', function(e) {
