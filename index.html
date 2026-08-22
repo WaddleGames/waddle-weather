@@ -116,6 +116,31 @@
         .ios-toggle input:checked + .ios-toggle-track { background:#34c759; }
         .ios-toggle input:checked + .ios-toggle-track:before { transform:translateX(20px); }
 
+        .custom-alerts-help {
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            width:18px;
+            height:18px;
+            margin-left:5px;
+            border:1px solid var(--primary);
+            border-radius:50%;
+            color:var(--primary);
+            font-size:0.78em;
+            font-weight:800;
+            line-height:1;
+            text-decoration:none;
+            vertical-align:middle;
+            transition:background 0.2s, color 0.2s, transform 0.2s;
+        }
+        .custom-alerts-help:hover,
+        .custom-alerts-help:focus-visible {
+            background:var(--primary);
+            color:#07131d;
+            transform:scale(1.08);
+            outline:none;
+        }
+
         .tab-content { display: none; animation: fadeIn 0.3s ease-out; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -1124,7 +1149,7 @@
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts</span>
+                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
                   <div id="custom-sky-alerts-status" style="display:none; font-size:0.68em; color:#718496; margin:-3px 0 10px;"></div>
