@@ -8016,9 +8016,15 @@
     }
 
     function customSkyAlertQualifiers(props) {
-        var raw = customSkyAlertValue(props, ['qualifiers', 'qualifier', 'alertQualifiers', 'alert_qualifiers', 'tags'], '');
-        if (Array.isArray(props && props.qualifiers)) raw = props.qualifiers.join(', ');
-        return String(raw).toLowerCase().replace(/[\/_\-]+/g, ' ');
+        var values = [];
+        ['qualifiers', 'qualifier', 'alertQualifiers', 'alert_qualifiers', 'tags'].forEach(function(key) {
+            var value = props && props[key];
+            if (Array.isArray(value)) values.push(value.map(function(item) {
+                return item && typeof item === 'object' ? JSON.stringify(item) : String(item);
+            }).join(', '));
+            else if (value != null && String(value).trim()) values.push(String(value));
+        });
+        return values.join(' ').toLowerCase().replace(/[\/_\-]+/g, ' ');
     }
 
     function customSkyThreatInfo(feature) {
@@ -8028,11 +8034,18 @@
             'class', 'severity', 'alertType', 'alert_type', 'event', 'type'
         ], '').toUpperCase();
         var qualifiers = customSkyAlertQualifiers(props);
-        var combined = classText + ' ' + qualifiers;
+        // Some worker revisions place the selected qualifier in the
+        // headline, description, or a nested alert object rather than in a
+        // top-level `qualifiers` field. Include the complete payload as a
+        // fallback so "Tornado Emergency" cannot degrade to plain TOR.
+        var payloadText = '';
+        try { payloadText = JSON.stringify(props).toUpperCase(); } catch (e) {}
+        var combined = (classText + ' ' + qualifiers + ' ' + payloadText).toUpperCase();
+        var classSignals = classText + ' ' + payloadText;
         var family = '', score = 0, label = '', color = '#ff9100';
         // SkyMonitor MDs intentionally never enter threat-level scoring.
         if (isCustomSkyMesoscaleDiscussion(props) || /\bMD\b|MESOSCALE DISCUSSION/.test(classText)) return null;
-        if (/\bTOR\b|TORNADO/.test(classText)) {
+        if (/\bTOR\b|TORNADO/.test(classSignals)) {
             family = 'tornado'; score = 8; label = 'SkyMonitor Tornado Warning'; color = '#ff1744';
             if (/TORNADO EMERGENCY/.test(combined) || /TORNADO EMERGENCY/.test(qualifiers)) {
                 score = 20; label = 'SkyMonitor Tornado Emergency'; color = '#e040fb';
@@ -8041,16 +8054,16 @@
             } else if (/OBSERVED|CONFIRMED|SPOTTER|LAW ENFORCEMENT|PUBLIC CONFIRMED|SURFACE OBSERV/.test(combined)) {
                 score = 11; label = 'SkyMonitor Confirmed Tornado'; color = '#ff1744';
             }
-        } else if (/\bSVR\b|SEVERE THUNDERSTORM/.test(classText)) {
+        } else if (/\bSVR\b|SEVERE THUNDERSTORM/.test(classSignals)) {
             family = 'svr'; score = 6; label = 'SkyMonitor SVR Warning'; color = '#ff9100';
             if (/DESTRUCTIVE/.test(qualifiers)) { score = 7; label = 'SkyMonitor Destructive SVR'; color = '#ff5722'; }
             else if (/CONSIDERABLE/.test(qualifiers)) { score = 7; label = 'SkyMonitor Considerable SVR'; color = '#ff7043'; }
             if (/TORNADO POSSIBLE/.test(qualifiers)) score += 1;
-        } else if (/\bFFW\b|FLASH FLOOD WARNING/.test(classText)) {
+        } else if (/\bFFW\b|FLASH FLOOD WARNING/.test(classSignals)) {
             family = 'flashFlood'; score = 6; label = 'SkyMonitor Flash Flood Warning'; color = '#00bcd4';
             if (/FLASH FLOOD EMERGENCY|CATASTROPHIC/.test(combined)) { score = 16; label = 'SkyMonitor Flash Flood Emergency'; color = '#e040fb'; }
             else if (/CONSIDERABLE/.test(qualifiers)) { score = 9; label = 'SkyMonitor Considerable Flash Flood Warning'; }
-        } else if (/\bSPS\b|SPECIAL WEATHER STATEMENT/.test(classText)) {
+        } else if (/\bSPS\b|SPECIAL WEATHER STATEMENT/.test(classSignals)) {
             family = 'sps'; score = 1; label = 'SkyMonitor Special Weather Statement'; color = '#ffeb3b';
             if (/DEVELOPING STORM|STRONG WIND|SMALL HAIL|SNOW SQUALL/.test(qualifiers)) score += 1;
         } else return null;
