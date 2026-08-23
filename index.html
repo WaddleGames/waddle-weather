@@ -3667,7 +3667,11 @@
                     // v1.0.5: Collect full event names for per-type scoring
                     if (!window.activeAlertEvents.includes(p.event)) window.activeAlertEvents.push(p.event);
                     // Store onset time so computeThreatLevel can skip future-outlook watches
-                    window.activeAlertOnsets[p.event] = p.onset ? new Date(p.onset).getTime() : 0;
+                    // Some NWS products omit `onset` and put the future start
+                    // in `effective`; use either value so downstream widgets
+                    // do not treat a scheduled alert as active now.
+                    var _pOnsetRaw = p.onset || p.effective;
+                    window.activeAlertOnsets[p.event] = _pOnsetRaw ? new Date(_pOnsetRaw).getTime() : 0;
                     // Store expiry time so hourly scoring knows exactly when this alert stops applying
                     var _pExpRaw = p.ends || p.expires;
                     window.activeAlertExpires[p.event] = _pExpRaw ? new Date(_pExpRaw).getTime() : 0;
@@ -4720,11 +4724,18 @@
         const cardsEl = document.getElementById('hourly-outlook-cards');
         if (!wrap || !titleEl || !summaryEl || !cardsEl) return;
 
-        const nowSec = Date.now() / 1000;
-        const offsetHours = Number(timezoneOffset) || 0;
-        const upcoming = (hourlyData || []).filter(function(h) {
-            return h && h.time != null && h.time >= nowSec - 1800;
-        }).slice(0, 6);
+         const nowSec = Date.now() / 1000;
+         const offsetHours = Number(timezoneOffset) || 0;
+         // Keep the forecast slot for the entire current local clock hour.
+         // A rolling 30-minute cutoff incorrectly changed the current 7 PM
+         // slot to "Now" = 8 PM at 7:30.  The current hour remains "Now"
+         // through 7:59, then the next hour becomes the first upcoming slot.
+         const currentHourStartSec =
+             Math.floor((nowSec + offsetHours * 3600) / 3600) * 3600 -
+             offsetHours * 3600;
+         const upcoming = (hourlyData || []).filter(function(h) {
+             return h && h.time != null && h.time >= currentHourStartSec;
+         }).slice(0, 6);
         if (!upcoming.length) {
             wrap.style.display = 'none';
             return;
@@ -9146,8 +9157,19 @@
                 html += '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#fbbf24;letter-spacing:0.2px;">&#9889; Thunderstorms possible today &mdash; exit the water if lightning is seen or thunder is heard.</div>';
             }
             var _alerts = window.activeAlertEvents || [];
-            var _hasBHS = _alerts.some(function(e) { return e.toLowerCase().includes('beach hazard'); });
-            var _hasRip = _alerts.some(function(e) { return e.toLowerCase().includes('rip current'); });
+            // The NWS active-alert feed also includes alerts whose onset is in
+            // the future.  Keep those in the Alerts tab (where their start time
+            // is shown), but do not describe them as currently affecting beach
+            // conditions.
+            var _isAlertInEffect = function(fragment) {
+                return _alerts.some(function(e) {
+                    if (!e.toLowerCase().includes(fragment)) return false;
+                    var onset = (window.activeAlertOnsets || {})[e] || 0;
+                    return !onset || onset <= Date.now();
+                });
+            };
+            var _hasBHS = _isAlertInEffect('beach hazard');
+            var _hasRip = _isAlertInEffect('rip current');
             if (_hasBHS) {
                 html += '<div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);border-radius:12px;padding:10px 14px;margin-top:10px;font-size:0.72em;font-weight:700;color:#f87171;letter-spacing:0.2px;">&#9888;&#xFE0F; Beach Hazards Statement in effect &mdash; hazardous swimming conditions expected.</div>';
             }
