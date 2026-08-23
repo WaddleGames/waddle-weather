@@ -1345,6 +1345,7 @@
     window.activeFFE = false;
     // v1.0.5: Full per-alert-type scoring
     window.activeAlertEvents = [];
+    window.nwsBannerScore = 0;
     // Per-event expiry timestamps (ms) — lets hourly scoring know exactly which
     // hours a warning like a Flash Flood Warning is actually in effect for.
     window.activeAlertExpires = {};
@@ -3532,6 +3533,7 @@
         window.activePDSTornado = false;
         window.activeFFE = false;
         window.activeAlertEvents = [];
+        window.nwsBannerScore = 0;
         window.activeSVRDestructive = false;
         window.activeTornadoObserved = false;
         window.alertMaxHailIn = 0;
@@ -3577,6 +3579,7 @@
                 let topAlert = data.features.reduce(function(prev, current) {
                     return getAlertScore(current) > getAlertScore(prev) ? current : prev;
                 });
+                window.nwsBannerScore = getAlertScore(topAlert);
                 const topP = topAlert.properties;
                 const evtLowerTop = topP.event.toLowerCase();
                 const paramsTop = topP.parameters || {};
@@ -8110,6 +8113,20 @@
         }
     }
 
+    function customSkyBannerScore(threatInfo) {
+        if (!threatInfo) return 0;
+        if (threatInfo.family === 'tornado') {
+            if (threatInfo.score >= 20) return 15000;
+            if (threatInfo.score >= 15) return 13000;
+            if (threatInfo.score >= 11) return 12000;
+            return 11000;
+        }
+        if (threatInfo.family === 'svr') return threatInfo.score >= 7 ? 10000 : 8500;
+        if (threatInfo.family === 'flashFlood') return threatInfo.score >= 16 ? 14000 : 8000;
+        if (threatInfo.family === 'sps') return 2000;
+        return 0;
+    }
+
     function renderCustomSkyHazards() {
         var stack = document.getElementById('alert-stack');
         if (!stack) return;
@@ -8124,25 +8141,33 @@
             return;
         }
         if (!(window.activeAlertEvents || []).length) stack.innerHTML = '';
-        // Custom SkyMonitor alerts use the same home-page banner as NWS alerts.
-        // The headline is intentionally shown verbatim as the banner text.
+        // Custom alerts use the same home-page banner as NWS alerts, but only
+        // replace it when their severity is strictly higher than the strongest
+        // NWS alert. Equal-level and higher-level NWS alerts always win.
         if (banner) {
-            var bannerFeature = features[0];
-            var bannerProps = bannerFeature.properties || {};
-            var bannerHeadline = customSkyAlertValue(
-                bannerProps,
-                ['headline', 'title', 'name', 'message'],
-                'SkyMonitor Alert'
-            );
-            var bannerThreat = customSkyThreatInfo(bannerFeature);
-            var bannerColor = bannerThreat && bannerThreat.family === 'tornado'
-                ? (bannerThreat.score >= 20 ? '#4a148c' : (bannerThreat.score >= 15 ? '#880e4f' : '#7f0000'))
-                : (bannerThreat && bannerThreat.family === 'flashFlood' ? '#00838f' : '#ff9100');
-            banner.style.display = 'block';
-            banner.style.background = bannerColor;
-            banner.classList.remove('emergency-banner');
-            banner.innerText = bannerHeadline;
-            banner.setAttribute('data-custom-skymonitor', 'true');
+            var bannerChoice = features.map(function(feature) {
+                return { feature: feature, threat: customSkyThreatInfo(feature) };
+            }).filter(function(item) { return !!item.threat; }).sort(function(a, b) {
+                return customSkyBannerScore(b.threat) - customSkyBannerScore(a.threat);
+            })[0];
+            if (bannerChoice && customSkyBannerScore(bannerChoice.threat) > (window.nwsBannerScore || 0)) {
+                var bannerFeature = bannerChoice.feature;
+                var bannerProps = bannerFeature.properties || {};
+                var bannerHeadline = customSkyAlertValue(
+                    bannerProps,
+                    ['headline', 'title', 'name', 'message'],
+                    'SkyMonitor Alert'
+                );
+                var bannerThreat = bannerChoice.threat;
+                var bannerColor = bannerThreat.family === 'tornado'
+                    ? (bannerThreat.score >= 20 ? '#4a148c' : (bannerThreat.score >= 15 ? '#880e4f' : '#7f0000'))
+                    : (bannerThreat.family === 'flashFlood' ? '#00838f' : '#ff9100');
+                banner.style.display = 'block';
+                banner.style.background = bannerColor;
+                banner.classList.remove('emergency-banner');
+                banner.innerText = bannerHeadline;
+                banner.setAttribute('data-custom-skymonitor', 'true');
+            }
         }
         features.forEach(function(feature, index) {
             var props = feature.properties || {};
