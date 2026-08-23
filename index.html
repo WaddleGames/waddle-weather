@@ -8151,8 +8151,8 @@
                 ? (threatInfo.score >= 20 ? '#4a148c' : (threatInfo.score >= 15 ? '#880e4f' : '#7f0000'))
                 : (threatInfo && threatInfo.family === 'flashFlood' ? '#00838f' : '#e65100');
             var customHazardId = 'custom-hazard-' + index + '-' + Date.now();
-            var customTiming = expires
-                ? '<span style="display:inline-block;font-size:0.72em;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires: ' + escapeHtml(formatCustomSkyAlertTime(expires)) + '</span>'
+             var customTiming = expires
+                 ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_fmtAlertTime(expires)) + '</div>'
                 : '';
             var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
             var fullDetails = '<div id="full-' + customHazardId + '" class="alert-full-text">' + detailRows + summaryHtml + actionHtml + '</div>';
