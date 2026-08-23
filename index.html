@@ -1363,6 +1363,7 @@
     // SkyMonitor custom alerts are kept separate from NWS state so an
     // equivalent NWS product can suppress duplicate scoring.
     window.customSkyThreatAlerts = [];
+    window.customSkyActiveFeatures = [];
     // v1.0.4: Modal-open flag disables tab swipe
     window._modalOpen = false;
     function setModalOpen(v) { window._modalOpen = v; document.body.style.overflow = v ? 'hidden' : ''; }
@@ -1875,9 +1876,11 @@
         // Immediately refresh so the widget appears/disappears without waiting for the next cycle
         fetchNearbyReportsForHome();
         if (val) {
-            loadCustomSkyThreatAlerts().then(function() { computeThreatLevel(); });
+            loadCustomSkyThreatAlerts().then(function() { renderCustomSkyHazards(); computeThreatLevel(); });
         } else {
             window.customSkyThreatAlerts = [];
+            window.customSkyActiveFeatures = [];
+            renderCustomSkyHazards();
             computeThreatLevel();
         }
     }
@@ -6189,7 +6192,7 @@
                 if (custom.score >= 11) customThreatFlags.tornadoObserved = true;
                 if (custom.score >= 15) customThreatFlags.tornadoPDS = true;
                 if (custom.score >= 20) customThreatFlags.tornadoEmergency = true;
-            } else if (custom.family === 'svr' && custom.score >= 7) {
+            } else if (custom.family === 'svr' && custom.isDestructive) {
                 customThreatFlags.svrDestructive = true;
             } else if (custom.family === 'flashFlood') {
                 if (custom.score >= 9) customThreatFlags.ffConsiderable = true;
@@ -8062,19 +8065,23 @@
             family = 'sps'; score = 1; label = 'SkyMonitor Special Weather Statement'; color = '#ffeb3b';
             if (/DEVELOPING STORM|STRONG WIND|SMALL HAIL|SNOW SQUALL/.test(qualifiers)) score += 1;
         } else return null;
-        return { family: family, score: score, label: label, color: color, feature: feature };
+        return {
+            family: family, score: score, label: label, color: color, feature: feature,
+            isDestructive: family === 'svr' && /DESTRUCTIVE/.test(qualifiers)
+        };
     }
 
     async function loadCustomSkyThreatAlerts() {
         if (localStorage.getItem('user_reports_enabled') !== 'true' || window.isOutsideUS) {
             window.customSkyThreatAlerts = [];
+            window.customSkyActiveFeatures = [];
             return;
         }
         try {
             var res = await fetch(CUSTOM_SKY_ALERTS_WORKER_URL, { headers: { 'Accept': 'application/geo+json, application/json' } });
             if (!res.ok) throw new Error('Failed to fetch custom alerts');
             var features = getCustomSkyAlertFeatures(await res.json());
-            window.customSkyThreatAlerts = features.map(function(item) {
+            var activeFeatures = features.map(function(item) {
                 var feature = toCustomSkyAlertFeature(item);
                 if (!feature || !feature.geometry || !customSkyPointInGeometry(lat, lon, feature.geometry)) return null;
                 var info = customSkyThreatInfo(feature);
@@ -8085,11 +8092,71 @@
                 var onsetMs = onset ? new Date(onset).getTime() : 0;
                 var expiresMs = expires ? new Date(expires).getTime() : 0;
                 if ((onsetMs && onsetMs > Date.now()) || (expiresMs && expiresMs <= Date.now())) return null;
-                return info;
+                return feature;
             }).filter(Boolean);
+            window.customSkyActiveFeatures = activeFeatures;
+            window.customSkyThreatAlerts = activeFeatures.map(customSkyThreatInfo).filter(Boolean);
         } catch (e) {
             window.customSkyThreatAlerts = [];
+            window.customSkyActiveFeatures = [];
         }
+    }
+
+    function renderCustomSkyHazards() {
+        var stack = document.getElementById('alert-stack');
+        if (!stack) return;
+        stack.querySelectorAll('.custom-skymonitor-hazard').forEach(function(el) { el.remove(); });
+        var features = window.customSkyActiveFeatures || [];
+        if (!features.length) {
+            if (!(window.activeAlertEvents || []).length && !stack.children.length) {
+                stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>";
+            }
+            return;
+        }
+        if (!(window.activeAlertEvents || []).length) stack.innerHTML = '';
+        features.forEach(function(feature, index) {
+            var props = feature.properties || {};
+            var threatInfo = customSkyThreatInfo(feature);
+            var alertClass = customSkyAlertValue(props, ['alertClass', 'alert_class', 'alertClassCode', 'alert_class_code', 'class', 'alertType', 'alert_type', 'event', 'type'], 'Custom Alert');
+            var headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], alertClass);
+            var issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'discordUsername', 'discord_username', 'uploadedBy', 'uploaded_by', 'uploader', 'publisher', 'author', 'username', 'source', 'wfo', 'office'], 'SkyMonitor');
+            var qualifiers = customSkyAlertQualifiers(props).toUpperCase().replace(/\s*,\s*/g, ', ');
+            var issued = customSkyAlertValue(props, ['issued', 'issuedAt', 'issued_at', 'issue', 'issueTime', 'issue_time', 'effective', 'effectiveAt', 'effective_at', 'createdAt', 'created_at', 'created', 'time', 'timestamp'], '');
+            var expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'expiration_time', 'ends', 'endTime'], '');
+            var description = customSkyAlertValue(props, ['description', 'details', 'body'], '');
+            var shortSummary = customSkyAlertValue(props, ['shortSummary', 'short_summary', 'shortDescription', 'short_description', 'summary'], '');
+            var recommendedAction = customSkyAlertValue(props, ['recommendedAction', 'recommended_action', 'safetyAction', 'safety_action', 'action', 'instruction'], '');
+            if (description) {
+                var actionMatch = description.match(/recommended\s+action\s*:\s*([\s\S]*?)(?=\n\s*\n|\n\s*(?:qualifiers?|expiration|expires?)\s*:|$)/i);
+                if (!recommendedAction && actionMatch) recommendedAction = actionMatch[1].trim();
+                if (!shortSummary) shortSummary = (actionMatch ? description.slice(0, actionMatch.index) : description).trim();
+            }
+            shortSummary = shortSummary.replace(/^\s*Full alert\s*:?\s*/i, '').trim();
+            var alertId = customSkyAlertValue(props, ['revision_id', 'revisionId', 'alertId', 'alertID', 'id', 'uuid', 'alertUuid', 'alert_uuid'], '') ||
+                (feature.id != null ? String(feature.id) : '');
+            var reportUrl = alertId ? CUSTOM_SKY_ALERT_REPORT_FORM_URL + encodeURIComponent(alertId) : '';
+            var detailRows = [
+                ['Alert Class', alertClass],
+                ['Qualifiers', qualifiers],
+                ['Issued', issued ? formatCustomSkyAlertTime(issued) : ''],
+                ['Issued by', issuer],
+                ['Expires', expires ? formatCustomSkyAlertTime(expires) : '']
+            ].filter(function(row) { return row[1]; }).map(function(row) {
+                return '<div style="margin-top:4px;"><b>' + escapeHtml(row[0]) + ':</b> ' + escapeHtml(row[1]) + '</div>';
+            }).join('');
+            var summaryHtml = shortSummary ? '<div style="margin-top:8px;"><b>Short Summary</b><br>' + escapeHtml(shortSummary) + '</div>' : '';
+            var actionHtml = recommendedAction ? '<div style="margin-top:8px;"><b>Recommended Action</b><br>' + escapeHtml(recommendedAction) + '</div>' : '';
+            var reportHtml = reportUrl
+                ? '<button type="button" onclick="event.stopPropagation(); window.open(\'' + reportUrl.replace(/'/g, '\\&#39;') + '\', \'_blank\', \'noopener\')" style="margin-top:10px;padding:5px 9px;border:1px solid rgba(255,255,255,0.35);border-radius:5px;background:rgba(0,0,0,0.22);color:#fff;font-size:0.72em;font-weight:700;cursor:pointer;">&#128221; Report</button>'
+                : '';
+            var card = document.createElement('div');
+            card.className = 'alert-card custom-skymonitor-hazard';
+            card.style.cssText = 'background:' + (threatInfo ? threatInfo.color : customSkyAlertColor(props)) + '; align-items:flex-start; cursor:default;';
+            card.innerHTML = '<div style="flex:1;min-width:0;"><div style="font-weight:bold;">' + escapeHtml(headline) +
+                '</div><div class="alert-meta-row"><span style="font-size:0.75em;opacity:0.9;">Custom alert</span></div>' +
+                '<div style="font-size:0.78em;line-height:1.45;margin-top:6px;">' + detailRows + summaryHtml + actionHtml + reportHtml + '</div></div>';
+            stack.appendChild(card);
+        });
     }
 
     async function loadCustomSkyAlerts() {
@@ -9630,6 +9697,7 @@
             // Load qualifying, in-boundary SkyMonitor alerts before the first
             // threat computation so custom alerts participate immediately.
             await loadCustomSkyThreatAlerts();
+            renderCustomSkyHazards();
             var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
             if (window.isBeachLocation || window.isWaterLocation ||
                 _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
