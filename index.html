@@ -4746,6 +4746,12 @@
         const rainChance = Math.max.apply(null, upcoming.map(function(h) {
             return Math.round((Number(h.precipProbability) || 0) * 100);
         }));
+         // Only reserve/show a precipitation row when at least one visible
+         // hour has a non-zero chance.  Otherwise the outlook cards should
+         // not have an empty gap beneath their weather icons.
+         const hasPrecipChance = upcoming.some(function(h) {
+             return Math.round((Number(h.precipProbability) || 0) * 100) > 0;
+         });
         const wind = Number(first.windSpeed);
         const gust = Number(first.windGust);
         const windText = isFinite(wind) && wind > 0
@@ -4802,9 +4808,11 @@
             const card = document.createElement('div');
             card.className = 'hourly-outlook-card';
             const chance = Math.round((Number(h.precipProbability) || 0) * 100);
-            const chanceHtml = chance > 0
-                ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
-                : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>';
+             const chanceHtml = !hasPrecipChance
+                 ? ''
+                 : (chance > 0
+                     ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
+                     : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>');
             const icon = iconMap[h.icon] || '🌤️';
             const iconHtml = h.icon === 'partly-cloudy-night'
                 ? '<span class="hourly-outlook-icon hourly-outlook-icon--night"><span>☁️</span><span>🌙</span></span>'
