@@ -998,7 +998,7 @@
             <!-- shown only in Advanced mode -->
             <div style="font-family:monospace; font-size:0.85em; color:#ddd; line-height:1.6;">
                 <div><b>Station Name:</b> <span id="meta-name" style="color:var(--accent);">--</span></div>
-                <div><b>Identifier:</b> <span id="meta-id">--</span></div>
+                <div><b id="meta-id-label">Identifier:</b> <span id="meta-id">--</span></div>
                 <div><b>Elevation:</b> <span id="meta-elev">--</span></div>
                 <div><b>NWS Office:</b> <span id="wfo-label" style="color:var(--primary);">--</span></div>
             </div>
@@ -2862,7 +2862,15 @@
         ['spc-outlook-section','wxstory-section','afd-section','hwo-section'].forEach(function(id) {
             const el = document.getElementById(id); if (el) el.style.display = 'none';
         });
-        document.getElementById('wfo-label').innerText = 'N/A (Outside US)';
+        // International locations have no NWS station or office.  Keep the
+        // requested coordinates, but identify the observation as local and
+        // remove the US-only metadata row entirely.
+        var _idLabel = document.getElementById('meta-id-label');
+        if (_idLabel) _idLabel.innerText = 'Location:';
+        var _wfoRow = document.getElementById('wfo-label');
+        if (_wfoRow && _wfoRow.parentElement) _wfoRow.parentElement.style.display = 'none';
+        var _metaName = document.getElementById('meta-name');
+        if (_metaName) _metaName.innerText = 'Local Observation';
         if (window.pirateCurrently) {
             const summary = window.pirateCurrently.summary || 'Clear';
             const pwTemp = window.pirateCurrently.temperature;
@@ -2880,12 +2888,24 @@
             if (_intlIcon) { document.getElementById('weatherIcon').src = _intlIcon; document.getElementById('weatherIcon').style.display = 'block'; }
             else document.getElementById('weatherIcon').style.display = 'none';
             document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
-            document.getElementById('meta-name').innerText = 'PirateWeather API';
             document.getElementById('meta-id').innerText = lat + ', ' + lon;
-            document.getElementById('meta-elev').innerText = 'N/A';
             currentCondition = summary;
             startWeatherFX(summary); startSkyFX(summary);
         }
+        // NWS /points provides elevation only in the US.  Use the same
+        // Open-Meteo elevation endpoint for international coordinates.
+        (async function() {
+            try {
+                var _eRes = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lat + '&longitude=' + lon);
+                if (!_eRes.ok) return;
+                var _eData = await _eRes.json();
+                var _eM = _eData && _eData.elevation && _eData.elevation[0];
+                var _eEl = document.getElementById('meta-elev');
+                if (_eEl && _eM != null) {
+                    _eEl.innerText = _isMetric() ? Math.round(_eM) + ' m' : Math.round(_eM * 3.28084) + ' ft';
+                }
+            } catch(e) {}
+        })();
         // Populate the QC panel for international locations (NWS unavailable)
         _renderPWSQCPanel(window.wuData || null, null, null);
         _wxReveal(); // International location — PirateWeather is authoritative; reveal now
@@ -2895,6 +2915,10 @@
         ['spc-outlook-section','wxstory-section'].forEach(function(id) {
             const el = document.getElementById(id); if (el) el.style.display = '';
         });
+        var _idLabel = document.getElementById('meta-id-label');
+        if (_idLabel) _idLabel.innerText = 'Identifier:';
+        var _wfoRow = document.getElementById('wfo-label');
+        if (_wfoRow && _wfoRow.parentElement) _wfoRow.parentElement.style.display = '';
         if (localStorage.getItem('data_complexity') === 'specific') {
             const afd = document.getElementById('afd-section'); if (afd) afd.style.display = '';
         }
@@ -9336,6 +9360,10 @@
             await Promise.all([fetchAQI(), fetchBeachForecast(lat, lon)]);
             await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
             if (loadGeneration !== weatherLoadGeneration) return;
+            // fetchAQI starts in parallel before NWS can classify the location.
+            // If AirNow returned stale/US data during that race, explicitly
+            // replace it with the coordinate-specific Open-Meteo result.
+            if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
             await fetchAlerts();
             // Re-render beach section now that alerts are resolved — fetchBeachForecast
             // fires before fetchAlerts() so the BHS banner needs a second pass to show.
