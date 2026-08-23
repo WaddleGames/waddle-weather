@@ -4890,7 +4890,12 @@
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
                 iconHtml +
                 chanceHtml +
-                '<div style="font-size:1.05em; font-weight:800; margin-top:5px; color:' + colorFeelsLike(Number(h.temperature)) + ';">' + _fmtTemp(h.temperature) + '</div>';
+                '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
+            // Apply the exact same Fahrenheit-based scale used by tempVal and
+            // feelsVal. Set it after insertion so no card/inherited color rule
+            // can replace the inline temperature color.
+            var outlookTempEl = card.querySelector('.hourly-temperature');
+            if (outlookTempEl) outlookTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
             cardsEl.appendChild(card);
         });
         wrap.style.display = '';
@@ -4919,7 +4924,9 @@
                 const card = document.createElement('div'); card.className = 'forecast-card';
                 const rainAmt = h.precipAccumulation || (h.precipIntensity ? parseFloat(h.precipIntensity.toFixed(2)) : 0);
                 const rainLine = rainAmt > 0 ? '<div style="font-size:0.65em; color:#4fc3f7; margin-top:2px;">\uD83C\uDF27 ' + (_isMetric() ? (rainAmt * 25.4).toFixed(1) + ' mm' : rainAmt.toFixed(2) + '"') + '</div>' : '';
-                card.innerHTML = '<div style="font-size:0.7em;">' + hour + '</div><div style="font-size:1.6em;">' + (iconMap[h.icon] || '\u2753') + '</div><div style="font-size:1.2em; font-weight:bold; color:' + colorFeelsLike(Number(h.temperature)) + ';">' + _fmtTemp(h.temperature) + '</div><div style="font-size:0.7em; opacity:0.7;">' + escapeHtml(h.summary || '') + '</div><div style="font-size:0.65em; color:var(--primary);">Precip: ' + Math.round((h.precipProbability || 0) * 100) + '%</div>' + rainLine;
+                card.innerHTML = '<div style="font-size:0.7em;">' + hour + '</div><div style="font-size:1.6em;">' + (iconMap[h.icon] || '\u2753') + '</div><div class="hourly-temperature" style="font-size:1.2em; font-weight:bold;">' + _fmtTemp(h.temperature) + '</div><div style="font-size:0.7em; opacity:0.7;">' + escapeHtml(h.summary || '') + '</div><div style="font-size:0.65em; color:var(--primary);">Precip: ' + Math.round((h.precipProbability || 0) * 100) + '%</div>' + rainLine;
+                var pwTempEl = card.querySelector('.hourly-temperature');
+                if (pwTempEl) pwTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
                 container.appendChild(card);
             });
         }
