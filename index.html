@@ -2737,9 +2737,18 @@
             const _nowMs = Date.now();
             const _onsetMs = alert.time ? alert.time * 1000 : 0;
             const _inEffect = !_onsetMs || _onsetMs <= _nowMs;
-            const _tzOffMs = (window.pirateTimezoneOffset || 0) * 3600000;
-            const _expFake = (alert.expires && _inEffect) ? new Date(alert.expires * 1000 + _tzOffMs) : null;
-            const expires = _expFake ? _expFake.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) : '';
+             // Use the same timing-chip treatment as NWS alerts: future
+             // notices say "In effect …", while active notices say
+             // "Expires …".  _fmtAlertTime applies the location timezone.
+             const _onsetText = _onsetMs ? _fmtAlertTime(new Date(_onsetMs).toISOString()) : '';
+             const _expiresMs = alert.expires ? alert.expires * 1000 : 0;
+             const _expiresText = (_expiresMs && _inEffect)
+                 ? _fmtAlertTime(new Date(_expiresMs).toISOString()) : '';
+             const timingHtml = !_inEffect && _onsetText
+                 ? '<div style="display:inline-block;font-size:0.72em;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:4px;padding:2px 7px;margin-top:4px;">In effect ' + escapeHtml(_onsetText) + '</div>'
+                 : (_expiresText
+                     ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_expiresText) + '</div>'
+                     : '');
             let desc = alert.description || '';
             if (desc && _doTranslate) {
                 const cacheKey = 'desc:' + desc.slice(0, 80);
@@ -2760,7 +2769,7 @@
             const shortDesc = isTruncated ? desc.slice(0, 140) + '...' : desc;
             const pwId = 'pw-' + Date.now() + '-' + Math.floor(Math.random() * 9999);
             const _cardColor = _pirateAlertColor(alert.severity);
-            stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b><br><small>' + escapeHtml(shortDesc) + (expires ? '<br>Expires: ' + escapeHtml(expires) : '') + '</small>' + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button><div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
+             stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b>' + timingHtml + '<br><small>' + escapeHtml(shortDesc) + '</small>' + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button><div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
         }
     }
 
@@ -5837,6 +5846,12 @@
         if (hazardCats.heat) return 'Elevated heat conditions are in the area. Limit outdoor exposure, stay hydrated, and check on vulnerable individuals.';
         if (hazardCats.fire) return 'Critical fire weather conditions exist. Extreme fire behavior is possible — follow evacuation orders and air quality guidance.';
         if (flags.denseFogAdvisory) return 'A Dense Fog Advisory is in effect. Visibility may drop below a quarter mile. Slow down, use low-beam headlights, and allow extra following distance.';
+        if (flags.internationalAlerts) {
+            var _intlWord = flags.internationalSeverity === 'extreme' ? 'Extreme' :
+                            flags.internationalSeverity === 'severe' ? 'Severe' :
+                            flags.internationalSeverity === 'moderate' ? 'Moderate' : 'Minor';
+            return _intlWord + ' weather alerts are active for this location. Follow local weather-authority guidance and continue monitoring conditions for changes.';
+        }
         // ── Observed-condition descriptions (no alerts required) ─────────
         // These fire before the generic tier fallbacks so a score driven purely by
         // observed wind / storm proximity never claims "alerts are in effect."
@@ -5866,6 +5881,41 @@
         let score = 0;
         const factorList = [];
         const hazardCats = {}; // tracks distinct hazard categories active
+
+        // ── 0. International alert severity ───────────────────────────────
+        // PirateWeather carries alert severity for non-US providers, while
+        // NWS event names are unavailable outside the US.  Translate the
+        // provider's generic severity into the same score bands used below.
+        var _intlAlertCount = 0;
+        var _intlMaxSeverity = '';
+        if (window.isOutsideUS && Array.isArray(window.pirateAlerts)) {
+            var _intlSeverityRank = { minor: 1, moderate: 2, severe: 3, extreme: 4 };
+            var _intlSeverityPoints = { minor: 2, moderate: 4, severe: 6, extreme: 8 };
+            window.pirateAlerts.forEach(function(alert) {
+                var _nowMsIntl = Date.now();
+                var _startsIntl = Number(alert.time || 0) * 1000;
+                var _endsIntl = Number(alert.expires || 0) * 1000;
+                if ((_startsIntl && _startsIntl > _nowMsIntl) || (_endsIntl && _endsIntl <= _nowMsIntl)) return;
+                var _sev = String(alert.severity || '').toLowerCase();
+                // A few international feeds encode the color level only in
+                // the title; retain a useful fallback when severity is absent.
+                var _intlText = String(alert.title || '').toLowerCase();
+                if (!_intlSeverityRank[_sev]) {
+                    if (_intlText.includes('extreme') || _intlText.includes('red')) _sev = 'extreme';
+                    else if (_intlText.includes('severe') || _intlText.includes('orange')) _sev = 'severe';
+                    else if (_intlText.includes('moderate') || _intlText.includes('yellow')) _sev = 'moderate';
+                    else _sev = 'minor';
+                }
+                _intlAlertCount++;
+                if ((_intlSeverityRank[_sev] || 0) > (_intlSeverityRank[_intlMaxSeverity] || 0)) _intlMaxSeverity = _sev;
+                score += _intlSeverityPoints[_sev] || 2;
+                factorList.push({ label: alert.title || (_sev.charAt(0).toUpperCase() + _sev.slice(1) + ' alert'), color: _pirateAlertColor(_sev) });
+            });
+            // Several notices can describe the same system; prevent stacking
+            // from overwhelming the normal threat bands while preserving the
+            // strongest alert's severity.
+            if (score > 12 && _intlAlertCount > 0) score = 12;
+        }
 
         // ── 1. SPC Convective Outlook ─────────────────or ────────────────────
         const spc = window.spcRisk;
@@ -6191,6 +6241,8 @@
             typhoonWarning:     _activeNow('typhoon warning'),
             tsunamiWarning:     _activeNow('tsunami warning'),
             stormSurgeWarning:  _activeNow('storm surge warning'),
+            internationalAlerts: _intlAlertCount > 0,
+            internationalSeverity: _intlMaxSeverity,
         };
 
         box.className = 'toolkit-box threat-box ' + tierClass;
