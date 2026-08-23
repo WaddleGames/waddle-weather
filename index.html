@@ -1360,6 +1360,9 @@
     window.alertHasCatastrophicFlood = false;
     window.alertHasConsiderableFlood = false;
     window.alertHasObservedCertainty = false;
+    // SkyMonitor custom alerts are kept separate from NWS state so an
+    // equivalent NWS product can suppress duplicate scoring.
+    window.customSkyThreatAlerts = [];
     // v1.0.4: Modal-open flag disables tab swipe
     window._modalOpen = false;
     function setModalOpen(v) { window._modalOpen = v; document.body.style.overflow = v ? 'hidden' : ''; }
@@ -1871,6 +1874,12 @@
         document.getElementById('opt-user-reports-off')?.classList.toggle('active', !val);
         // Immediately refresh so the widget appears/disappears without waiting for the next cycle
         fetchNearbyReportsForHome();
+        if (val) {
+            loadCustomSkyThreatAlerts().then(function() { computeThreatLevel(); });
+        } else {
+            window.customSkyThreatAlerts = [];
+            computeThreatLevel();
+        }
     }
 
     function _isMetric() { return localStorage.getItem('unit_system') === 'metric'; }
@@ -6147,13 +6156,54 @@
             score += 3; factorList.push({ label: 'Catastrophic flooding', color: '#00e5ff' });
         }
 
-        // ── 7. Multi-Hazard Stacking ──────────────────────────────────────
+        // ── 7. SkyMonitor Custom Alerts ───────────────────────────────────
+        // An equivalent NWS product wins, preventing duplicate scoring. A
+        // stronger custom product contributes only the difference (for
+        // example, NWS PDS TOR + SkyMonitor Tornado Emergency = Emergency
+        // strength, not two independent tornado scores).
+        var customThreatFlags = { tornado: false, tornadoObserved: false, tornadoPDS: false,
+            tornadoEmergency: false, svrDestructive: false, ffConsiderable: false,
+            ffCatastrophic: false, ffEmergency: false };
+        var nwsFamilyScores = {};
+        if (window.activeTornadoWarning) {
+            nwsFamilyScores.tornado = window.activeTornadoEmergency ? 20 :
+                (window.activePDSTornado ? 15 : (window.activeTornadoObserved ? 11 : 8));
+        }
+        if (window.activeSVRWarning) nwsFamilyScores.svr =
+            (window.activeSVRDestructive || window.alertHasConsiderableHail || window.alertHasConsiderableWind) ? 7 : 6;
+        if ((window.activeAlertEvents || []).some(function(e) { return e.toLowerCase().includes('flash flood warning'); })) {
+            nwsFamilyScores.flashFlood = window.activeFFE ? 16 :
+                ((window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood) ? 9 : 6);
+        }
+        if ((window.activeAlertEvents || []).some(function(e) { return e.toLowerCase().includes('special weather statement'); })) nwsFamilyScores.sps = 1;
+        (window.customSkyThreatAlerts || []).forEach(function(custom) {
+            var existing = nwsFamilyScores[custom.family] || 0;
+            var increment = Math.max(0, custom.score - existing);
+            if (increment > 0) {
+                score += increment;
+                factorList.push({ label: custom.label, color: custom.color });
+                nwsFamilyScores[custom.family] = custom.score;
+            }
+            if (custom.family === 'tornado') {
+                customThreatFlags.tornado = true;
+                if (custom.score >= 11) customThreatFlags.tornadoObserved = true;
+                if (custom.score >= 15) customThreatFlags.tornadoPDS = true;
+                if (custom.score >= 20) customThreatFlags.tornadoEmergency = true;
+            } else if (custom.family === 'svr' && custom.score >= 7) {
+                customThreatFlags.svrDestructive = true;
+            } else if (custom.family === 'flashFlood') {
+                if (custom.score >= 9) customThreatFlags.ffConsiderable = true;
+                if (custom.score >= 16) { customThreatFlags.ffCatastrophic = true; customThreatFlags.ffEmergency = true; }
+            }
+        });
+
+        // ── 8. Multi-Hazard Stacking ──────────────────────────────────────
         // Only fires when 3+ genuinely distinct hazard categories are simultaneously active
         // (e.g. convective + flood + winter at the same time — not just two convective alerts)
         const distinctCats = Object.keys(hazardCats).length;
         if (distinctCats >= 3) { score += 2; factorList.push({ label: 'Multi-hazard event', color: '#e040fb' }); }
 
-        // ── 8. Nearby User Reports (BETA) ─────────────────────────────────
+        // ── 9. Nearby User Reports ─────────────────────────────────────────
         if (localStorage.getItem('user_reports_enabled') === 'true' && Array.isArray(window.nearbyUserReports) && window.nearbyUserReports.length) {
             // Tornado / Funnel Cloud: serious confirmed sighting → +3
             var hasNearbyTornado  = window.nearbyUserReports.some(function(r) { return r.type && (r.type.includes('Tornado') || r.type.includes('Funnel')); });
@@ -6171,7 +6221,7 @@
             }
         }
 
-        // ── 9. Observed Atmospheric Conditions ────────────────────────────
+        // ── 10. Observed Atmospheric Conditions ────────────────────────────
         // Wind speed (station-observed)
         if (liveWindSpd >= 58)     { score += 3; factorList.push({ label: 'Wind ' + _fmtWind(liveWindSpd), color: '#ff1744' }); }
         else if (liveWindSpd >= 40) { score += 2; factorList.push({ label: 'Wind ' + _fmtWind(liveWindSpd), color: '#ff9100' }); }
@@ -6195,12 +6245,15 @@
         const presEl = document.getElementById('presVal');
         if (presEl && presEl.innerHTML.includes('\u2198\uFE0F')) { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
 
-        // ── 10. Mandatory Life-Threatening Floors ─────────────────────────
+        // ── 11. Mandatory Life-Threatening Floors ─────────────────────────
         if (window.activeTornadoEmergency) score = Math.max(score, 20);
         if (window.activePDSTornado)       score = Math.max(score, 18);
         if (window.activeFFE)              score = Math.max(score, 16);
+        if (customThreatFlags.tornadoEmergency) score = Math.max(score, 20);
+        if (customThreatFlags.tornadoPDS)       score = Math.max(score, 18);
+        if (customThreatFlags.ffEmergency)      score = Math.max(score, 16);
 
-        // ── 11. Tier Classification ───────────────────────────────────────
+        // ── 12. Tier Classification ───────────────────────────────────────
         // LIFE THREATENING, CRITICAL, and DANGEROUS are strictly flag-driven.
         // No score, no matter how high, can reach these tiers — only specific alert types can.
         const _tierEvtsLower = (window.activeAlertEvents || []).map(function(e) { return e.toLowerCase(); });
@@ -6213,6 +6266,7 @@
         // Extreme Wind Warning, and Typhoon/Hurricane/Tsunami Warning — these are all
         // instant, no-score-needed life-threatening situations.
         const _isLifeThreatening = window.activeTornadoEmergency || window.activePDSTornado || window.activeFFE ||
+            customThreatFlags.tornadoEmergency || customThreatFlags.tornadoPDS || customThreatFlags.ffEmergency ||
             _hasExtremeWindWarning || _hasTyphoonWarning || _hasHurricaneWarningNow || _hasTsunamiWarning;
 
         // CRITICAL: Confirmed (OBSERVED) tornado on the ground, Destructive SVR,
@@ -6221,16 +6275,22 @@
         const _isCritical = !_isLifeThreatening && (
             (window.activeTornadoWarning && window.activeTornadoObserved) ||
             window.activeSVRDestructive ||
-            ((window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood) && !window.activeFFE)
+            ((window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood) && !window.activeFFE) ||
+            customThreatFlags.tornadoObserved ||
+            customThreatFlags.svrDestructive ||
+            (customThreatFlags.ffConsiderable && !customThreatFlags.ffEmergency)
         );
 
         // DANGEROUS: Any other short-fused warning (radar-indicated tornado, standard SVR,
         // flash flood warning, snow squall, extreme wind, dust storm).
         const _SHORT_FUSED = ['tornado warning','severe thunderstorm warning','flash flood warning','snow squall warning','extreme wind warning','dust storm warning'];
-        const _hasDangerousWarning = !_isLifeThreatening && !_isCritical && (window.activeAlertEvents || []).some(function(e) {
+        const _hasDangerousWarning = !_isLifeThreatening && !_isCritical && (
+            customThreatFlags.tornado ||
+            (window.activeAlertEvents || []).some(function(e) {
             var el = e.toLowerCase();
             return _SHORT_FUSED.some(function(w) { return el.includes(w); });
-        });
+            })
+        );
 
         let tier, tierClass, emoji, badgeColor;
         if (_isLifeThreatening)        { tier = 'LIFE THREATENING'; tierClass = 'threat-tier-life';     emoji = '\uD83D\uDFE3'; badgeColor = '#e040fb'; }
@@ -6241,20 +6301,20 @@
         else if (score >= 3)           { tier = 'ELEVATED';         tierClass = 'threat-tier-elev';     emoji = '\uD83D\uDFE1'; badgeColor = '#ffeb3b'; }
         else                           { tier = 'LOW';              tierClass = 'threat-tier-low';      emoji = '\uD83D\uDFE2'; badgeColor = '#00e676'; }
 
-        // ── 12. Smart Contextual Description ─────────────────────────────
+        // ── 13. Smart Contextual Description ─────────────────────────────
         const _activeEvtsLower = (window.activeAlertEvents || []).map(function(e) { return e.toLowerCase(); });
         // Build lowercase-keyed onset map — activeAlertOnsets stores keys with original casing
         const _onsetsByLower = {};
         Object.keys(window.activeAlertOnsets || {}).forEach(function(k) { _onsetsByLower[k.toLowerCase()] = window.activeAlertOnsets[k]; });
         const _activeNow = function(kw) { return _activeEvtsLower.some(function(e) { var ms = _onsetsByLower[e] || 0; return e.includes(kw) && (!ms || ms <= Date.now()); }); };
         const descFlags = {
-            torEmergency:       window.activeTornadoEmergency,
-            pdsTor:             window.activePDSTornado,
-            ffe:                window.activeFFE,
-            torObserved:        window.activeTornadoObserved && !window.activePDSTornado && !window.activeTornadoEmergency,
-            destructiveSVR:     window.activeSVRDestructive && !window.activeTornadoObserved && !window.activePDSTornado && !window.activeTornadoEmergency,
-            considerableFFW:    (window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood) && !window.activeFFE,
-            torWarning:         window.activeTornadoWarning && !window.activeTornadoObserved && !window.activePDSTornado && !window.activeTornadoEmergency,
+            torEmergency:       window.activeTornadoEmergency || customThreatFlags.tornadoEmergency,
+            pdsTor:             window.activePDSTornado || customThreatFlags.tornadoPDS,
+            ffe:                window.activeFFE || customThreatFlags.ffEmergency,
+            torObserved:        (window.activeTornadoObserved || customThreatFlags.tornadoObserved) && !window.activePDSTornado && !window.activeTornadoEmergency && !customThreatFlags.tornadoPDS && !customThreatFlags.tornadoEmergency,
+            destructiveSVR:     (window.activeSVRDestructive || customThreatFlags.svrDestructive) && !window.activeTornadoObserved && !window.activePDSTornado && !window.activeTornadoEmergency && !customThreatFlags.tornadoPDS && !customThreatFlags.tornadoEmergency,
+            considerableFFW:    (window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood || customThreatFlags.ffConsiderable) && !window.activeFFE && !customThreatFlags.ffEmergency,
+            torWarning:         (window.activeTornadoWarning || customThreatFlags.tornado) && !window.activeTornadoObserved && !window.activePDSTornado && !window.activeTornadoEmergency && !customThreatFlags.tornadoObserved && !customThreatFlags.tornadoPDS && !customThreatFlags.tornadoEmergency,
             night:              isNightAtStation,
             heavyRain:          livePrecipInt >= 0.15,
             // Heat
@@ -7933,6 +7993,97 @@
         return '#ce93d8';
     }
 
+    function customSkyPointInRing(point, ring) {
+        var inside = false;
+        for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            var xi = Number(ring[i][0]), yi = Number(ring[i][1]);
+            var xj = Number(ring[j][0]), yj = Number(ring[j][1]);
+            if (((yi > point[1]) !== (yj > point[1])) &&
+                point[0] < (xj - xi) * (point[1] - yi) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+        }
+        return inside;
+    }
+
+    function customSkyPointInGeometry(latValue, lonValue, geometry) {
+        if (!geometry || !Array.isArray(geometry.coordinates)) return false;
+        var point = [Number(lonValue), Number(latValue)];
+        var polygons = geometry.type === 'Polygon' ? [geometry.coordinates] :
+            (geometry.type === 'MultiPolygon' ? geometry.coordinates : []);
+        return polygons.some(function(polygon) {
+            return Array.isArray(polygon[0]) && customSkyPointInRing(point, polygon[0]) &&
+                !polygon.slice(1).some(function(hole) { return customSkyPointInRing(point, hole); });
+        });
+    }
+
+    function customSkyAlertQualifiers(props) {
+        var raw = customSkyAlertValue(props, ['qualifiers', 'qualifier', 'alertQualifiers', 'alert_qualifiers', 'tags'], '');
+        if (Array.isArray(props && props.qualifiers)) raw = props.qualifiers.join(', ');
+        return String(raw).toLowerCase().replace(/[\/_\-]+/g, ' ');
+    }
+
+    function customSkyThreatInfo(feature) {
+        var props = feature && feature.properties || {};
+        var classText = customSkyAlertValue(props, [
+            'alertClass', 'alert_class', 'alertClassCode', 'alert_class_code',
+            'class', 'severity', 'alertType', 'alert_type', 'event', 'type'
+        ], '').toUpperCase();
+        var qualifiers = customSkyAlertQualifiers(props);
+        var combined = classText + ' ' + qualifiers;
+        var family = '', score = 0, label = '', color = '#ff9100';
+        // SkyMonitor MDs intentionally never enter threat-level scoring.
+        if (isCustomSkyMesoscaleDiscussion(props) || /\bMD\b|MESOSCALE DISCUSSION/.test(classText)) return null;
+        if (/\bTOR\b|TORNADO/.test(classText)) {
+            family = 'tornado'; score = 8; label = 'SkyMonitor Tornado Warning'; color = '#ff1744';
+            if (/TORNADO EMERGENCY/.test(combined) || /TORNADO EMERGENCY/.test(qualifiers)) {
+                score = 20; label = 'SkyMonitor Tornado Emergency'; color = '#e040fb';
+            } else if (/PDS|PARTICULARLY DANGEROUS/.test(combined)) {
+                score = 15; label = 'SkyMonitor PDS Tornado Warning'; color = '#e040fb';
+            } else if (/OBSERVED|CONFIRMED|SPOTTER|LAW ENFORCEMENT|PUBLIC CONFIRMED|SURFACE OBSERV/.test(combined)) {
+                score = 11; label = 'SkyMonitor Confirmed Tornado'; color = '#ff1744';
+            }
+        } else if (/\bSVR\b|SEVERE THUNDERSTORM/.test(classText)) {
+            family = 'svr'; score = 6; label = 'SkyMonitor SVR Warning'; color = '#ff9100';
+            if (/DESTRUCTIVE/.test(qualifiers)) { score = 7; label = 'SkyMonitor Destructive SVR'; color = '#ff5722'; }
+            else if (/CONSIDERABLE/.test(qualifiers)) { score = 7; label = 'SkyMonitor Considerable SVR'; color = '#ff7043'; }
+            if (/TORNADO POSSIBLE/.test(qualifiers)) score += 1;
+        } else if (/\bFFW\b|FLASH FLOOD WARNING/.test(classText)) {
+            family = 'flashFlood'; score = 6; label = 'SkyMonitor Flash Flood Warning'; color = '#00bcd4';
+            if (/FLASH FLOOD EMERGENCY|CATASTROPHIC/.test(combined)) { score = 16; label = 'SkyMonitor Flash Flood Emergency'; color = '#e040fb'; }
+            else if (/CONSIDERABLE/.test(qualifiers)) { score = 9; label = 'SkyMonitor Considerable Flash Flood Warning'; }
+        } else if (/\bSPS\b|SPECIAL WEATHER STATEMENT/.test(classText)) {
+            family = 'sps'; score = 1; label = 'SkyMonitor Special Weather Statement'; color = '#ffeb3b';
+            if (/DEVELOPING STORM|STRONG WIND|SMALL HAIL|SNOW SQUALL/.test(qualifiers)) score += 1;
+        } else return null;
+        return { family: family, score: score, label: label, color: color, feature: feature };
+    }
+
+    async function loadCustomSkyThreatAlerts() {
+        if (localStorage.getItem('user_reports_enabled') !== 'true' || window.isOutsideUS) {
+            window.customSkyThreatAlerts = [];
+            return;
+        }
+        try {
+            var res = await fetch(CUSTOM_SKY_ALERTS_WORKER_URL, { headers: { 'Accept': 'application/geo+json, application/json' } });
+            if (!res.ok) throw new Error('Failed to fetch custom alerts');
+            var features = getCustomSkyAlertFeatures(await res.json());
+            window.customSkyThreatAlerts = features.map(function(item) {
+                var feature = toCustomSkyAlertFeature(item);
+                if (!feature || !feature.geometry || !customSkyPointInGeometry(lat, lon, feature.geometry)) return null;
+                var info = customSkyThreatInfo(feature);
+                if (!info) return null;
+                var props = feature.properties || {};
+                var expires = customSkyAlertValue(props, ['expires', 'expiresAt', 'expires_at', 'expiration', 'expirationTime', 'endTime', 'ends'], '');
+                var onset = customSkyAlertValue(props, ['onset', 'effective', 'effectiveAt', 'effective_at', 'issued', 'issuedAt', 'issued_at', 'created_at'], '');
+                var onsetMs = onset ? new Date(onset).getTime() : 0;
+                var expiresMs = expires ? new Date(expires).getTime() : 0;
+                if ((onsetMs && onsetMs > Date.now()) || (expiresMs && expiresMs <= Date.now())) return null;
+                return info;
+            }).filter(Boolean);
+        } catch (e) {
+            window.customSkyThreatAlerts = [];
+        }
+    }
+
     async function loadCustomSkyAlerts() {
         if (!customSkyAlertLayer || !window.L) return;
         if (!customSkyAlertsVisible) {
@@ -9468,6 +9619,9 @@
             // Check location flags, not display state: the NDBC fetch inside
             // fetchBeachForecast may still be in flight when fetchAlerts resolves,
             // leaving beach-section hidden even though we're at a beach.
+            // Load qualifying, in-boundary SkyMonitor alerts before the first
+            // threat computation so custom alerts participate immediately.
+            await loadCustomSkyThreatAlerts();
             var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
             if (window.isBeachLocation || window.isWaterLocation ||
                 _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
