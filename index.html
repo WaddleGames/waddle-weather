@@ -660,7 +660,7 @@
             </div>
         </div>
         <div class="settings-row">
-            <span class="settings-label">User Report Info</span>
+            <span class="settings-label">Integrate User Reports and Alerts</span>
             <div style="display:flex; gap:6px; align-items:center;">
                 <div class="btn-group" style="flex:1;">
                     <button id="opt-user-reports-on" class="btn-opt" onclick="setUserReportsEnabled(true)" style="font-size:0.65em;">ENABLE</button>
@@ -705,14 +705,14 @@
          style="display:none; position:fixed; inset:0; z-index:4000; background:rgba(0,0,0,0.8); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
     <div style="background:#0b1e2d; border:1px solid #223344; border-radius:15px; padding:25px; width:90%; max-width:320px; box-shadow:0 0 50px rgba(0,0,0,1);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <span style="font-size:0.78em; color:#556677; letter-spacing:0.5px;">About User Report Info</span>
+            <span style="font-size:0.78em; color:#556677; letter-spacing:0.5px;">About Integrating User Reports and Alerts</span>
             <button onclick="closeUserReportInfoModal()" style="background:none; border:none; color:#445566; cursor:pointer; font-size:1.2em;">&#10005;</button>
         </div>
         <p style="font-size:0.82em; line-height:1.65; color:#ccd6dd; margin:0;">
-            When this is enabled, nearby live user reports will be taken into account with Threat Level, Forecasts, and more.
+            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
         </p>
         <p style="font-size:0.78em; line-height:1.6; color:#ff9100; margin:14px 0 0 0; font-weight:700;">
-            This is a BETA feature and should NOT be relied on.
+            DISCLAIMER: SkyMonitor reports and custom alerts are not officially supported, so mistakes can be made. Be sure to report custom alerts using the report button if you think they are inaccurate or misleading.
         </p>
     </div>
     </div>
