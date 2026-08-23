@@ -1885,6 +1885,8 @@
             window.customSkyActiveFeatures = [];
             renderCustomSkyHazards();
             computeThreatLevel();
+            // Restore the NWS banner if a custom headline had been displayed.
+            fetchAlerts();
         }
     }
 
@@ -8113,13 +8115,35 @@
         if (!stack) return;
         stack.querySelectorAll('.custom-skymonitor-hazard').forEach(function(el) { el.remove(); });
         var features = window.customSkyActiveFeatures || [];
+        var banner = document.getElementById('alert-banner');
         if (!features.length) {
             if (!(window.activeAlertEvents || []).length && !stack.children.length) {
                 stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>";
             }
+            if (banner) banner.removeAttribute('data-custom-skymonitor');
             return;
         }
         if (!(window.activeAlertEvents || []).length) stack.innerHTML = '';
+        // Custom SkyMonitor alerts use the same home-page banner as NWS alerts.
+        // The headline is intentionally shown verbatim as the banner text.
+        if (banner) {
+            var bannerFeature = features[0];
+            var bannerProps = bannerFeature.properties || {};
+            var bannerHeadline = customSkyAlertValue(
+                bannerProps,
+                ['headline', 'title', 'name', 'message'],
+                'SkyMonitor Alert'
+            );
+            var bannerThreat = customSkyThreatInfo(bannerFeature);
+            var bannerColor = bannerThreat && bannerThreat.family === 'tornado'
+                ? (bannerThreat.score >= 20 ? '#4a148c' : (bannerThreat.score >= 15 ? '#880e4f' : '#7f0000'))
+                : (bannerThreat && bannerThreat.family === 'flashFlood' ? '#00838f' : '#ff9100');
+            banner.style.display = 'block';
+            banner.style.background = bannerColor;
+            banner.classList.remove('emergency-banner');
+            banner.innerText = bannerHeadline;
+            banner.setAttribute('data-custom-skymonitor', 'true');
+        }
         features.forEach(function(feature, index) {
             var props = feature.properties || {};
             var threatInfo = customSkyThreatInfo(feature);
