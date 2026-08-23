@@ -2709,6 +2709,32 @@
         }
     }
 
+    function _localizePirateAlertUnits(text) {
+        if (!text || (typeof _isMetric === 'function' && _isMetric())) return text;
+        // International alert feeds commonly describe precipitation in mm/cm
+        // and wind/distance in metric units. Convert the displayed description
+        // only; the source alert data remains untouched.
+        return text
+            .replace(/(\d+(?:\.\d+)?)\s*mm\b/gi, function(_, v) {
+                return (parseFloat(v) / 25.4).toFixed(2).replace(/\.?0+$/, '') + ' in';
+            })
+            .replace(/(\d+(?:\.\d+)?)\s*cm\b/gi, function(_, v) {
+                return (parseFloat(v) / 2.54).toFixed(2).replace(/\.?0+$/, '') + ' in';
+            })
+            .replace(/(\d+(?:\.\d+)?)\s*km\/h\b/gi, function(_, v) {
+                return Math.round(parseFloat(v) * 0.621371) + ' mph';
+            })
+            .replace(/(\d+(?:\.\d+)?)\s*m\/s\b/gi, function(_, v) {
+                return Math.round(parseFloat(v) * 2.23694) + ' mph';
+            })
+            .replace(/(\d+(?:\.\d+)?)\s*km\b/gi, function(_, v) {
+                return (parseFloat(v) * 0.621371).toFixed(1).replace(/\.?0+$/, '') + ' mi';
+            })
+            .replace(/(\d+(?:\.\d+)?)\s*°\s*C\b/gi, function(_, v) {
+                return Math.round(parseFloat(v) * 9 / 5 + 32) + '°F';
+            });
+    }
+
     async function renderPirateAlerts(stack, banner) {
         const alerts = window.pirateAlerts || [];
         if (!alerts.length) { stack.innerHTML = "<div style='opacity:0.5; padding:20px;'>No active hazards.</div>"; return; }
@@ -2765,11 +2791,12 @@
                     } catch(e) {}
                 }
             }
+            desc = _localizePirateAlertUnits(desc);
             const isTruncated = desc.length > 140;
             const shortDesc = isTruncated ? desc.slice(0, 140) + '...' : desc;
             const pwId = 'pw-' + Date.now() + '-' + Math.floor(Math.random() * 9999);
             const _cardColor = _pirateAlertColor(alert.severity);
-             stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b>' + timingHtml + '<br><small>' + escapeHtml(shortDesc) + '</small>' + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button><div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
+             stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b><br><small>' + escapeHtml(shortDesc) + '</small>' + timingHtml + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button><div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
         }
     }
 
@@ -5909,7 +5936,9 @@
                 _intlAlertCount++;
                 if ((_intlSeverityRank[_sev] || 0) > (_intlSeverityRank[_intlMaxSeverity] || 0)) _intlMaxSeverity = _sev;
                 score += _intlSeverityPoints[_sev] || 2;
-                factorList.push({ label: alert.title || (_sev.charAt(0).toUpperCase() + _sev.slice(1) + ' alert'), color: _pirateAlertColor(_sev) });
+                var _factorTitle = alert.title || (_sev.charAt(0).toUpperCase() + _sev.slice(1) + ' alert');
+                var _translatedFactorTitle = (window.alertTranslationCache || {})[_factorTitle] || _factorTitle;
+                factorList.push({ label: _translatedFactorTitle, color: _pirateAlertColor(_sev) });
             });
             // Several notices can describe the same system; prevent stacking
             // from overwhelming the normal threat bands while preserving the
