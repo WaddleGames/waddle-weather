@@ -355,7 +355,12 @@
             max-height: 360px; overflow-y: auto; overflow-x: hidden; color: rgba(255,255,255,0.9);
         }
         .alert-timing {
-            display: block; width: max-content; max-width: 100%; margin-top: 5px;
+            display: inline-block; width: max-content; max-width: 100%; margin-right: 5px;
+            vertical-align: middle;
+        }
+        .alert-meta-row {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 0;
+            margin-top: 4px;
         }
         .alert-full-text ul { margin: 4px 0; padding-left: 18px; }
         .alert-full-text li { margin: 2px 0; }
@@ -2798,10 +2803,9 @@
             title = _localizePirateAlertUnits(title);
             desc = _localizePirateAlertUnits(desc);
             const isTruncated = desc.length > 140;
-            const shortDesc = isTruncated ? desc.slice(0, 140) + '...' : desc;
             const pwId = 'pw-' + Date.now() + '-' + Math.floor(Math.random() * 9999);
             const _cardColor = _pirateAlertColor(alert.severity);
-             stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b><br><small>' + escapeHtml(shortDesc) + '</small>' + timingHtml + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button><div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
+             stack.innerHTML += '<div class="alert-card" style="background:' + _cardColor + '; align-items:flex-start;"><div style="font-size:1.8em; padding-top:2px;">\u26A0\uFE0F</div><div style="flex:1; min-width:0;"><b>' + escapeHtml(title) + '</b><div class="alert-meta-row">' + timingHtml + (isTruncated ? '<button class="alert-expand-btn" id="btn-' + pwId + '" onclick="toggleAlertText(\'' + pwId + '\')">\u25bc Show more</button>' : '') + '</div>' + (!isTruncated ? '<small>' + escapeHtml(desc) + '</small>' : '') + (isTruncated ? '<div id="full-' + pwId + '" class="alert-full-text">' + escapeHtml(desc) + '</div>' : '') + '</div></div>';
         }
     }
 
@@ -3869,7 +3873,7 @@
                     }
 
                     // v1.0.4: button BEFORE the full-text div
-                    stack.innerHTML += '<a href="https://forecast.weather.gov/MapClick.php?lat=' + lat + '&lon=' + lon + '" target="_blank" class="alert-card" style="background:' + bgColor + '; align-items:flex-start;"><img src="' + icon + '"' + (isNightAtStation ? ' onerror="this.onerror=null;this.src=\'' + dayIcon + '\'"' : '') + ' style="width:55px; border-radius:5px; margin-top:2px; flex-shrink:0;"><div style="flex:1; min-width:0;"><div style="font-weight:bold;">' + escapeHtml(displayName) + '</div>' + _timingHtml + (extraDetails ? '<div style="font-size:0.75em; opacity:0.85; margin-top:4px;">' + extraDetails + '</div>' : '') + (fullContent ? '<button class="alert-expand-btn" id="btn-' + nwsId + '" onclick="event.stopPropagation(); event.preventDefault(); toggleAlertText(\'' + nwsId + '\')">\u25bc Show more</button><div id="full-' + nwsId + '" class="alert-full-text">' + fullContent + '</div>' : '') + '</div></a>';
+                    stack.innerHTML += '<a href="https://forecast.weather.gov/MapClick.php?lat=' + lat + '&lon=' + lon + '" target="_blank" class="alert-card" style="background:' + bgColor + '; align-items:flex-start;"><img src="' + icon + '"' + (isNightAtStation ? ' onerror="this.onerror=null;this.src=\'' + dayIcon + '\'"' : '') + ' style="width:55px; border-radius:5px; margin-top:2px; flex-shrink:0;"><div style="flex:1; min-width:0;"><div style="font-weight:bold;">' + escapeHtml(displayName) + '</div><div class="alert-meta-row">' + _timingHtml + (fullContent ? '<button class="alert-expand-btn" id="btn-' + nwsId + '" onclick="event.stopPropagation(); event.preventDefault(); toggleAlertText(\'' + nwsId + '\')">\u25bc Show more</button>' : '') + '</div>' + (extraDetails ? '<div style="font-size:0.75em; opacity:0.85; margin-top:4px;">' + extraDetails + '</div>' : '') + (fullContent ? '<div id="full-' + nwsId + '" class="alert-full-text">' + fullContent + '</div>' : '') + '</div></a>';
                 });
 
                 _expandedAlertIds.forEach(function(id) {
