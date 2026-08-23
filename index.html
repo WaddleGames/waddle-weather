@@ -354,6 +354,9 @@
             border-top: 1px solid rgba(255,255,255,0.15); padding-top: 8px;
             max-height: 360px; overflow-y: auto; overflow-x: hidden; color: rgba(255,255,255,0.9);
         }
+        .alert-timing {
+            display: block; width: max-content; max-width: 100%; margin-top: 5px;
+        }
         .alert-full-text ul { margin: 4px 0; padding-left: 18px; }
         .alert-full-text li { margin: 2px 0; }
 
@@ -2749,14 +2752,15 @@
         stack.innerHTML = '';
         const _doTranslate = localStorage.getItem('alerts_language') === 'en';
         for (const alert of alerts) {
-            let title = alert.title || 'Weather Alert';
+            const _rawTitle = alert.title || 'Weather Alert';
+            let title = _rawTitle;
             if (_doTranslate) {
-                if (window.alertTranslationCache[title]) title = window.alertTranslationCache[title];
+                if (window.alertTranslationCache[_rawTitle]) title = window.alertTranslationCache[_rawTitle];
                 else {
                     try {
-                        const tr = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(title));
+                        const tr = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(_rawTitle));
                         const td = await tr.json();
-                        if (td?.[0]?.[0]?.[0]) { window.alertTranslationCache[alert.title] = td[0][0][0]; title = td[0][0][0]; }
+                        if (td?.[0]?.[0]?.[0]) { window.alertTranslationCache[_rawTitle] = td[0][0][0]; title = td[0][0][0]; }
                     } catch(e) {}
                 }
             }
@@ -2771,9 +2775,9 @@
              const _expiresText = (_expiresMs && _inEffect)
                  ? _fmtAlertTime(new Date(_expiresMs).toISOString()) : '';
              const timingHtml = !_inEffect && _onsetText
-                 ? '<div style="display:inline-block;font-size:0.72em;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:4px;padding:2px 7px;margin-top:4px;">In effect ' + escapeHtml(_onsetText) + '</div>'
+                  ? '<div class="alert-timing" style="font-size:0.72em;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:4px;padding:2px 7px;">In effect ' + escapeHtml(_onsetText) + '</div>'
                  : (_expiresText
-                     ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_expiresText) + '</div>'
+                      ? '<div class="alert-timing" style="font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;">Expires ' + escapeHtml(_expiresText) + '</div>'
                      : '');
             let desc = alert.description || '';
             if (desc && _doTranslate) {
@@ -2791,6 +2795,7 @@
                     } catch(e) {}
                 }
             }
+            title = _localizePirateAlertUnits(title);
             desc = _localizePirateAlertUnits(desc);
             const isTruncated = desc.length > 140;
             const shortDesc = isTruncated ? desc.slice(0, 140) + '...' : desc;
@@ -5937,7 +5942,8 @@
                 if ((_intlSeverityRank[_sev] || 0) > (_intlSeverityRank[_intlMaxSeverity] || 0)) _intlMaxSeverity = _sev;
                 score += _intlSeverityPoints[_sev] || 2;
                 var _factorTitle = alert.title || (_sev.charAt(0).toUpperCase() + _sev.slice(1) + ' alert');
-                var _translatedFactorTitle = (window.alertTranslationCache || {})[_factorTitle] || _factorTitle;
+                 var _translatedFactorTitle = (window.alertTranslationCache || {})[_factorTitle] || _factorTitle;
+                 _translatedFactorTitle = _localizePirateAlertUnits(_translatedFactorTitle);
                 factorList.push({ label: _translatedFactorTitle, color: _pirateAlertColor(_sev) });
             });
             // Several notices can describe the same system; prevent stacking
