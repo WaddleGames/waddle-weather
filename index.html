@@ -8033,25 +8033,20 @@
             'alertClass', 'alert_class', 'alertClassCode', 'alert_class_code',
             'class', 'severity', 'alertType', 'alert_type', 'event', 'type'
         ], '').toUpperCase();
-        var qualifiers = customSkyAlertQualifiers(props);
-        // Some worker revisions place the selected qualifier in the
-        // headline, description, or a nested alert object rather than in a
-        // top-level `qualifiers` field. Include the complete payload as a
-        // fallback so "Tornado Emergency" cannot degrade to plain TOR.
-        var payloadText = '';
-        try { payloadText = JSON.stringify(props).toUpperCase(); } catch (e) {}
-        var combined = (classText + ' ' + qualifiers + ' ' + payloadText).toUpperCase();
-        var classSignals = classText + ' ' + payloadText;
+        var qualifiers = customSkyAlertQualifiers(props).toUpperCase();
+        // Qualifiers are the authoritative severity signal. Do not infer
+        // severity from issuer-editable headlines or descriptions.
+        var classSignals = classText;
         var family = '', score = 0, label = '', color = '#ff9100';
         // SkyMonitor MDs intentionally never enter threat-level scoring.
         if (isCustomSkyMesoscaleDiscussion(props) || /\bMD\b|MESOSCALE DISCUSSION/.test(classText)) return null;
         if (/\bTOR\b|TORNADO/.test(classSignals)) {
             family = 'tornado'; score = 8; label = 'SkyMonitor Tornado Warning'; color = '#ff1744';
-            if (/TORNADO EMERGENCY/.test(combined) || /TORNADO EMERGENCY/.test(qualifiers)) {
+            if (/TORNADO EMERGENCY/.test(qualifiers)) {
                 score = 20; label = 'SkyMonitor Tornado Emergency'; color = '#e040fb';
-            } else if (/PDS|PARTICULARLY DANGEROUS/.test(combined)) {
+            } else if (/PDS|PARTICULARLY DANGEROUS/.test(qualifiers)) {
                 score = 15; label = 'SkyMonitor PDS Tornado Warning'; color = '#e040fb';
-            } else if (/OBSERVED|CONFIRMED|SPOTTER|LAW ENFORCEMENT|PUBLIC CONFIRMED|SURFACE OBSERV/.test(combined)) {
+            } else if (/OBSERVED|CONFIRMED|SPOTTER|LAW ENFORCEMENT|PUBLIC CONFIRMED|SURFACE OBSERV/.test(qualifiers)) {
                 score = 11; label = 'SkyMonitor Confirmed Tornado'; color = '#ff1744';
             }
         } else if (/\bSVR\b|SEVERE THUNDERSTORM/.test(classSignals)) {
@@ -8061,7 +8056,7 @@
             if (/TORNADO POSSIBLE/.test(qualifiers)) score += 1;
         } else if (/\bFFW\b|FLASH FLOOD WARNING/.test(classSignals)) {
             family = 'flashFlood'; score = 6; label = 'SkyMonitor Flash Flood Warning'; color = '#00bcd4';
-            if (/FLASH FLOOD EMERGENCY|CATASTROPHIC/.test(combined)) { score = 16; label = 'SkyMonitor Flash Flood Emergency'; color = '#e040fb'; }
+            if (/FLASH FLOOD EMERGENCY|CATASTROPHIC/.test(qualifiers)) { score = 16; label = 'SkyMonitor Flash Flood Emergency'; color = '#e040fb'; }
             else if (/CONSIDERABLE/.test(qualifiers)) { score = 9; label = 'SkyMonitor Considerable Flash Flood Warning'; }
         } else if (/\bSPS\b|SPECIAL WEATHER STATEMENT/.test(classSignals)) {
             family = 'sps'; score = 1; label = 'SkyMonitor Special Weather Statement'; color = '#ffeb3b';
