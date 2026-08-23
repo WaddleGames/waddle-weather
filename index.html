@@ -8117,7 +8117,7 @@
         features.forEach(function(feature, index) {
             var props = feature.properties || {};
             var threatInfo = customSkyThreatInfo(feature);
-            var alertClass = customSkyAlertValue(props, ['alertClass', 'alert_class', 'alertClassCode', 'alert_class_code', 'class', 'alertType', 'alert_type', 'event', 'type'], 'Custom Alert');
+            var alertClass = customSkyAlertValue(props, ['alertClass', 'alert_class', 'alertClassCode', 'alert_class_code', 'class', 'severity', 'alertType', 'alert_type', 'event', 'type'], 'Custom Alert');
             var headline = customSkyAlertValue(props, ['headline', 'title', 'name', 'message'], alertClass);
             var issuer = customSkyAlertValue(props, ['issuer', 'issuerName', 'issuedBy', 'discordUsername', 'discord_username', 'uploadedBy', 'uploaded_by', 'uploader', 'publisher', 'author', 'username', 'source', 'wfo', 'office'], 'SkyMonitor');
             var qualifiers = customSkyAlertQualifiers(props).toUpperCase().replace(/\s*,\s*/g, ', ');
@@ -8149,12 +8149,25 @@
             var reportHtml = reportUrl
                 ? '<button type="button" onclick="event.stopPropagation(); window.open(\'' + reportUrl.replace(/'/g, '\\&#39;') + '\', \'_blank\', \'noopener\')" style="margin-top:10px;padding:5px 9px;border:1px solid rgba(255,255,255,0.35);border-radius:5px;background:rgba(0,0,0,0.22);color:#fff;font-size:0.72em;font-weight:700;cursor:pointer;">&#128221; Report</button>'
                 : '';
+            var customCardColor = threatInfo && threatInfo.family === 'tornado'
+                ? (threatInfo.score >= 20 ? '#4a148c' : (threatInfo.score >= 15 ? '#880e4f' : '#7f0000'))
+                : (threatInfo && threatInfo.family === 'flashFlood' ? '#00838f' : '#e65100');
+            var customHazardId = 'custom-hazard-' + index + '-' + Date.now();
+            var customTiming = expires
+                ? '<span style="display:inline-block;font-size:0.72em;font-weight:600;color:#fff;background:rgba(0,0,0,0.32);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires in ' + escapeHtml(formatReportingMinutesUntil(expires)) + '</span>'
+                : '';
+            var visibleDetails = '<div style="font-size:0.75em;line-height:1.45;margin-top:5px;">' +
+                '<div><b>Alert Class:</b> ' + escapeHtml(alertClass) + '</div>' +
+                (qualifiers ? '<div><b>Qualifiers:</b> ' + escapeHtml(qualifiers) + '</div>' : '') + '</div>';
+            var fullDetails = '<div id="full-' + customHazardId + '" class="alert-full-text">' + detailRows + summaryHtml + actionHtml + reportHtml + '</div>';
             var card = document.createElement('div');
             card.className = 'alert-card custom-skymonitor-hazard';
-            card.style.cssText = 'background:' + (threatInfo ? threatInfo.color : customSkyAlertColor(props)) + '; align-items:flex-start; cursor:default;';
-            card.innerHTML = '<div style="flex:1;min-width:0;"><div style="font-weight:bold;">' + escapeHtml(headline) +
-                '</div><div class="alert-meta-row"><span style="font-size:0.75em;opacity:0.9;">Custom alert</span></div>' +
-                '<div style="font-size:0.78em;line-height:1.45;margin-top:6px;">' + detailRows + summaryHtml + actionHtml + reportHtml + '</div></div>';
+            card.style.cssText = 'background:' + customCardColor + '; align-items:flex-start; cursor:default;';
+            card.innerHTML = '<img src="https://www.weather.gov/bundles/templating/images/top_news/important.png" style="width:55px;border-radius:5px;margin-top:2px;flex-shrink:0;" alt="">' +
+                '<div style="flex:1;min-width:0;"><div style="font-weight:bold;">' + escapeHtml(headline) +
+                '</div><div class="alert-meta-row">' + customTiming +
+                '<button class="alert-expand-btn" id="btn-' + customHazardId + '" onclick="event.stopPropagation(); toggleAlertText(\'' + customHazardId + '\')">&#9660; Show more</button></div>' +
+                visibleDetails + fullDetails + '</div>';
             stack.appendChild(card);
         });
     }
