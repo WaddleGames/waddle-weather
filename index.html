@@ -8435,7 +8435,7 @@
         window.reportingMap = reportingMap;
 
         // Layer 1 — physical geography only (no labels), sits below radar
-        L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+        L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2ehr_1_46de56c8f59b2315b9ea2d11', {
             attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors &copy; <a href="https://carto.com">CARTO</a>',
             subdomains: 'abcd', maxZoom: 19
         }).addTo(reportingMap);
@@ -8447,7 +8447,7 @@
         reportingRadarLayer.addTo(reportingMap);
 
         // Layer 3 — roads + labels only (transparent background), floats above radar
-        L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png', {
+        L_ref.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png?key=cb1_2ehr_1_46de56c8f59b2315b9ea2d11', {
             subdomains: 'abcd', maxZoom: 19, pane: 'overlayPane'
         }).addTo(reportingMap);
 
@@ -8999,7 +8999,7 @@
                     setTimeout(()=>{
                         const map=L.map(mapEl,{dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,keyboard:false,zoomControl:false,attributionControl:false});
                         window._tropMap=map;
-                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19}).addTo(map);
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_2ehr_1_46de56c8f59b2315b9ea2d11',{subdomains:'abcd',maxZoom:19}).addTo(map);
                         let bounds=null;
                         if(s0.conePgn?.coordinates){
                             const ring=s0.conePgn.coordinates[0].map(c=>[c[1],c[0]]);
