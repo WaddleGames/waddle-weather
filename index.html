@@ -1601,7 +1601,8 @@
                 town: props.town || '',
                 village: props.village || '',
                 county: props.county || '',
-                suburb: props.suburb || props.locality || '',
+                suburb: props.district || props.suburb || props.locality || '',
+                district: props.district || '',
                 neighbourhood: props.neighbourhood || '',
                 quarter: props.quarter || ''
             },
@@ -1641,10 +1642,61 @@
     }
 
     function _updateLivePanelCity(cityLat, cityLon) {
-        _osmGeocodeFetch('reverse', { lat: cityLat, lon: cityLon })
-            .then(function(d) {
-                var primaryCity = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || '';
-                var suburb = (d.address && (d.address.suburb || d.address.neighbourhood || d.address.quarter)) || '';
+        // Photon reverse geocoding is excellent for finding nearby OSM
+        // features, but its first result can be a small locality or township.
+        // BigDataCloud supplies the user-facing city and administrative
+        // hierarchy for this display only; Photon remains the fallback.
+        var cityLookup = fetch(
+            'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+            encodeURIComponent(cityLat) + '&longitude=' + encodeURIComponent(cityLon) +
+            '&localityLanguage=en',
+            {
+                headers: {
+                    'Accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.8'
+                },
+                cache: 'no-store'
+            }
+        ).then(function(response) {
+            if (!response.ok) throw new Error('City lookup failed: ' + response.status);
+            return response.json();
+        }).catch(function() {
+            return null;
+        });
+
+        Promise.all([
+            cityLookup,
+            _osmGeocodeFetch('reverse', { lat: cityLat, lon: cityLon })
+                .catch(function() { return {}; })
+        ]).then(function(results) {
+                var cityData = results[0] || {};
+                var photonData = results[1] || {};
+                var photonAddress = photonData.address || {};
+                var primaryCity = cityData.city || cityData.locality ||
+                    photonAddress.city || photonAddress.town ||
+                    photonAddress.village || photonAddress.county || '';
+                var suburb = photonAddress.suburb || photonAddress.neighbourhood ||
+                    photonAddress.quarter || '';
+
+                // BigDataCloud's admin level 10 entry is the neighborhood or
+                // community area in places such as Chicago's Avondale.
+                var admin = cityData.localityInfo && cityData.localityInfo.administrative;
+                if (Array.isArray(admin)) {
+                    for (var i = admin.length - 1; i >= 0; i--) {
+                        var adminName = admin[i] && admin[i].name;
+                        var adminLevel = Number(admin[i] && admin[i].adminLevel);
+                        if (adminName && adminLevel >= 9 &&
+                            adminName.toLowerCase() !== String(primaryCity).toLowerCase() &&
+                            !/township|county|state|province/i.test(adminName)) {
+                            suburb = adminName;
+                            break;
+                        }
+                    }
+                }
+                if (suburb && primaryCity &&
+                    suburb.toLowerCase() === String(primaryCity).toLowerCase()) {
+                    suburb = '';
+                }
                 var city = (suburb && primaryCity) ? suburb + ', ' + primaryCity : (suburb || primaryCity || 'Current Location');
                 var livePanel = document.getElementById('coords-panel');
                 if (livePanel && localStorage.getItem('input_mode') === 'live') {
