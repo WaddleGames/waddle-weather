@@ -9283,6 +9283,57 @@
     }
 
     var AIRNOW_KEY = '26BA2E6C-2948-4FA1-B7F2-E342EC39F749';
+    var AIRNOW_BASE = 'https://www.airnowapi.org/aq/';
+
+    // AirNow introduced replacement services in June 2026.  Keep the
+    // request bounded: the old latLong service can stall without returning
+    // an HTTP error, which otherwise makes the UI appear to prefer
+    // Open-Meteo even for a valid US location.
+    async function _fetchAirNowJson(path, params) {
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
+        try {
+            var res = await fetch(AIRNOW_BASE + path + '?' + params, {
+                signal: controller.signal
+            });
+            if (!res.ok) throw new Error('AirNow ' + res.status + ' for ' + path);
+            return await res.json();
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // The replacement AirNow services use camelCase field names and
+    // nowcastAQI.  Normalize them to the shape used by the renderer below.
+    function _normalizeAirNowCurrent(data) {
+        return (Array.isArray(data) ? data : []).map(function(o) {
+            return {
+                AQI: o.nowcastAQI != null ? o.nowcastAQI : (o.aqi != null ? o.aqi : o.AQI),
+                ParameterName: o.parameterName || o.ParameterName || '',
+                ReportingArea: o.reportingAreaName || o.ReportingArea || '',
+                StateCode: o.stateCode || o.StateCode || ''
+            };
+        }).filter(function(o) { return o.AQI != null; });
+    }
+
+    function _normalizeAirNowForecast(data) {
+        return (Array.isArray(data) ? data : []).map(function(o) {
+            return {
+                DateIssue: o.dateIssue || o.DateIssue || '',
+                DateForecast: o.dateValid || o.DateForecast || '',
+                ReportingArea: o.reportingArea || o.ReportingArea || '',
+                StateCode: o.stateCode || o.StateCode || '',
+                ParameterName: o.parameterName || o.ParameterName || '',
+                AQI: o.aqi != null ? o.aqi : o.AQI,
+                Category: {
+                    Number: o.categoryNumber != null ? o.categoryNumber :
+                           (o.Category && o.Category.Number) || 0,
+                    Name: o.categoryName || (o.Category && o.Category.Name) || ''
+                },
+                ActionDay: o.actionDay === true || o.ActionDay === true
+            };
+        });
+    }
 
     async function fetchAQI() {
         var curLat = lat, curLon = lon;
@@ -9291,37 +9342,43 @@
         if (curLat === _aqiLastLat && curLon === _aqiLastLon && now - _aqiLastFetch < 600000) return;
         _aqiLastFetch = now; _aqiLastLat = curLat; _aqiLastLon = curLon;
         try {
-            var tzOff = (window.pirateTimezoneOffset || 0) * 3600000;
-            var localNow = new Date(now + tzOff);
-            var todayStr = localNow.getUTCFullYear() + '-' +
-                           String(localNow.getUTCMonth() + 1).padStart(2, '0') + '-' +
-                           String(localNow.getUTCDate()).padStart(2, '0');
-            var base   = 'https://www.airnowapi.org/aq/';
-            var coordsFcst = 'latitude=' + curLat + '&longitude=' + curLon + '&distance=200&API_KEY=' + AIRNOW_KEY;
-            // Try 50 miles first; if no stations found, widen to 200 miles.
-            // A 404, request failure, or empty station response falls back to
-            // Open-Meteo so the AQI section still has a current value.
+            var coordsFcst = 'format=application/json&latitude=' + curLat +
+                             '&longitude=' + curLon + '&distance=200&API_KEY=' + AIRNOW_KEY;
+            // Use AirNow's non-retiring coordinate lookup.  Try 50 miles
+            // first; if no stations are found, widen to 200 miles.
             var obsData;
-            var isNonUS = false;
+            var airNowError = null;
             for (var dist of [50, 100, 200]) {
-                var coords = 'latitude=' + curLat + '&longitude=' + curLon + '&distance=' + dist + '&API_KEY=' + AIRNOW_KEY;
-                var obsRes = await fetch(base + 'observation/latLong/current/?format=application/json&' + coords);
-                if (!obsRes.ok) {
-                    if (obsRes.status === 404) { isNonUS = true; }
-                    break; // any error (404, 504, etc.) stops the distance loop
+                var coords = 'format=application/json&latitude=' + curLat +
+                             '&longitude=' + curLon + '&distance=' + dist +
+                             '&API_KEY=' + AIRNOW_KEY;
+                try {
+                    var rawObs = await _fetchAirNowJson('observation/current/ziplatlong/', coords);
+                    obsData = _normalizeAirNowCurrent(rawObs);
+                    if (obsData.length > 0) break;
+                } catch(e) {
+                    airNowError = e;
+                    break;
                 }
-                obsData = await obsRes.json();
-                if (obsData && obsData.length > 0) break;
             }
             // AirNow has no current station reading in some valid locations/times.
             // Use the coordinate-specific Open-Meteo AQI instead of hiding the
-            // entire AQI section.
-            if (isNonUS || !obsData || obsData.length === 0) {
+            // entire AQI section.  A failed request is logged diagnostically,
+            // while the user still gets a useful fallback value.
+            if (airNowError || !obsData || obsData.length === 0) {
+                if (airNowError) console.warn('[SkyMonitor AQI] AirNow unavailable:', airNowError);
                 await _fetchAQIFromOpenMeteo(curLat, curLon);
                 return;
             }
-            var fcstRes  = await fetch(base + 'forecast/latLong/?format=application/json&' + coordsFcst + '&date=' + todayStr);
-            var fcstData = fcstRes.ok ? await fcstRes.json() : [];
+            var fcstData = [];
+            try {
+                var rawFcst = await _fetchAirNowJson('forecast/current/', coordsFcst);
+                fcstData = _normalizeAirNowForecast(rawFcst);
+            } catch(e) {
+                // Current observations are still authoritative if the
+                // optional forecast service is temporarily unavailable.
+                console.warn('[SkyMonitor AQI] AirNow forecast unavailable:', e);
+            }
             _renderAQIData(obsData, fcstData);
         } catch(e) {
             // AirNow outages and rate limits should not blank the AQI section.
@@ -9329,7 +9386,8 @@
         }
     }
 
-    // Open-Meteo Air Quality fallback — used for non-US locations where AirNow returns 404.
+    // Open-Meteo Air Quality fallback — used when AirNow has no reading or
+    // the service is unavailable for the selected coordinates.
     // Forecast is not available from Open-Meteo, so the forecast strip is hidden.
     async function _fetchAQIFromOpenMeteo(curLat, curLon) {
         try {
