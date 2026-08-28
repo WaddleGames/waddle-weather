@@ -2041,7 +2041,10 @@
         var btn = document.getElementById('recaptcha-verify-btn');
         var statusEl = document.getElementById('recaptcha-status');
         if (btn) { btn.textContent = '\u2713 Confirm I\'m Human'; btn.disabled = false; btn.style.opacity = '1'; }
-        if (statusEl) statusEl.textContent = '';
+        if (statusEl) {
+            statusEl.textContent = '';
+            statusEl.style.display = '';
+        }
         gate.style.display = 'flex';
         setModalOpen(true);
     }
@@ -2081,8 +2084,14 @@
             setTimeout(function() { closeRecaptchaGate(false); }, 650);
         } catch(e) {
             if (btn) { btn.textContent = '\u2713 Confirm I\'m Human'; btn.disabled = false; btn.style.opacity = '1'; }
-            if (statusEl) statusEl.textContent = '';
-            alert('Could not connect to the reCAPTCHA service. Please check your internet connection and try again.');
+            // This failure is an interruptive action error, not inline
+            // gate status.  Keep it out of the page and use the browser's
+            // native alert so it cannot be mistaken for report content.
+            if (statusEl) {
+                statusEl.textContent = '';
+                statusEl.style.display = 'none';
+            }
+            window.alert('Could not connect to the reCAPTCHA service. Please check your internet connection and try again.');
         }
     }
 
