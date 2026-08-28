@@ -1573,9 +1573,75 @@
         }
     }, true);
 
+    // Nominatim does not expose browser CORS headers. Use Photon, an
+    // OpenStreetMap-backed geocoder with browser CORS support, and normalize
+    // its GeoJSON response to the small Nominatim-shaped object this app uses.
+    function _osmFeatureToGeoResult(feature) {
+        var props = (feature && feature.properties) || {};
+        var coords = (feature && feature.geometry && feature.geometry.coordinates) || [];
+        var displayParts = [];
+        [
+            props.name,
+            props.housenumber && props.street ? props.housenumber + ' ' + props.street : props.street,
+            props.locality,
+            props.district,
+            props.city || props.town || props.village,
+            props.county,
+            props.state,
+            props.country
+        ].forEach(function(part) {
+            if (part && displayParts.indexOf(part) === -1) displayParts.push(part);
+        });
+        return {
+            lat: coords.length > 1 ? String(coords[1]) : '',
+            lon: coords.length > 0 ? String(coords[0]) : '',
+            display_name: displayParts.join(', '),
+            address: {
+                city: props.city || '',
+                town: props.town || '',
+                village: props.village || '',
+                county: props.county || '',
+                suburb: props.suburb || props.locality || '',
+                neighbourhood: props.neighbourhood || '',
+                quarter: props.quarter || ''
+            },
+            // Keep the OSM key/value in the names expected by the existing
+            // water and beach classifiers.
+            class: props.osm_key || '',
+            type: props.osm_value || ''
+        };
+    }
+
+    function _osmGeocodeFetch(kind, params) {
+        var query = new URLSearchParams();
+        Object.keys(params || {}).forEach(function(key) {
+            if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+                query.set(key, String(params[key]));
+            }
+        });
+        var endpoint = kind === 'reverse'
+            ? 'https://photon.komoot.io/reverse?'
+            : 'https://photon.komoot.io/api/?';
+        return fetch(endpoint + query.toString(), {
+            headers: {
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.8'
+            },
+            cache: 'no-store'
+        }).then(function(response) {
+            if (!response.ok) throw new Error('OSM geocoder request failed: ' + response.status);
+            return response.json();
+        }).then(function(data) {
+            var features = Array.isArray(data && data.features) ? data.features : [];
+            if (kind === 'reverse') {
+                return features.length ? _osmFeatureToGeoResult(features[0]) : {};
+            }
+            return features.map(_osmFeatureToGeoResult);
+        });
+    }
+
     function _updateLivePanelCity(cityLat, cityLon) {
-        fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + cityLat + '&lon=' + cityLon))
-            .then(function(r) { return r.json(); })
+        _osmGeocodeFetch('reverse', { lat: cityLat, lon: cityLon })
             .then(function(d) {
                 var primaryCity = (d.address && (d.address.city || d.address.town || d.address.village || d.address.county)) || '';
                 var suburb = (d.address && (d.address.suburb || d.address.neighbourhood || d.address.quarter)) || '';
@@ -1650,8 +1716,7 @@
                 var _doACFetch = function(q) {
                     clearTimeout(_acTimer);
                     _acTimer = setTimeout(function() {
-                        fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(q)))
-                            .then(function(r) { return r.json(); })
+                        _osmGeocodeFetch('search', { q: q, limit: 5 })
                             .then(function(data) { _renderCityAC(data); })
                             .catch(function() {});
                     }, 350);
@@ -1717,8 +1782,7 @@
         if (!query) return;
         if (_isOffline) { alert('You cannot search while offline.'); return; }
         try {
-            const res = await fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(query)));
-            const data = await res.json();
+            const data = await _osmGeocodeFetch('search', { q: query, limit: 5 });
             if (data && data.length > 0) {
                 lat = parseFloat(parseFloat(data[0].lat).toFixed(4));
                 lon = parseFloat(parseFloat(data[0].lon).toFixed(4));
@@ -8360,8 +8424,7 @@
             const rawLo = pos.coords.longitude;
             if (privacyMode) {
                 // Privacy Mode: snap to city center via Nominatim reverse geocode at city zoom
-                fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/reverse?lat=' + rawLa + '&lon=' + rawLo + '&zoom=13&format=json'))
-                    .then(function(r) { return r.json(); })
+                _osmGeocodeFetch('reverse', { lat: rawLa, lon: rawLo })
                     .then(function(data) {
                         const la = parseFloat(parseFloat(data.lat).toFixed(5));
                         const lo = parseFloat(parseFloat(data.lon).toFixed(5));
@@ -9676,12 +9739,11 @@
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
         try {
-            // Water location detection — Nominatim reverse geocode tells us if coords are on
-            // open water (sea, bay, lake, waterway). If so, skip PWS entirely.
+            // Water location detection — the OSM reverse geocoder tells us if coords
+            // are on open water (sea, bay, lake, waterway). If so, skip PWS entirely.
             try {
-                var _nomR = await fetch('https://corsproxy.io/?url=' + encodeURIComponent('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon));
-                if (_nomR.ok) {
-                    var _nomD = await _nomR.json();
+                var _nomD = await _osmGeocodeFetch('reverse', { lat: lat, lon: lon });
+                if (_nomD && _nomD.lat) {
                     if (_nomD.error) {
                         window.isWaterLocation = true;
                     } else {
@@ -9696,7 +9758,7 @@
                 }
             } catch(e) { window.isWaterLocation = false; }
 
-            // Beach detection — Nominatim /reverse never reliably surfaces a
+            // Beach detection — reverse geocoding never reliably surfaces a
             // natural=beach polygon (point features like paths/showers always
             // rank higher). Use /search with a 1 km viewbox instead: it queries
             // by name token so "Montrose Beach", "North Avenue Beach", etc. all
@@ -9709,15 +9771,12 @@
                     window.isBeachLocation = true;
                 } else {
                     var _d = 0.01; // ~1 km — covers centroids of large beach polygons
-                    var _vbox = (lon - _d) + ',' + (lat + _d) + ',' + (lon + _d) + ',' + (lat - _d);
-                    var _bchR = await fetch(
-                        'https://corsproxy.io/?url=' + encodeURIComponent(
-                            'https://nominatim.openstreetmap.org/search?format=json&q=beach&viewbox=' +
-                            _vbox + '&bounded=1&limit=10'
-                        )
-                    );
-                    if (_bchR.ok) {
-                        var _bchD = await _bchR.json();
+                    var _bchD = await _osmGeocodeFetch('search', {
+                        q: 'beach',
+                        bbox: (lon - _d) + ',' + (lat - _d) + ',' + (lon + _d) + ',' + (lat + _d),
+                        limit: 10
+                    });
+                    if (_bchD) {
                         window.isBeachLocation = Array.isArray(_bchD) && _bchD.some(function(r) {
                             var c = (r.class || '').toLowerCase();
                             var t = (r.type  || '').toLowerCase();
