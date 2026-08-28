@@ -9299,7 +9299,8 @@
             var base   = 'https://www.airnowapi.org/aq/';
             var coordsFcst = 'latitude=' + curLat + '&longitude=' + curLon + '&distance=200&API_KEY=' + AIRNOW_KEY;
             // Try 50 miles first; if no stations found, widen to 200 miles.
-            // A 404 from AirNow indicates a non-US location — fall back to Open-Meteo.
+            // A 404, request failure, or empty station response falls back to
+            // Open-Meteo so the AQI section still has a current value.
             var obsData;
             var isNonUS = false;
             for (var dist of [50, 100, 200]) {
@@ -9312,19 +9313,19 @@
                 obsData = await obsRes.json();
                 if (obsData && obsData.length > 0) break;
             }
-            // Only fall back to Open-Meteo on a definitive 404 (non-US location).
-            // Timeouts, 5xx errors, or simply no nearby stations stay silent.
-            if (isNonUS) {
+            // AirNow has no current station reading in some valid locations/times.
+            // Use the coordinate-specific Open-Meteo AQI instead of hiding the
+            // entire AQI section.
+            if (isNonUS || !obsData || obsData.length === 0) {
                 await _fetchAQIFromOpenMeteo(curLat, curLon);
                 return;
             }
-            if (!obsData || obsData.length === 0) return;
             var fcstRes  = await fetch(base + 'forecast/latLong/?format=application/json&' + coordsFcst + '&date=' + todayStr);
             var fcstData = fcstRes.ok ? await fcstRes.json() : [];
             _renderAQIData(obsData, fcstData);
         } catch(e) {
-            var tEl = document.getElementById('air-trend');
-            if (tEl) tEl.innerText = 'Air quality data unavailable.';
+            // AirNow outages and rate limits should not blank the AQI section.
+            await _fetchAQIFromOpenMeteo(curLat, curLon);
         }
     }
 
@@ -10094,7 +10095,7 @@
             // Version the registration so GitHub Pages does not keep serving an
             // older cached app shell after an inline HTML/JS update. The hourly
             // temperature renderer is part of this document, not sw.js.
-            navigator.serviceWorker.register('./sw.js?v=20260822-hourly-colors').then(function(reg) {
+            navigator.serviceWorker.register('./sw.js?v=20260828-aqi-sw-fix').then(function(reg) {
                 _swReg = reg;
                 if ('PushManager' in window) {
                     setTimeout(checkNotifStatus, 1500);
