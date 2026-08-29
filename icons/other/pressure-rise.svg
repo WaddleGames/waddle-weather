@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pressure rising">
-  <title>Pressure rising</title>
-  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
-  <g fill="none" stroke="#00e676" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 45 32 25l9 9 12-15"/><path d="M40 19h13v13"/>
-  </g>
-</svg>

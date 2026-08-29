@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ice">
-  <title>Ice</title>
-  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
-  <g fill="none" stroke="#80deea" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M32 12v40M14.7 22l34.6 20M14.7 42l34.6-20M20 15l12 7 12-7M20 49l12-7 12 7" fill="#80deea" fill-opacity=".14" stroke="#80deea"/>
-  </g>
-</svg>

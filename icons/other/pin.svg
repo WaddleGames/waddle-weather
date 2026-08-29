@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Map pin">
-  <title>Map pin</title>
-  <circle cx="32" cy="32" r="29" fill="#07131d" opacity=".72"/>
-  <path d="M32 55c-2.8-4.8-15-15.7-15-28a15 15 0 1 1 30 0c0 12.3-12.2 23.2-15 28Z" fill="#ffd54f" stroke="#f3f5ed" stroke-width="1.5" stroke-linejoin="round"/>
-  <circle cx="32" cy="27" r="6" fill="#102536" stroke="#07131d" stroke-width="2"/>
-  <circle cx="32" cy="27" r="2.2" fill="#4fc3f7"/>
-</svg>

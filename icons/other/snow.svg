@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Snow and hail">
-  <title>Snow and hail</title>
-  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
-  <g fill="none" stroke="#e8f7ff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M16 35h31a9 9 0 0 0 0-18 14 14 0 0 0-27 3 8 8 0 0 0-4 15Z" fill="#e8f7ff" fill-opacity=".13"/>
-<path d="M16 35h31a9 9 0 0 0 0-18 14 14 0 0 0-27 3 8 8 0 0 0-4 15ZM22 44v10M17 47l10 5M27 47l-10 5M36 44v10M31 47l10 5M41 47l-10 5"/>
-  </g>
-</svg>
