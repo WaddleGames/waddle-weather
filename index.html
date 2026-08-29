@@ -31,11 +31,31 @@
         /* Local SVG replacements for emoji/pictograms. */
         .sky-svg-icon {
             display: inline-block;
-            width: 1.15em;
-            height: 1.15em;
-            vertical-align: -0.22em;
+            width: 1.3em;
+            height: 1.3em;
+            vertical-align: -0.28em;
             object-fit: contain;
             flex: 0 0 auto;
+        }
+        /* Phase icons carry important information, so do not render them at
+           the same tiny size as a punctuation icon beside a label. */
+        .sky-svg-icon.moon-phase-icon {
+            width: 44px;
+            height: 44px;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+        #moonVal {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        #report-cat-grid .sky-svg-icon {
+            width: 32px;
+            height: 32px;
+            vertical-align: middle;
         }
         button .sky-svg-icon { pointer-events: none; }
 
@@ -1239,6 +1259,7 @@
     function skyIconElement(name) {
         const img = document.createElement('img');
         img.className = 'sky-svg-icon';
+        if (name.indexOf('moon-') === 0) img.classList.add('moon-phase-icon');
         img.src = SKY_ICON_ROOT + name + '.svg';
         img.alt = '';
         img.setAttribute('aria-hidden', 'true');
@@ -2593,15 +2614,33 @@
         return phase;
     }
 
+    function getMoonPhaseInfo(phase) {
+        var p = Number(phase);
+        if (!isFinite(p)) p = 0;
+        p = ((p % 1) + 1) % 1;
+        // Use centered bins instead of exact floating-point comparisons. The
+        // API almost never returns exactly .25/.50/.75.
+        if (p < 0.0625 || p >= 0.9375) return { label: 'New Moon', emoji: '\uD83C\uDF11', icon: 'moon-new' };
+        if (p < 0.1875) return { label: 'Waxing Crescent', emoji: '\uD83C\uDF12', icon: 'moon-waxing-crescent' };
+        if (p < 0.3125) return { label: 'First Quarter', emoji: '\uD83C\uDF13', icon: 'moon-first-quarter' };
+        if (p < 0.4375) return { label: 'Waxing Gibbous', emoji: '\uD83C\uDF14', icon: 'moon-waxing-gibbous' };
+        if (p < 0.5625) return { label: 'Full Moon', emoji: '\uD83C\uDF15', icon: 'moon-full' };
+        if (p < 0.6875) return { label: 'Waning Gibbous', emoji: '\uD83C\uDF16', icon: 'moon-waning-gibbous' };
+        if (p < 0.8125) return { label: 'Third Quarter', emoji: '\uD83C\uDF17', icon: 'moon-last-quarter' };
+        return { label: 'Waning Crescent', emoji: '\uD83C\uDF18', icon: 'moon-waning-crescent' };
+    }
+
     function getMoonPhaseName(phase) {
-        if (phase === 0 || phase === 1) return 'New \uD83C\uDF11';
-        if (phase > 0 && phase < 0.25) return 'Waxing Cresc \uD83C\uDF12';
-        if (phase === 0.25) return 'First Qtr \uD83C\uDF13';
-        if (phase > 0.25 && phase < 0.5) return 'Waxing Gibb \uD83C\uDF14';
-        if (phase === 0.5) return 'Full \uD83C\uDF15';
-        if (phase > 0.5 && phase < 0.75) return 'Waning Gibb \uD83C\uDF16';
-        if (phase === 0.75) return 'Last Qtr \uD83C\uDF17';
-        return 'Waning Cresc \uD83C\uDF18';
+        var info = getMoonPhaseInfo(phase);
+        return info.label + ' ' + info.emoji;
+    }
+
+    function setMoonPhaseDisplay(phase) {
+        var el = document.getElementById('moonVal');
+        if (!el) return;
+        var info = getMoonPhaseInfo(phase);
+        el.textContent = info.label + ' ';
+        el.appendChild(skyIconElement(info.icon));
     }
 
     const ALERT_ICONS = {
@@ -4452,8 +4491,8 @@
             document.getElementById('uv-val').style.color = uvCol;
             document.getElementById('uv-desc').innerText = uvDesc;
             if (d.daily?.data?.[0]) {
-                document.getElementById('moonVal').innerText = getMoonPhaseName(d.daily.data[0].moonPhase);
                 moonPhaseVal = d.daily.data[0].moonPhase || 0;
+                setMoonPhaseDisplay(moonPhaseVal);
             }
             if (d.hourly && d.hourly.data) {
                 var _rawHourly = d.hourly.data.slice(0, 72); // 72h is enough; full set bloats memory & SW cache
@@ -4549,9 +4588,16 @@
                     // Vibe check (green italic day summary below station name)
                     var _vbEl = document.getElementById('vibeCheck');
                     if (_vbEl && c.vibeCheck) _vbEl.innerText = c.vibeCheck;
-                    // Moon phase
-                    if (c.moonPhaseName) { var _mEl = document.getElementById('moonVal'); if (_mEl) _mEl.innerText = c.moonPhaseName; }
-                    if (c.moonPhase != null) { moonPhaseVal = c.moonPhase; startSkyFX(c.moonPhase); }
+                    // Moon phase — prefer the numeric value so the restored
+                    // icon is always the correct phase, not just cached text.
+                    if (c.moonPhase != null) {
+                        moonPhaseVal = c.moonPhase;
+                        setMoonPhaseDisplay(c.moonPhase);
+                        startSkyFX(c.moonPhase);
+                    } else if (c.moonPhaseName) {
+                        var _mEl = document.getElementById('moonVal');
+                        if (_mEl) _mEl.innerText = c.moonPhaseName;
+                    }
                     // Comfort index
                     var _cValEl = document.getElementById('aqi-val');
                     var _cDescEl = document.getElementById('aqi-desc');
@@ -4952,7 +4998,7 @@
         // 0–1 convention matches PirateWeather exactly (0=new, 0.5=full).
         var phase = computeMoonPhase(new Date());
         moonPhaseVal = phase;
-        document.getElementById('moonVal').innerText = getMoonPhaseName(phase);
+        setMoonPhaseDisplay(phase);
 
         // UV
         const uv = fakeCurr.uvIndex || 0;
@@ -8736,11 +8782,14 @@
         });
         reportingMap.addLayer(userReportLayer);
 
+        // Use the same unmistakable pin in the map as the LIVE control. The
+        // old blue dot looked like a missing marker and gave no visual cue
+        // that the report location could be dragged.
         const dotIcon = L_ref.divIcon({
-            className: '',
-            html: '<div style="width:16px;height:16px;background:#4fc3f7;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #4fc3f7,0 2px 8px rgba(0,0,0,0.7);cursor:grab;"></div>',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
+            className: 'report-location-pin',
+            html: '<img src="icons/other/location-pin.svg" alt="" aria-hidden="true" style="display:block;width:42px;height:42px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.75));cursor:grab;">',
+            iconSize: [42, 42],
+            iconAnchor: [21, 39]
         });
         const isMobile = window.matchMedia('(pointer: coarse)').matches;
         
