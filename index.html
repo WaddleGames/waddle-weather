@@ -470,6 +470,10 @@
         .report-nearby-icon {
             width: 22px; height: 22px; display: block; flex: 0 0 22px;
         }
+        .report-summary-icon {
+            width: 22px; height: 22px; display: inline-block; vertical-align: -6px;
+            margin-right: 5px;
+        }
 
         /* ——— PWA Launch Screen ——— */
         #launch-screen {
@@ -7373,8 +7377,9 @@
     let reportPinMarker = null;
     let selectedReportType = '';
 
-    // Report picker icons live in the repository at icons/reports/.
-    // Keep this mapping separate from the emoji map used by report popups/markers.
+    // Report icons live in the repository at icons/reports/.
+    // Use this mapping everywhere a report type is displayed so report
+    // pickers, markers, nearby reports, and popups stay visually consistent.
     const REPORT_ICON_DIR = 'icons/reports/';
     const REPORT_ICON_FILES = {
         'Rain': 'rain.svg',
@@ -7392,6 +7397,9 @@
         'Blizzard Conditions': 'snow-squall.svg',
         'Lightning Strike': 'lightning.svg',
         'Lightning': 'lightning.svg',
+        'Fire': 'fire.svg',
+        'Wildfire': 'fire.svg',
+        'Wildfire / Smoke': 'fire.svg',
         'Fog / Low Visibility': 'fog-vis.svg',
         'Fog': 'fog-vis.svg',
         'Low Visibility': 'low-visibility.svg',
@@ -7514,7 +7522,10 @@
         display.style.display = 'flex';
         display.style.alignItems = 'center';
         display.style.justifyContent = 'space-between';
-        display.innerHTML = '<span>\u2713 ' + type + '</span><button onclick="clearReportCategory()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:#aaa;padding:2px 10px;border-radius:6px;font-size:0.8em;cursor:pointer;flex-shrink:0;">\u2190 Back</button>';
+        display.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;">'
+            + reportIconMarkup(type, 'reporting-popup-icon')
+            + '<span>' + type + '</span></span>'
+            + '<button onclick="clearReportCategory()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:#aaa;padding:2px 10px;border-radius:6px;font-size:0.8em;cursor:pointer;flex-shrink:0;">\u2190 Back</button>';
     }
 
     function clearReportCategory() {
@@ -8846,17 +8857,17 @@
             const lsrRes = await fetch('https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=' + lsrHours + '&fmt=geojson');
             if (lsrRes.ok) {
                 const lsrData = await lsrRes.json();
-                const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', tstm:'Thunderstorm', wind:'Wind Damage', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather' };
+                const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', tstm:'Thunderstorm', wind:'Wind Damage', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather', fire:'Fire' };
                 const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', tstm:'#ffeb3b', wind:'#ff9100', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa' };
                 (lsrData.features || []).forEach(function(f) {
                     if (!f.geometry || !f.geometry.coordinates) return;
                     const lo = f.geometry.coordinates[0], la = f.geometry.coordinates[1];
                     const props = f.properties;
                     const typeKey = (props.typetext || props.type || '').toLowerCase();
-                    const matchKey = Object.keys(LSR_ICON_TYPES).concat(['fire']).find(function(k) { return typeKey.includes(k); });
+                    const matchKey = Object.keys(LSR_ICON_TYPES).find(function(k) { return typeKey.includes(k); });
                     const lsrIcon = matchKey && LSR_ICON_TYPES[matchKey]
                         ? reportIconMarkup(LSR_ICON_TYPES[matchKey], 'reporting-popup-icon')
-                        : (matchKey === 'fire' ? '\uD83D\uDD25' : reportIconMarkup('Other', 'reporting-popup-icon'));
+                        : reportIconMarkup('Other', 'reporting-popup-icon');
                     const dotColor = matchKey ? LSR_COLORS[matchKey] : '#90a4ae';
                     const validStr = formatReportTime(props.valid);
                     const magnitudeValue = props.magnitude == null ? '' : String(props.magnitude).trim();
@@ -9020,9 +9031,14 @@
             // Inject warning into minute summary for serious nearby reports
             var summaryEl = document.getElementById('minuteSummary');
             if (summaryEl && (_hasTornado || _hasRotation)) {
-                var _warn = _hasTornado ? '\u26a0\ufe0f Tornado/Funnel Cloud reported nearby!' : '\u26a0\ufe0f Rotation reported nearby.';
+                var _warnType = _hasTornado ? 'Tornado / Funnel Cloud' : 'Rotation';
+                var _warn = _hasTornado ? 'Tornado/Funnel Cloud reported nearby!' : 'Rotation reported nearby.';
                 var _cur = summaryEl.innerText || '';
-                summaryEl.innerText = _warn + (_cur && !_cur.startsWith('\u26a0') && !_cur.startsWith('Scanning') ? ' \u00b7 ' + _cur : '');
+                var _alreadyWarned = _cur.startsWith('Tornado/Funnel Cloud reported nearby!')
+                    || _cur.startsWith('Rotation reported nearby.');
+                summaryEl.innerHTML = reportIconMarkup(_warnType, 'report-summary-icon')
+                    + '<span>' + _warn + '</span>'
+                    + (_cur && !_alreadyWarned && !_cur.startsWith('\u26a0') && !_cur.startsWith('Scanning') ? ' \u00b7 ' + escapeHtml(_cur) : '');
                 summaryEl.style.color = _hasTornado ? '#e040fb' : '#ff1744';
             } else if (summaryEl && summaryEl.style.color === '#e040fb' || (summaryEl && summaryEl.style.color === '#ff1744')) {
                 summaryEl.style.color = '';
