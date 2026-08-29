@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Fog and Visibility</title>
+  <desc id="desc">A pale fog bank with layered visibility lines</desc>
+  <defs>
+    <linearGradient id="fog" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".55" stop-color="#dce6ef"/>
+      <stop offset="1" stop-color="#aab9c7"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.6" flood-color="#081522" flood-opacity=".75"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M12 29.5h40.5c3.5 0 6-2.3 6-5.3 0-3.3-2.8-5.7-6.3-5.7-.7 0-1.4.1-2 .3-2-5.1-6.4-8.1-11.6-8.1-5.8 0-10.5 3.4-12.1 8.4-.7-.2-1.4-.3-2.1-.3-4.2 0-7.5 2.7-7.5 6.1 0 1.8.9 3.4 3.1 4.6Z" fill="url(#fog)" stroke="#f7fbff" stroke-width="1"/>
+    <path d="M8 39h48M13 47h38M20 55h24" fill="none" stroke="#d7e2eb" stroke-width="3.4" stroke-linecap="round" opacity=".96"/>
+  </g>
+</svg>

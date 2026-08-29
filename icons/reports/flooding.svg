@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Flooding</title>
+  <desc id="desc">Layered blue flood waves</desc>
+  <defs>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7de3ff"/>
+      <stop offset=".45" stop-color="#27b6ed"/>
+      <stop offset="1" stop-color="#167bd0"/>
+    </linearGradient>
+    <linearGradient id="wave2" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#9feaff"/>
+      <stop offset="1" stop-color="#4fc3f7"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.6" flood-color="#081522" flood-opacity=".75"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M7 25c6.2 0 6.2 5 12.4 5s6.2-5 12.4-5 6.2 5 12.4 5 6.2-5 12.4-5v19H7Z" fill="url(#wave)" stroke="#a4eaff" stroke-width="1"/>
+    <path d="M7 35c6.2 0 6.2 5 12.4 5s6.2-5 12.4-5 6.2 5 12.4 5 6.2-5 12.4-5" fill="none" stroke="url(#wave2)" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M7 46c6.2 0 6.2 5 12.4 5s6.2-5 12.4-5 6.2 5 12.4 5 6.2-5 12.4-5" fill="none" stroke="#1479c7" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>
