@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Live location">
-  <title>Live location</title>
-  <circle cx="32" cy="32" r="29" fill="#07131d" opacity=".72"/>
-  <path d="M32 56C28.5 50 16 39 16 26a16 16 0 1 1 32 0c0 13-12.5 24-16 30Z" fill="#4fc3f7" fill-opacity=".28" stroke="#4fc3f7" stroke-width="3.5" stroke-linejoin="round"/>
-  <circle cx="32" cy="25" r="7" fill="#07131d" stroke="#ffd54f" stroke-width="3"/>
-  <circle cx="32" cy="25" r="2.5" fill="#ffd54f"/>
-</svg>
