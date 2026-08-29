@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Red status">
+  <title>Red status</title>
+  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
+  <circle cx="32" cy="32" r="14" fill="#ff5252"/>
+</svg>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Temperature">
+  <title>Temperature</title>
+  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
+  <g fill="none" stroke="#ff5252" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 38V17a7 7 0 0 1 14 0v21a12 12 0 1 1-14 0Z" fill="#ff5252" fill-opacity=".18"/>
+<path d="M27 38V17a7 7 0 0 1 14 0v21a12 12 0 1 1-14 0ZM34 18v24" stroke="#ff5252"/>
+<path d="M47 17h5M47 25h5M47 33h5" stroke="#ffd54f"/>
+  </g>
+</svg>
