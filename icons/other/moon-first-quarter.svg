@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="First Quarter">
-  <title>First Quarter</title>
-  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
-  <circle cx="32" cy="32" r="22" fill="#0b2433" stroke="#4fc3f7"/><path d="M32 10a22 22 0 0 1 0 44 22 22 0 0 0 0-44Z" fill="#ffd54f" stroke="none"/>
-</svg>
