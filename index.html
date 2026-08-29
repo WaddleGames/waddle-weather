@@ -2540,6 +2540,10 @@
         "tornado watch":"https://www.weather.gov/images/nws/newicons/fc.png",
         "severe thunderstorm warning":"https://www.weather.gov/images/nws/newicons/tsra.png",
         "severe thunderstorm watch":"https://www.weather.gov/images/nws/newicons/scttsra.png",
+        "non-tstm wind gusts":"icons/reports/wind-damage.svg",
+        "non-tstm wnd gst":"icons/reports/wind-damage.svg",
+        "tstm/non-tstm wind damage":"icons/reports/wind-damage.svg",
+        "tstm/non-tstm wnd dmg":"icons/reports/wind-damage.svg",
         "flash flood warning":"https://www.weather.gov/images/nws/newicons/shra.png",
         "snow squall warning":"https://www.weather.gov/images/nws/newicons/snip.png",
         "blizzard warning":"https://www.weather.gov/images/nws/newicons/blizzard.png",
@@ -7728,8 +7732,12 @@
 
     function buildReportingPopup(entries) {
         const count = entries.length;
+        const isReportsPopup = entries.length > 0 && entries.every(function(entry) {
+            return entry.source === 'iem-lsr' || entry.source === 'skymonitor-reports';
+        });
+        const itemNoun = isReportsPopup ? 'report' : 'alert';
         return '<div class="reporting-popup-shell">'
-            + '<div class="reporting-popup-header">' + count + ' alert' + (count === 1 ? '' : 's') + ' at this location</div>'
+            + '<div class="reporting-popup-header">' + count + ' ' + itemNoun + (count === 1 ? '' : 's') + ' at this location</div>'
             + '<div class="reporting-popup-scroll">' + entries.map(buildReportingPopupCard).join('') + '</div>'
             + '<div class="reporting-popup-footer">Tap an item to read the full details</div>'
             + '</div>';
@@ -8857,8 +8865,8 @@
             const lsrRes = await fetch('https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=' + lsrHours + '&fmt=geojson');
             if (lsrRes.ok) {
                 const lsrData = await lsrRes.json();
-                const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', tstm:'Thunderstorm', wind:'Wind Damage', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather', fire:'Fire' };
-                const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', tstm:'#ffeb3b', wind:'#ff9100', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa' };
+                const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', tstm:'Thunderstorm', wind:'Wind Damage', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather', fire:'Fire', dust:'Dust Storm' };
+                const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', tstm:'#ffeb3b', wind:'#ff9100', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa', dust:'#c8a800' };
                 (lsrData.features || []).forEach(function(f) {
                     if (!f.geometry || !f.geometry.coordinates) return;
                     const lo = f.geometry.coordinates[0], la = f.geometry.coordinates[1];
