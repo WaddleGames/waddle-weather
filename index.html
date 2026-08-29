@@ -28,32 +28,6 @@
     <style>
         :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffeb3b; --success: #00e676; --bg: #07131d; }
 
-        /* Local SVG replacements for emoji/pictograms. */
-        .sky-svg-icon {
-            display: inline-block;
-            width: 1.3em;
-            height: 1.3em;
-            vertical-align: -0.28em;
-            object-fit: contain;
-            flex: 0 0 auto;
-        }
-        #moonVal {
-            white-space: nowrap;
-        }
-        #moon-phase-display {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            vertical-align: middle;
-            margin-left: 4px;
-        }
-        #report-cat-grid .sky-svg-icon {
-            width: 32px;
-            height: 32px;
-            vertical-align: middle;
-        }
-        button .sky-svg-icon { pointer-events: none; }
-
         /* Allow iOS Dynamic Type to scale small text; large display elements are capped below */
         html { font-size: 100%; }
 
@@ -871,7 +845,7 @@
         <div id="pws-qc-panel" style="display:none;"></div>
 
         <div id="tropical-widget" style="display:none; background:rgba(79,195,247,0.05); border:1px solid rgba(79,195,247,0.18); border-radius:16px; padding:16px 18px; margin-bottom:15px;">
-            <div class="sky-hd"><img class="sky-svg-icon" src="icons/other/cyclone.svg" alt="" aria-hidden="true"> Tropical Activity</div>
+            <div class="sky-hd">🌀 Tropical Activity</div>
             <div id="tropical-storms-list"></div>
             <div id="tropical-map" style="height:200px; border-radius:10px; overflow:hidden; margin-top:10px; display:none;"></div>
         </div>
@@ -1062,12 +1036,12 @@
             <div id="station-clock" style="font-family:monospace; font-size:1.4em; color:var(--accent); margin-bottom:15px; font-weight:bold; letter-spacing:1px;">00:00:00</div>
             <div style="display:flex; justify-content:space-around; font-size:0.85em; font-weight:bold; color:#aaa; margin-bottom:10px;">
                 <div>&#127749; Sunrise:<br><span id="riseVal" style="color:var(--accent); font-size:1.2em;">--</span></div>
-                <div>Moon Phase:<br><span id="moonVal" style="color:white; font-size:1.2em;">--</span><canvas id="moon-phase-display" width="48" height="48" aria-hidden="true"></canvas></div>
+                <div>&#127761; Phase:<br><span id="moonVal" style="color:white; font-size:1.2em;">--</span></div>
                 <div>&#127751; Sunset:<br><span id="setVal" style="color:#ff5252; font-size:1.2em;">--</span></div>
             </div>
             <div id="orbit-container" style="position:relative; margin-top:10px;">
                 <div class="orbit-arc"></div>
-                <canvas id="celestial-body" width="48" height="48" aria-hidden="true"></canvas>
+                <div id="celestial-body"></div>
             </div>
         </div>
 
@@ -1107,7 +1081,7 @@
 
         <!-- v1.0.4: Advanced analytics hidden by default, shown only in Advanced mode -->
         <div id="analytics-section" style="display:none; margin-top:20px;">
-            <div class="sky-hd" style="margin-bottom:12px;"><img class="sky-svg-icon" src="icons/other/analytics.svg" alt="" aria-hidden="true"> Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
+            <div class="sky-hd" style="margin-bottom:12px;">📊 Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
             <div class="analytics-canvas-wrap">
                 <div class="analytics-label">&#127777; Pressure Trend (inHg)</div>
                 <canvas id="chart-pressure" height="120" style="width:100%; display:block;"></canvas>
@@ -1219,90 +1193,6 @@
 </footer>
 
 <script>
-    // Replace the original emoji accents with the matching local SVG assets.
-    // A MutationObserver keeps dynamically rendered alerts, reports, and
-    // forecast cards consistent too.
-    const SKY_ICON_ROOT = 'icons/other/';
-    const SKY_ICON_MAP = Object.freeze({
-        '\uD83C\uDF00': 'cyclone', '\uD83D\uDCCA': 'analytics',
-        '\u2713': 'check', '\u2717': 'x', '\u2B24': 'status-dot', '\u2B1B': 'black-square',
-        '\u26A0\uFE0F': 'warning', '\u26A0': 'warning', '\uD83D\uDEA8': 'emergency',
-        '\u2197\uFE0F': 'pressure-rise', '\u2198\uFE0F': 'pressure-fall', '\u27A1\uFE0F': 'pressure-steady',
-        '\u2190': 'back-arrow', '\u25BC': 'down-chevron',
-        '\u2600\uFE0F': 'sun', '\u2600': 'sun', '\u2601\uFE0F': 'cloud',
-        '\uD83C\uDF21\uFE0F': 'temperature',
-        '\uD83C\uDF27\uFE0F': 'rain', '\uD83C\uDF27': 'rain',
-        '\uD83C\uDF28\uFE0F': 'snow', '\uD83C\uDF28': 'snow',
-        '\uD83C\uDF2B\uFE0F': 'fog',
-        '\uD83D\uDC41\uFE0F': 'eye', '\uD83D\uDCA7': 'drop', '\uD83D\uDCA8': 'wind',
-        '\uD83C\uDF0A': 'water', '\u26C8\uFE0F': 'thunderstorm', '\u26A1': 'lightning',
-        '\u2744\uFE0F': 'snow', '\u2744': 'snow', '\uD83E\uDDCA': 'ice',
-        '\uD83D\uDD25': 'fire', '\uD83D\uDCCC': 'pin', '\uD83D\uDD14': 'bell',
-        '\uD83D\uDD15': 'bell-off', '\uD83D\uDD34': 'red-dot', '\uD83D\uDD36': 'orange-dot',
-        '\uD83D\uDFE1': 'yellow-dot', '\uD83D\uDFE2': 'green-dot', '\uD83D\uDFE3': 'purple-dot'
-    });
-    const SKY_ICON_PATTERN = new RegExp(
-        Object.keys(SKY_ICON_MAP).sort(function(a, b) { return b.length - a.length; })
-            .map(function(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'),
-        'gu'
-    );
-
-    function skyIconElement(name) {
-        const img = document.createElement('img');
-        img.className = 'sky-svg-icon';
-        img.src = SKY_ICON_ROOT + name + '.svg';
-        img.alt = '';
-        img.setAttribute('aria-hidden', 'true');
-        return img;
-    }
-
-    function replaceSkyEmojiText(root) {
-        if (!root) return;
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-        const nodes = [];
-        let node;
-        while ((node = walker.nextNode())) {
-            const parent = node.parentElement;
-            if (parent && !/^(SCRIPT|STYLE|TEXTAREA)$/i.test(parent.tagName)
-                && SKY_ICON_PATTERN.test(node.nodeValue)) {
-                nodes.push(node);
-            }
-            SKY_ICON_PATTERN.lastIndex = 0;
-        }
-        nodes.forEach(function(textNode) {
-            if (!textNode.parentNode) return;
-            const text = textNode.nodeValue;
-            SKY_ICON_PATTERN.lastIndex = 0;
-            const fragment = document.createDocumentFragment();
-            let last = 0;
-            let match;
-            while ((match = SKY_ICON_PATTERN.exec(text))) {
-                if (match.index > last) fragment.appendChild(document.createTextNode(text.slice(last, match.index)));
-                fragment.appendChild(skyIconElement(SKY_ICON_MAP[match[0]]));
-                last = match.index + match[0].length;
-            }
-            if (last < text.length) fragment.appendChild(document.createTextNode(text.slice(last)));
-            textNode.parentNode.replaceChild(fragment, textNode);
-        });
-        SKY_ICON_PATTERN.lastIndex = 0;
-    }
-
-    function initSkySvgIcons() {
-        replaceSkyEmojiText(document.body);
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                mutation.addedNodes.forEach(function(added) {
-                    if (added.nodeType === Node.ELEMENT_NODE) replaceSkyEmojiText(added);
-                    else if (added.nodeType === Node.TEXT_NODE && added.parentNode) replaceSkyEmojiText(added.parentNode);
-                });
-            });
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSkySvgIcons);
-    else initSkySvgIcons();
-
     // ——— SkyDB: IndexedDB wrapper for settings + weather cache ———
     const SkyDB = (function() {
         'use strict';
@@ -2604,80 +2494,15 @@
         return phase;
     }
 
-    function getMoonPhaseInfo(phase) {
-        var p = Number(phase);
-        if (!isFinite(p)) p = 0;
-        p = ((p % 1) + 1) % 1;
-        // Use centered bins instead of exact floating-point comparisons. The
-        // API almost never returns exactly .25/.50/.75.
-        if (p < 0.0625 || p >= 0.9375) return { label: 'New Moon' };
-        if (p < 0.1875) return { label: 'Waxing Crescent' };
-        if (p < 0.3125) return { label: 'First Quarter' };
-        if (p < 0.4375) return { label: 'Waxing Gibbous' };
-        if (p < 0.5625) return { label: 'Full Moon' };
-        if (p < 0.6875) return { label: 'Waning Gibbous' };
-        if (p < 0.8125) return { label: 'Third Quarter' };
-        return { label: 'Waning Crescent' };
-    }
-
     function getMoonPhaseName(phase) {
-        var info = getMoonPhaseInfo(phase);
-        return info.label;
-    }
-
-    // Draw the same phase-aware moon used by the nighttime sky canvas into a
-    // small reusable canvas. This keeps the orbit marker and phase readout in
-    // sync with the moon shown in the top-right corner at night.
-    function drawMoonPhase(ctx, moonX, moonY, moonR, phase) {
-        var mp = Number(phase);
-        if (!isFinite(mp)) mp = 0;
-        mp = ((mp % 1) + 1) % 1;
-        var isWaxing = mp <= 0.5;
-        var eScale = Math.cos(mp * Math.PI * 2);
-        var litColor = '#ddd8c0';
-        var darkColor = 'rgba(10,20,35,0.97)';
-        var absScale = Math.abs(eScale);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.fillStyle = darkColor;
-        ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-        if (eScale <= -0.99) {
-            ctx.fillStyle = litColor;
-            ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-        } else if (eScale < 0.99) {
-            ctx.beginPath();
-            if (isWaxing) {
-                ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, false);
-                ctx.ellipse(moonX, moonY, moonR * absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, eScale >= 0);
-            } else {
-                ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, true);
-                ctx.ellipse(moonX, moonY, moonR * absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, eScale < 0);
-            }
-            ctx.closePath();
-            ctx.fillStyle = litColor;
-            ctx.fill();
-        }
-        ctx.restore();
-    }
-
-    function drawMoonPhaseCanvas(canvas, phase) {
-        if (!canvas) return;
-        var size = canvas.width || 48;
-        var ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawMoonPhase(ctx, size / 2, size / 2, size * 0.38, phase);
-    }
-
-    function setMoonPhaseDisplay(phase) {
-        var el = document.getElementById('moonVal');
-        if (!el) return;
-        var info = getMoonPhaseInfo(phase);
-        el.textContent = info.label;
-        drawMoonPhaseCanvas(document.getElementById('moon-phase-display'), phase);
-        drawOrbit();
+        if (phase === 0 || phase === 1) return 'New \uD83C\uDF11';
+        if (phase > 0 && phase < 0.25) return 'Waxing Cresc \uD83C\uDF12';
+        if (phase === 0.25) return 'First Qtr \uD83C\uDF13';
+        if (phase > 0.25 && phase < 0.5) return 'Waxing Gibb \uD83C\uDF14';
+        if (phase === 0.5) return 'Full \uD83C\uDF15';
+        if (phase > 0.5 && phase < 0.75) return 'Waning Gibb \uD83C\uDF16';
+        if (phase === 0.75) return 'Last Qtr \uD83C\uDF17';
+        return 'Waning Cresc \uD83C\uDF18';
     }
 
     const ALERT_ICONS = {
@@ -4435,9 +4260,7 @@
                 else if (curr.pressure < lastPressureMb - 1) trend = '\u2198\uFE0F';
             }
             lastPressureMb = curr.pressure;
-            const pressureValueEl = document.getElementById('presVal');
-            pressureValueEl.dataset.pressureTrend = trend === '\u2198\uFE0F' ? 'fall' : trend === '\u2197\uFE0F' ? 'rise' : 'steady';
-            pressureValueEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">' + trend + '</span>';
+            document.getElementById('presVal').innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">' + trend + '</span>';
             const MAX_PRECIP_INTENSITY = 15.0; // in/hr sanity cap — raised from 2.0; Super Typhoons can exceed 5-10"/hr and PW data should not be clipped
             let precip1h = 0;
             if (d.minutely?.data?.length) { precip1h = d.minutely.data.reduce(function(sum, m) { return sum + (Math.min(m.precipIntensity || 0, MAX_PRECIP_INTENSITY) / 60); }, 0); }
@@ -4528,8 +4351,8 @@
             document.getElementById('uv-val').style.color = uvCol;
             document.getElementById('uv-desc').innerText = uvDesc;
             if (d.daily?.data?.[0]) {
+                document.getElementById('moonVal').innerText = getMoonPhaseName(d.daily.data[0].moonPhase);
                 moonPhaseVal = d.daily.data[0].moonPhase || 0;
-                setMoonPhaseDisplay(moonPhaseVal);
             }
             if (d.hourly && d.hourly.data) {
                 var _rawHourly = d.hourly.data.slice(0, 72); // 72h is enough; full set bloats memory & SW cache
@@ -4576,7 +4399,6 @@
                 condition: curr.summary || '', uv: liveUV,
                 pressure: curr.pressure ? (curr.pressure * 0.02953).toFixed(2) : null,
                 pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
-                pressureTrend: (document.getElementById('presVal') || {}).dataset?.pressureTrend || 'steady',
                 uvCol: (document.getElementById('uv-val') || {}).style.color || null,
                 uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
                 minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
@@ -4609,9 +4431,8 @@
                     (function(){ var _hv = c.humidity; var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
                     (function(){ var _fv = c.feelsLike; var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
                     document.getElementById('windVal').innerText = _isMetric() ? Math.round(c.wind * 1.60934) + ' km/h' : c.wind + ' mph'; setWindCompass(null);
-                    // Pressure with saved trend arrow; the icon observer upgrades its text.
+                    // Pressure with saved trend arrow (innerHTML preserves the emoji span)
                     var _presEl = document.getElementById('presVal');
-                    if (_presEl) _presEl.dataset.pressureTrend = c.pressureTrend || 'steady';
                     if (c.pressureHTML) { _presEl.innerHTML = c.pressureHTML; }
                     else if (c.pressure) { _presEl.innerText = _isMetric() ? Math.round(parseFloat(c.pressure) * 33.8639) + ' hPa' : c.pressure + ' inHg'; }
                     // UV index with color
@@ -4625,16 +4446,9 @@
                     // Vibe check (green italic day summary below station name)
                     var _vbEl = document.getElementById('vibeCheck');
                     if (_vbEl && c.vibeCheck) _vbEl.innerText = c.vibeCheck;
-                    // Moon phase — prefer the numeric value so the restored
-                    // icon is always the correct phase, not just cached text.
-                    if (c.moonPhase != null) {
-                        moonPhaseVal = c.moonPhase;
-                        setMoonPhaseDisplay(c.moonPhase);
-                        startSkyFX(c.moonPhase);
-                    } else if (c.moonPhaseName) {
-                        var _mEl = document.getElementById('moonVal');
-                        if (_mEl) _mEl.innerText = c.moonPhaseName;
-                    }
+                    // Moon phase
+                    if (c.moonPhaseName) { var _mEl = document.getElementById('moonVal'); if (_mEl) _mEl.innerText = c.moonPhaseName; }
+                    if (c.moonPhase != null) { moonPhaseVal = c.moonPhase; startSkyFX(c.moonPhase); }
                     // Comfort index
                     var _cValEl = document.getElementById('aqi-val');
                     var _cDescEl = document.getElementById('aqi-desc');
@@ -4818,10 +4632,7 @@
             if (curr && curr.pressure != null && curr.pressure > 0) {
                 var _presIn = (curr.pressure * 0.02953).toFixed(2);
                 var _presEl = document.getElementById('presVal');
-                if (_presEl) {
-                    _presEl.dataset.pressureTrend = 'steady';
-                    _presEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : _presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
-                }
+                if (_presEl) _presEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : _presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
             }
 
             // ── Recalculate feels-like with any patched temp/wind/humidity ──
@@ -5000,7 +4811,6 @@
 
         // Pressure
         const presIn = (cur.surface_pressure * 0.02953).toFixed(2);
-        document.getElementById('presVal').dataset.pressureTrend = 'steady';
         document.getElementById('presVal').innerHTML = (_isMetric() ? Math.round(cur.surface_pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
 
         // Precipitation 1h (Open-Meteo current gives instantaneous; use hourly[0] accumulation)
@@ -5035,7 +4845,7 @@
         // 0–1 convention matches PirateWeather exactly (0=new, 0.5=full).
         var phase = computeMoonPhase(new Date());
         moonPhaseVal = phase;
-        setMoonPhaseDisplay(phase);
+        document.getElementById('moonVal').innerText = getMoonPhaseName(phase);
 
         // UV
         const uv = fakeCurr.uvIndex || 0;
@@ -5081,7 +4891,6 @@
             condition: fakeCurr.summary || '', uv: liveUV,
             pressure: presIn || null,
             pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
-            pressureTrend: (document.getElementById('presVal') || {}).dataset?.pressureTrend || 'steady',
             uvCol: (document.getElementById('uv-val') || {}).style.color || null,
             uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
             minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
@@ -5902,45 +5711,31 @@
     }
 
     function drawOrbit() {
-        var body = document.getElementById('celestial-body');
-        if (!body) return;
-        function drawSun() {
-            var ctx = body.getContext('2d');
-            ctx.clearRect(0, 0, body.width, body.height);
-            ctx.fillStyle = '#ffd54f';
-            ctx.beginPath();
-            ctx.arc(body.width / 2, body.height / 2, body.width * 0.38, 0, Math.PI * 2);
-            ctx.fill();
-            body.style.background = 'transparent';
-            body.style.boxShadow = '0 0 15px #ffd54f';
-        }
-        function drawMoon() {
-            drawMoonPhaseCanvas(body, moonPhaseVal);
-            body.style.background = 'transparent';
-            body.style.boxShadow = '0 0 10px #ffffff';
-        }
         if (!localRiseTime || !localSetTime) {
             // Polar region: park the celestial body at a fixed position
             if (window._polarState) {
+                var _body = document.getElementById('celestial-body');
                 if (window._polarState === 'day') {
-                    drawSun(); body.style.left = '50%'; body.style.top = '0%'; // zenith
+                    _body.style.background = '#ffd54f'; _body.style.boxShadow = '0 0 15px #ffd54f';
+                    _body.style.left = '50%'; _body.style.top = '0%'; // zenith
                 } else {
-                    drawMoon(); body.style.left = '50%'; body.style.top = '108%'; // below horizon
+                    _body.style.background = '#e0e0e0'; _body.style.boxShadow = '0 0 10px #ffffff';
+                    _body.style.left = '50%'; _body.style.top = '108%'; // below horizon
                 }
             }
             return;
         }
-        const now = new Date().getTime();
+        const now = new Date().getTime(); const body = document.getElementById('celestial-body');
         let isDay = (now > localRiseTime && now < localSetTime); let pct = 0;
         if (isDay) {
             pct = Math.max(0, Math.min(1, (now - localRiseTime) / (localSetTime - localRiseTime)));
-            drawSun();
+            body.style.background = '#ffd54f'; body.style.boxShadow = '0 0 15px #ffd54f';
         } else {
             let totalNight, elapsedNight;
             if (now < localRiseTime) { const prevSet = localSetTime - 86400000; totalNight = localRiseTime - prevSet; elapsedNight = now - prevSet; }
             else { const nextRise = localRiseTime + 86400000; totalNight = nextRise - localSetTime; elapsedNight = now - localSetTime; }
             pct = Math.max(0, Math.min(1, elapsedNight / totalNight));
-            drawMoon();
+            body.style.background = '#e0e0e0'; body.style.boxShadow = '0 0 10px #ffffff';
         }
         body.style.left = (10 + (pct * 80)) + '%'; body.style.top = (100 - (Math.sin(pct * Math.PI) * 100)) + '%';
     }
@@ -6056,7 +5851,52 @@
                 moonGlow.addColorStop(0, 'rgba(220,220,180,' + moonBrightness + ')');
                 moonGlow.addColorStop(1, 'rgba(220,220,180,0)');
                 ctx.fillStyle = moonGlow; ctx.beginPath(); ctx.arc(moonX, moonY, moonR * 3, 0, Math.PI * 2); ctx.fill();
-                drawMoonPhase(ctx, moonX, moonY, moonR, moonPhaseVal);
+                // Moon phase rendering: single compound path (outer arc + terminator ellipse arc)
+                // so there is no shared edge between two fills and therefore no anti-aliasing seam.
+                ctx.save();
+                ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2); ctx.clip();
+                const _mp = moonPhaseVal;
+                const _isWax = _mp <= 0.5;
+                const _eScale = Math.cos(_mp * Math.PI * 2); // +1 new, 0 quarter, -1 full, 0, +1
+                const _litCol = '#ddd8c0', _darkCol = 'rgba(10,20,35,0.97)';
+                const _absScale = Math.abs(_eScale);
+                // Dark base fill for the whole disk
+                ctx.fillStyle = _darkCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+                if (_eScale <= -0.99) {
+                    // Full moon -- solid bright fill, no paths needed
+                    ctx.fillStyle = _litCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+                } else if (_eScale < 0.99) {
+                    // All phases between new and full: single compound path with no shared edge.
+                    // Lit region boundary = outer moon arc (lit side) + terminator ellipse arc back.
+                    //   Waxing: lit = RIGHT. Arc CW top->bottom along right circle edge,
+                    //           then ellipse CCW (crescent) or CW (gibbous) bottom->top.
+                    //   Waning: lit = LEFT.  Arc CCW top->bottom along left circle edge,
+                    //           then ellipse CW (crescent) or CCW (gibbous) bottom->top.
+                    ctx.beginPath();
+                    if (_isWax) {
+                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, false); // right side CW
+                        if (_eScale >= 0) {
+                            // Waxing crescent: terminator on right, trace right ellipse CCW (inner curve)
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                        } else {
+                            // Waxing gibbous: terminator on left, trace left ellipse CW
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                        }
+                    } else {
+                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, true); // left side CCW
+                        if (_eScale >= 0) {
+                            // Waning crescent: terminator on left, trace left ellipse CW (inner curve)
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                        } else {
+                            // Waning gibbous: terminator on right, trace right ellipse CCW
+                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                        }
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = _litCol; ctx.fill();
+                }
+                // eScale >= 0.99 -> new moon, disk stays dark, nothing more needed
+                ctx.restore(); // remove moon clip
             } else {
                 const nowMs = Date.now(), fifteenMins = 15 * 60 * 1000;
                 const isGolden = localRiseTime > 0 && ((nowMs >= localRiseTime - fifteenMins && nowMs <= localRiseTime + fifteenMins) || (nowMs >= localSetTime - fifteenMins && nowMs <= localSetTime + fifteenMins));
@@ -6504,7 +6344,7 @@
 
         // Rapid pressure fall (meteorological instability signal)
         const presEl = document.getElementById('presVal');
-        if (presEl && presEl.dataset.pressureTrend === 'fall') { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
+        if (presEl && presEl.innerHTML.includes('\u2198\uFE0F')) { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
 
         // ── 11. Mandatory Life-Threatening Floors ─────────────────────────
         if (window.activeTornadoEmergency) score = Math.max(score, 20);
@@ -8788,14 +8628,11 @@
         });
         reportingMap.addLayer(userReportLayer);
 
-        // Use the same unmistakable pin in the map as the LIVE control. The
-        // old blue dot looked like a missing marker and gave no visual cue
-        // that the report location could be dragged.
         const dotIcon = L_ref.divIcon({
-            className: 'report-location-pin',
-            html: '<span aria-hidden="true" style="display:block;width:42px;height:42px;font-size:36px;line-height:42px;text-align:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.75));cursor:grab;">📍</span>',
-            iconSize: [42, 42],
-            iconAnchor: [21, 39]
+            className: '',
+            html: '<div style="width:16px;height:16px;background:#4fc3f7;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px #4fc3f7,0 2px 8px rgba(0,0,0,0.7);cursor:grab;"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
         });
         const isMobile = window.matchMedia('(pointer: coarse)').matches;
         
