@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Visibility">
+  <title>Visibility</title>
+  <circle cx="32" cy="32" r="28" fill="#07131d" opacity=".72"/>
+  <g fill="none" stroke="#4fc3f7" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 32s9-15 24-15 24 15 24 15-9 15-24 15S8 32 8 32Z" fill="#4fc3f7" fill-opacity=".12"/>
+<circle cx="32" cy="32" r="7" fill="#4fc3f7" fill-opacity=".3"/><circle cx="32" cy="32" r="3" fill="#e8f7ff" stroke="none"/>
+  </g>
+</svg>
