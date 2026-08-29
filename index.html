@@ -444,6 +444,17 @@
             padding: 8px 12px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 0.9em;
         }
         .report-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+        #report-cat-grid .report-category-icon {
+            width: 24px; height: 24px; display: block; flex: 0 0 24px;
+        }
+        #report-cat-grid .report-category-icon img,
+        #report-subcat-grid .report-subcategory-icon img {
+            display: block; width: 100%; height: 100%; object-fit: contain;
+        }
+        #report-subcat-grid .report-subcategory-icon {
+            width: 18px; height: 18px; display: inline-block; flex: 0 0 18px;
+            vertical-align: middle; margin-right: 4px;
+        }
 
         /* ——— PWA Launch Screen ——— */
         #launch-screen {
@@ -7347,18 +7358,56 @@
     let reportPinMarker = null;
     let selectedReportType = '';
 
+    // Report picker icons live in the repository at sky-monitor/icons/reports/.
+    // Keep this mapping separate from the emoji map used by report popups/markers.
+    const REPORT_ICON_DIR = 'sky-monitor/icons/reports/';
+    const REPORT_ICON_FILES = {
+        'Rain': 'rain.svg',
+        'Thunderstorm': 'thunderstorm.svg',
+        'Wind Damage': 'wind-damage.svg',
+        'Flooding': 'flooding.svg',
+        'Flash Flood': 'flooding.svg',
+        'Hail': 'hail.svg',
+        'Tornado / Funnel Cloud': 'tornado.svg',
+        'Rotation': 'rotation.svg',
+        'Winter Weather': 'winter-wx.svg',
+        'Heavy Snow': 'winter-wx.svg',
+        'Ice / Freezing Rain': 'winter-wx.svg',
+        'Blizzard Conditions': 'snow-squall.svg',
+        'Lightning Strike': 'lightning.svg',
+        'Fog / Low Visibility': 'fog-vis.svg',
+        'Fog': 'fog-vis.svg',
+        'Low Visibility': 'low-visibility.svg',
+        'Snow Squall': 'snow-squall.svg',
+        'Dust Storm': 'dust-storm.svg',
+        'Other': 'other.svg'
+    };
+
+    function reportIconPath(type) {
+        if (!type) return REPORT_ICON_DIR + REPORT_ICON_FILES.Other;
+        if (type.startsWith('Hail \u2014') || type.startsWith('Hail -')) {
+            return REPORT_ICON_DIR + REPORT_ICON_FILES.Hail;
+        }
+        return REPORT_ICON_DIR + (REPORT_ICON_FILES[type] || REPORT_ICON_FILES.Other);
+    }
+
+    function reportIconMarkup(type, className) {
+        return '<span class="' + (className || 'report-category-icon') + '">'
+            + '<img src="' + reportIconPath(type) + '" alt="" aria-hidden="true"></span>';
+    }
+
     const REPORT_CATEGORIES = [
-        { type: 'Rain', emoji: '\uD83C\uDF27\uFE0F', label: 'Rain' },
-        { type: 'Thunderstorm', emoji: '\u26C8\uFE0F', label: 'Thunderstorm' },
-        { type: 'Wind Damage', emoji: '\uD83D\uDCA8', label: 'Wind Damage' },
-        { type: 'Flooding', emoji: '\uD83C\uDF0A', label: 'Flooding', sub: {
+        { type: 'Rain', label: 'Rain' },
+        { type: 'Thunderstorm', label: 'Thunderstorm' },
+        { type: 'Wind Damage', label: 'Wind Damage' },
+        { type: 'Flooding', label: 'Flooding', sub: {
             label: 'Select flood type:',
             options: [
-                { type: 'Flash Flood', label: '\uD83C\uDF0A Flash Flood' },
-                { type: 'Flooding', label: '\uD83C\uDF0A Flooding' }
+                { type: 'Flash Flood', label: 'Flash Flood' },
+                { type: 'Flooding', label: 'Flooding' }
             ]
         }},
-        { type: 'Hail', emoji: '\uD83C\uDF28', label: 'Hail', sub: {
+        { type: 'Hail', label: 'Hail', sub: {
             label: 'Select hail size:',
             options: [
                 { type: 'Hail \u2014 Pea (\u00BC")', label: 'Pea \u00BC"' },
@@ -7366,30 +7415,30 @@
                 { type: 'Hail \u2014 Quarter (1")', label: 'Quarter 1"' },
                 { type: 'Hail \u2014 Golf Ball (1\u00BE")', label: 'Golf Ball 1\u00BE"' },
                 { type: 'Hail \u2014 Baseball (2\u00BE")', label: 'Baseball 2\u00BE"' },
-                { type: 'Hail \u2014 Softball (4"+)', label: 'Softball 4"+" ' }
+                { type: 'Hail \u2014 Softball (4"+)', label: 'Softball 4"+' }
             ]
         }},
-        { type: 'Tornado / Funnel Cloud', emoji: '\uD83C\uDF2A\uFE0F', label: 'Tornado' },
-        { type: 'Rotation', emoji: '\uD83C\uDF00', label: 'Rotation' },
-        { type: 'Winter Weather', emoji: '\u2744\uFE0F', label: 'Winter Wx', sub: {
+        { type: 'Tornado / Funnel Cloud', label: 'Tornado' },
+        { type: 'Rotation', label: 'Rotation' },
+        { type: 'Winter Weather', label: 'Winter Wx', sub: {
             label: 'Select winter weather type:',
             options: [
-                { type: 'Heavy Snow', label: '\u2744\uFE0F Heavy Snow' },
-                { type: 'Ice / Freezing Rain', label: '\uD83E\uDDCA Ice / Freezing Rain' },
-                { type: 'Blizzard Conditions', label: '\uD83C\uDF28\uFE0F Blizzard' }
+                { type: 'Heavy Snow', label: 'Heavy Snow' },
+                { type: 'Ice / Freezing Rain', label: 'Ice / Freezing Rain' },
+                { type: 'Blizzard Conditions', label: 'Blizzard' }
             ]
         }},
-        { type: 'Lightning Strike', emoji: '\u26A1', label: 'Lightning' },
-        { type: 'Fog / Low Visibility', emoji: '\uD83C\uDF2B\uFE0F', label: 'Fog / Vis', sub: {
+        { type: 'Lightning Strike', label: 'Lightning' },
+        { type: 'Fog / Low Visibility', label: 'Fog / Vis', sub: {
             label: 'Select visibility type:',
             options: [
-                { type: 'Fog', label: '\uD83C\uDF2B\uFE0F Fog' },
-                { type: 'Low Visibility', label: '\uD83D\uDC41\uFE0F Low Visibility' },
-                { type: 'Snow Squall', label: '\uD83C\uDF28\uFE0F Snow Squall' },
-                { type: 'Dust Storm', label: '\uD83C\uDF2B\uFE0F Dust Storm' }
+                { type: 'Fog', label: 'Fog' },
+                { type: 'Low Visibility', label: 'Low Visibility' },
+                { type: 'Snow Squall', label: 'Snow Squall' },
+                { type: 'Dust Storm', label: 'Dust Storm' }
             ]
         }},
-        { type: 'Other', emoji: '\uD83D\uDCCC', label: 'Other' }
+        { type: 'Other', label: 'Other' }
     ];
 
     function renderReportCategories() {
@@ -7399,7 +7448,9 @@
             const btn = document.createElement('button');
             btn.style.cssText = 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#e0e0e0;padding:9px 4px;border-radius:9px;cursor:pointer;font-size:0.77em;display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;transition:border-color 0.15s,background 0.15s;';
             btn.dataset.catType = cat.type;
-            btn.innerHTML = '<span style="font-size:1.55em;line-height:1;">' + cat.emoji + '</span><span style="text-align:center;line-height:1.2;">' + cat.label + '</span>' + (cat.sub ? '<span style="font-size:0.65em;opacity:0.45;">▼</span>' : '');
+            btn.innerHTML = reportIconMarkup(cat.type, 'report-category-icon')
+                + '<span style="text-align:center;line-height:1.2;">' + cat.label + '</span>'
+                + (cat.sub ? '<span style="font-size:0.65em;opacity:0.45;">▼</span>' : '');
             btn.onclick = function() { selectReportCategory(cat); };
             grid.appendChild(btn);
         });
@@ -7422,8 +7473,9 @@
             subGrid.innerHTML = '';
             cat.sub.options.forEach(function(opt) {
                 const sbtn = document.createElement('button');
-                sbtn.style.cssText = 'background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.3);color:var(--primary);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:0.8em;';
-                sbtn.textContent = opt.label;
+                sbtn.style.cssText = 'background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.3);color:var(--primary);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:0.8em;display:inline-flex;align-items:center;justify-content:center;gap:4px;';
+                sbtn.innerHTML = reportIconMarkup(opt.type, 'report-subcategory-icon')
+                    + '<span>' + opt.label + '</span>';
                 sbtn.onclick = function() { setReportType(opt.type); };
                 subGrid.appendChild(sbtn);
             });
