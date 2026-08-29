@@ -8868,16 +8868,31 @@
                 const lsrData = await lsrRes.json();
                 const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', wind:'Wind Damage', wnd:'Wind Damage', tstm:'Thunderstorm', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather', fire:'Fire', dust:'Dust Storm' };
                 const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', wind:'#ff9100', wnd:'#ff9100', tstm:'#ffeb3b', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa', dust:'#c8a800' };
+                // IEM uses several abbreviated storm-report type names. Resolve
+                // the wind reports explicitly before the broad fallback matching
+                // below so WND/TSTM substrings cannot assign the wrong icon/color.
+                const LSR_EXACT_STYLES = {
+                    'non tstm wnd gst': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'non tstm wind gust': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'non tstm wnd dmg': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'non tstm wind dmg': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'tstm wnd dmg': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'tstm wind dmg': { icon: 'Wind Damage', color: '#ffeb3b' },
+                    'tstm wnd gst': { icon: 'Thunderstorm', color: '#ffeb3b' },
+                    'tstm wind gust': { icon: 'Thunderstorm', color: '#ffeb3b' }
+                };
                 (lsrData.features || []).forEach(function(f) {
                     if (!f.geometry || !f.geometry.coordinates) return;
                     const lo = f.geometry.coordinates[0], la = f.geometry.coordinates[1];
                     const props = f.properties;
-                    const typeKey = (props.typetext || props.type || '').toLowerCase();
+                    const typeKey = (props.typetext || props.type || '').toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+                    const exactStyle = LSR_EXACT_STYLES[typeKey];
                     const matchKey = Object.keys(LSR_ICON_TYPES).find(function(k) { return typeKey.includes(k); });
-                    const lsrIcon = matchKey && LSR_ICON_TYPES[matchKey]
-                        ? reportIconMarkup(LSR_ICON_TYPES[matchKey], 'reporting-popup-icon')
+                    const lsrType = exactStyle ? exactStyle.icon : (matchKey && LSR_ICON_TYPES[matchKey]);
+                    const lsrIcon = lsrType
+                        ? reportIconMarkup(lsrType, 'reporting-popup-icon')
                         : reportIconMarkup('Other', 'reporting-popup-icon');
-                    const dotColor = matchKey ? LSR_COLORS[matchKey] : '#90a4ae';
+                    const dotColor = exactStyle ? exactStyle.color : (matchKey ? LSR_COLORS[matchKey] : '#90a4ae');
                     const validStr = formatReportTime(props.valid);
                     const magnitudeValue = props.magnitude == null ? '' : String(props.magnitude).trim();
                     const magfValue = props.magf == null ? '' : String(props.magf).trim();
