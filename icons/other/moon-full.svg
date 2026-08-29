@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Full Moon">
+  <title>Full Moon</title>
+  <circle cx="32" cy="32" r="29" fill="#07131d" opacity=".72"/>
+  <circle cx="32" cy="32" r="27" fill="#f3f5ed" stroke="#4fc3f7" stroke-width="1.5"/>
+  <g fill="#cbd3d7" opacity=".9">
+    <circle cx="21" cy="20" r="5"/><circle cx="40" cy="18" r="4"/>
+    <circle cx="46" cy="31" r="5"/><circle cx="28" cy="37" r="4"/>
+    <circle cx="18" cy="42" r="3"/><circle cx="38" cy="46" r="5"/>
+  </g>
+  <g fill="#b9c4ca" opacity=".65"><circle cx="29" cy="17" r="2"/><circle cx="23" cy="31" r="2.5"/><circle cx="42" cy="39" r="2"/></g>
+</svg>

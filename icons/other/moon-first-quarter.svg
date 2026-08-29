@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="First Quarter">
+  <title>First Quarter</title>
+  <defs><clipPath id="moon-clip"><circle cx="32" cy="32" r="27"/></clipPath></defs>
+  <circle cx="32" cy="32" r="29" fill="#07131d" opacity=".72"/>
+  <circle cx="32" cy="32" r="27" fill="#1b3042" stroke="#4fc3f7" stroke-width="1.5"/>
+  <g clip-path="url(#moon-clip)">
+    <path d="M32 5a27 27 0 0 1 0 54Z" fill="#f3f5ed"/>
+    <g fill="#cbd3d7" opacity=".9"><circle cx="43" cy="20" r="4"/><circle cx="47" cy="34" r="5"/><circle cx="39" cy="46" r="4"/></g>
+  </g>
+</svg>
