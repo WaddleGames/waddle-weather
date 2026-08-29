@@ -28,6 +28,17 @@
     <style>
         :root { --primary: #4fc3f7; --accent: #ffd54f; --danger: #ff1744; --warning: #ffeb3b; --success: #00e676; --bg: #07131d; }
 
+        /* Local SVG replacements for emoji/pictograms. */
+        .sky-svg-icon {
+            display: inline-block;
+            width: 1.15em;
+            height: 1.15em;
+            vertical-align: -0.22em;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+        button .sky-svg-icon { pointer-events: none; }
+
         /* Allow iOS Dynamic Type to scale small text; large display elements are capped below */
         html { font-size: 100%; }
 
@@ -598,7 +609,7 @@
             <div class="btn-group">
                 <button id="opt-mode-coord" class="btn-opt active" onclick="setInputView('coord')">COORDS</button>
                 <button id="opt-mode-city" class="btn-opt" onclick="setInputView('city')">CITY</button>
-                <button id="opt-mode-live" class="btn-opt" onclick="setInputView('live')">📍 LIVE</button>
+                <button id="opt-mode-live" class="btn-opt" onclick="setInputView('live')"><img class="sky-svg-icon" src="icons/other/location-pin.svg" alt="" aria-hidden="true"> LIVE</button>
             </div>
         </div>
         <div class="settings-row">
@@ -845,7 +856,7 @@
         <div id="pws-qc-panel" style="display:none;"></div>
 
         <div id="tropical-widget" style="display:none; background:rgba(79,195,247,0.05); border:1px solid rgba(79,195,247,0.18); border-radius:16px; padding:16px 18px; margin-bottom:15px;">
-            <div class="sky-hd">🌀 Tropical Activity</div>
+            <div class="sky-hd"><img class="sky-svg-icon" src="icons/other/cyclone.svg" alt="" aria-hidden="true"> Tropical Activity</div>
             <div id="tropical-storms-list"></div>
             <div id="tropical-map" style="height:200px; border-radius:10px; overflow:hidden; margin-top:10px; display:none;"></div>
         </div>
@@ -1081,7 +1092,7 @@
 
         <!-- v1.0.4: Advanced analytics hidden by default, shown only in Advanced mode -->
         <div id="analytics-section" style="display:none; margin-top:20px;">
-            <div class="sky-hd" style="margin-bottom:12px;">📊 Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
+            <div class="sky-hd" style="margin-bottom:12px;"><img class="sky-svg-icon" src="icons/other/analytics.svg" alt="" aria-hidden="true"> Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
             <div class="analytics-canvas-wrap">
                 <div class="analytics-label">&#127777; Pressure Trend (inHg)</div>
                 <canvas id="chart-pressure" height="120" style="width:100%; display:block;"></canvas>
@@ -1193,6 +1204,94 @@
 </footer>
 
 <script>
+    // Replace the original emoji accents with the matching local SVG assets.
+    // A MutationObserver keeps dynamically rendered alerts, reports, and
+    // forecast cards consistent too.
+    const SKY_ICON_ROOT = 'icons/other/';
+    const SKY_ICON_MAP = Object.freeze({
+        '\uD83D\uDCCD': 'location-pin', '\uD83C\uDF00': 'cyclone', '\uD83D\uDCCA': 'analytics',
+        '\u2713': 'check', '\u2717': 'x', '\u2B24': 'status-dot', '\u2B1B': 'black-square',
+        '\u26A0\uFE0F': 'warning', '\u26A0': 'warning', '\uD83D\uDEA8': 'emergency',
+        '\u2197\uFE0F': 'pressure-rise', '\u2198\uFE0F': 'pressure-fall', '\u27A1\uFE0F': 'pressure-steady',
+        '\u2190': 'back-arrow', '\u25BC': 'down-chevron',
+        '\u2600\uFE0F': 'sun', '\u2600': 'sun', '\u2601\uFE0F': 'cloud',
+        '\uD83C\uDF11': 'moon-new', '\uD83C\uDF12': 'moon-waxing-crescent',
+        '\uD83C\uDF13': 'moon-first-quarter', '\uD83C\uDF14': 'moon-waxing-gibbous',
+        '\uD83C\uDF15': 'moon-full', '\uD83C\uDF16': 'moon-waning-gibbous',
+        '\uD83C\uDF17': 'moon-last-quarter', '\uD83C\uDF18': 'moon-waning-crescent',
+        '\uD83C\uDF19': 'moon-night', '\uD83C\uDF21\uFE0F': 'temperature',
+        '\uD83C\uDF27\uFE0F': 'rain', '\uD83C\uDF27': 'rain',
+        '\uD83C\uDF28\uFE0F': 'snow', '\uD83C\uDF28': 'snow',
+        '\uD83C\uDF2A\uFE0F': 'tornado', '\uD83C\uDF2B\uFE0F': 'fog',
+        '\uD83D\uDC41\uFE0F': 'eye', '\uD83D\uDCA7': 'drop', '\uD83D\uDCA8': 'wind',
+        '\uD83C\uDF0A': 'water', '\u26C8\uFE0F': 'thunderstorm', '\u26A1': 'lightning',
+        '\u2744\uFE0F': 'snow', '\u2744': 'snow', '\uD83E\uDDCA': 'ice',
+        '\uD83D\uDD25': 'fire', '\uD83D\uDCCC': 'pin', '\uD83D\uDD14': 'bell',
+        '\uD83D\uDD15': 'bell-off', '\uD83D\uDD34': 'red-dot', '\uD83D\uDD36': 'orange-dot',
+        '\uD83D\uDFE1': 'yellow-dot', '\uD83D\uDFE2': 'green-dot', '\uD83D\uDFE3': 'purple-dot'
+    });
+    const SKY_ICON_PATTERN = new RegExp(
+        Object.keys(SKY_ICON_MAP).sort(function(a, b) { return b.length - a.length; })
+            .map(function(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'),
+        'gu'
+    );
+
+    function skyIconElement(name) {
+        const img = document.createElement('img');
+        img.className = 'sky-svg-icon';
+        img.src = SKY_ICON_ROOT + name + '.svg';
+        img.alt = '';
+        img.setAttribute('aria-hidden', 'true');
+        return img;
+    }
+
+    function replaceSkyEmojiText(root) {
+        if (!root) return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            const parent = node.parentElement;
+            if (parent && !/^(SCRIPT|STYLE|TEXTAREA)$/i.test(parent.tagName)
+                && SKY_ICON_PATTERN.test(node.nodeValue)) {
+                nodes.push(node);
+            }
+            SKY_ICON_PATTERN.lastIndex = 0;
+        }
+        nodes.forEach(function(textNode) {
+            if (!textNode.parentNode) return;
+            const text = textNode.nodeValue;
+            SKY_ICON_PATTERN.lastIndex = 0;
+            const fragment = document.createDocumentFragment();
+            let last = 0;
+            let match;
+            while ((match = SKY_ICON_PATTERN.exec(text))) {
+                if (match.index > last) fragment.appendChild(document.createTextNode(text.slice(last, match.index)));
+                fragment.appendChild(skyIconElement(SKY_ICON_MAP[match[0]]));
+                last = match.index + match[0].length;
+            }
+            if (last < text.length) fragment.appendChild(document.createTextNode(text.slice(last)));
+            textNode.parentNode.replaceChild(fragment, textNode);
+        });
+        SKY_ICON_PATTERN.lastIndex = 0;
+    }
+
+    function initSkySvgIcons() {
+        replaceSkyEmojiText(document.body);
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(added) {
+                    if (added.nodeType === Node.ELEMENT_NODE) replaceSkyEmojiText(added);
+                    else if (added.nodeType === Node.TEXT_NODE && added.parentNode) replaceSkyEmojiText(added.parentNode);
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSkySvgIcons);
+    else initSkySvgIcons();
+
     // ——— SkyDB: IndexedDB wrapper for settings + weather cache ———
     const SkyDB = (function() {
         'use strict';
@@ -4260,7 +4359,9 @@
                 else if (curr.pressure < lastPressureMb - 1) trend = '\u2198\uFE0F';
             }
             lastPressureMb = curr.pressure;
-            document.getElementById('presVal').innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">' + trend + '</span>';
+            const pressureValueEl = document.getElementById('presVal');
+            pressureValueEl.dataset.pressureTrend = trend === '\u2198\uFE0F' ? 'fall' : trend === '\u2197\uFE0F' ? 'rise' : 'steady';
+            pressureValueEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">' + trend + '</span>';
             const MAX_PRECIP_INTENSITY = 15.0; // in/hr sanity cap — raised from 2.0; Super Typhoons can exceed 5-10"/hr and PW data should not be clipped
             let precip1h = 0;
             if (d.minutely?.data?.length) { precip1h = d.minutely.data.reduce(function(sum, m) { return sum + (Math.min(m.precipIntensity || 0, MAX_PRECIP_INTENSITY) / 60); }, 0); }
@@ -4399,6 +4500,7 @@
                 condition: curr.summary || '', uv: liveUV,
                 pressure: curr.pressure ? (curr.pressure * 0.02953).toFixed(2) : null,
                 pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
+                pressureTrend: (document.getElementById('presVal') || {}).dataset?.pressureTrend || 'steady',
                 uvCol: (document.getElementById('uv-val') || {}).style.color || null,
                 uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
                 minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
@@ -4431,8 +4533,9 @@
                     (function(){ var _hv = c.humidity; var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
                     (function(){ var _fv = c.feelsLike; var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
                     document.getElementById('windVal').innerText = _isMetric() ? Math.round(c.wind * 1.60934) + ' km/h' : c.wind + ' mph'; setWindCompass(null);
-                    // Pressure with saved trend arrow (innerHTML preserves the emoji span)
+                    // Pressure with saved trend arrow; the icon observer upgrades its text.
                     var _presEl = document.getElementById('presVal');
+                    if (_presEl) _presEl.dataset.pressureTrend = c.pressureTrend || 'steady';
                     if (c.pressureHTML) { _presEl.innerHTML = c.pressureHTML; }
                     else if (c.pressure) { _presEl.innerText = _isMetric() ? Math.round(parseFloat(c.pressure) * 33.8639) + ' hPa' : c.pressure + ' inHg'; }
                     // UV index with color
@@ -4632,7 +4735,10 @@
             if (curr && curr.pressure != null && curr.pressure > 0) {
                 var _presIn = (curr.pressure * 0.02953).toFixed(2);
                 var _presEl = document.getElementById('presVal');
-                if (_presEl) _presEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : _presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
+                if (_presEl) {
+                    _presEl.dataset.pressureTrend = 'steady';
+                    _presEl.innerHTML = (_isMetric() ? Math.round(curr.pressure) + ' hPa' : _presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
+                }
             }
 
             // ── Recalculate feels-like with any patched temp/wind/humidity ──
@@ -4811,6 +4917,7 @@
 
         // Pressure
         const presIn = (cur.surface_pressure * 0.02953).toFixed(2);
+        document.getElementById('presVal').dataset.pressureTrend = 'steady';
         document.getElementById('presVal').innerHTML = (_isMetric() ? Math.round(cur.surface_pressure) + ' hPa' : presIn + ' in') + ' <span style="font-size:0.75em; opacity:0.8;">\u27A1\uFE0F</span>';
 
         // Precipitation 1h (Open-Meteo current gives instantaneous; use hourly[0] accumulation)
@@ -4891,6 +4998,7 @@
             condition: fakeCurr.summary || '', uv: liveUV,
             pressure: presIn || null,
             pressureHTML: (document.getElementById('presVal') || {}).innerHTML || null,
+            pressureTrend: (document.getElementById('presVal') || {}).dataset?.pressureTrend || 'steady',
             uvCol: (document.getElementById('uv-val') || {}).style.color || null,
             uvDesc: (document.getElementById('uv-desc') || {}).innerText || null,
             minuteSummary: (document.getElementById('minuteSummary') || {}).innerText || null,
@@ -6344,7 +6452,7 @@
 
         // Rapid pressure fall (meteorological instability signal)
         const presEl = document.getElementById('presVal');
-        if (presEl && presEl.innerHTML.includes('\u2198\uFE0F')) { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
+        if (presEl && presEl.dataset.pressureTrend === 'fall') { score += 1; factorList.push({ label: 'Pressure falling', color: '#ffeb3b' }); }
 
         // ── 11. Mandatory Life-Threatening Floors ─────────────────────────
         if (window.activeTornadoEmergency) score = Math.max(score, 20);
