@@ -191,7 +191,7 @@
 
         #orbit-container { position: relative; height: 120px; width: 100%; margin: 20px 0; border-bottom: 2px solid #444; overflow: hidden; }
         .orbit-arc { position: absolute; bottom: 0; left: 10%; right: 10%; height: 200%; border: 2px dashed rgba(255,255,255,0.2); border-radius: 50%; }
-        #celestial-body { position: absolute; width: 24px; height: 24px; border-radius: 50%; transform: translate(-50%, 50%); transition: 1s ease-out; }
+        #celestial-body { position: absolute; width: 24px; height: 24px; display: block; transform: translate(-50%, 50%); transition: 1s ease-out; }
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000; }
         .nav-item { color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-size: 1.1em; transition: 0.3s; }
@@ -1076,12 +1076,12 @@
             <div id="station-clock" style="font-family:monospace; font-size:1.4em; color:var(--accent); margin-bottom:15px; font-weight:bold; letter-spacing:1px;">00:00:00</div>
             <div style="display:flex; justify-content:space-around; font-size:0.85em; font-weight:bold; color:#aaa; margin-bottom:10px;">
                 <div>&#127749; Sunrise:<br><span id="riseVal" style="color:var(--accent); font-size:1.2em;">--</span></div>
-                <div>&#127761; Phase:<br><span id="moonVal" style="color:white; font-size:1.2em;">--</span></div>
+                <div>Moon Phase:<br><span style="display:inline-flex;align-items:center;gap:4px;color:white;font-size:1.2em;line-height:1.2;"><span id="moonVal">--</span><canvas id="moon-phase-canvas" width="48" height="48" style="display:inline-block;width:24px;height:24px;vertical-align:middle;" aria-hidden="true"></canvas></span></div>
                 <div>&#127751; Sunset:<br><span id="setVal" style="color:#ff5252; font-size:1.2em;">--</span></div>
             </div>
             <div id="orbit-container" style="position:relative; margin-top:10px;">
                 <div class="orbit-arc"></div>
-                <div id="celestial-body"></div>
+                <canvas id="celestial-body" width="48" height="48" aria-hidden="true"></canvas>
             </div>
         </div>
 
@@ -2536,14 +2536,82 @@
     }
 
     function getMoonPhaseName(phase) {
-        if (phase === 0 || phase === 1) return 'New \uD83C\uDF11';
-        if (phase > 0 && phase < 0.25) return 'Waxing Cresc \uD83C\uDF12';
-        if (phase === 0.25) return 'First Qtr \uD83C\uDF13';
-        if (phase > 0.25 && phase < 0.5) return 'Waxing Gibb \uD83C\uDF14';
-        if (phase === 0.5) return 'Full \uD83C\uDF15';
-        if (phase > 0.5 && phase < 0.75) return 'Waning Gibb \uD83C\uDF16';
-        if (phase === 0.75) return 'Last Qtr \uD83C\uDF17';
-        return 'Waning Cresc \uD83C\uDF18';
+        if (phase === 0 || phase === 1) return 'New';
+        if (phase > 0 && phase < 0.25) return 'Waxing Cresc';
+        if (phase === 0.25) return 'First Qtr';
+        if (phase > 0.25 && phase < 0.5) return 'Waxing Gibb';
+        if (phase === 0.5) return 'Full';
+        if (phase > 0.5 && phase < 0.75) return 'Waning Gibb';
+        if (phase === 0.75) return 'Last Qtr';
+        return 'Waning Cresc';
+    }
+
+    function normalizeMoonPhase(phase) {
+        var normalized = Number(phase);
+        if (!isFinite(normalized)) return 0;
+        normalized = normalized % 1;
+        return normalized < 0 ? normalized + 1 : normalized;
+    }
+
+    // Draw the same phase-accurate moon everywhere it appears. The terminator
+    // uses the exact same synodic phase value as the sky overlay.
+    function drawMoonPhase(ctx, moonX, moonY, moonR, phase, withGlow) {
+        if (!ctx || !moonR) return;
+        const _mp = normalizeMoonPhase(phase);
+        if (withGlow) {
+            const glow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 3);
+            const brightness = _mp > 0.4 && _mp < 0.6 ? 0.18 : 0.08;
+            glow.addColorStop(0, 'rgba(220,220,180,' + brightness + ')');
+            glow.addColorStop(1, 'rgba(220,220,180,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(moonX, moonY, moonR * 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.save();
+        ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2); ctx.clip();
+        const _isWax = _mp <= 0.5;
+        const _eScale = Math.cos(_mp * Math.PI * 2); // +1 new, 0 quarter, -1 full
+        const _litCol = '#ddd8c0', _darkCol = 'rgba(10,20,35,0.97)';
+        const _absScale = Math.abs(_eScale);
+        ctx.fillStyle = _darkCol;
+        ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+        if (_eScale <= -0.99) {
+            ctx.fillStyle = _litCol;
+            ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
+        } else if (_eScale < 0.99) {
+            ctx.beginPath();
+            if (_isWax) {
+                ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, false);
+                if (_eScale >= 0) {
+                    ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                } else {
+                    ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                }
+            } else {
+                ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, true);
+                if (_eScale >= 0) {
+                    ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
+                } else {
+                    ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
+                }
+            }
+            ctx.closePath();
+            ctx.fillStyle = _litCol; ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function renderMoonPhaseDisplay(phase) {
+        moonPhaseVal = normalizeMoonPhase(phase);
+        const label = document.getElementById('moonVal');
+        if (label) label.innerText = getMoonPhaseName(moonPhaseVal);
+        const canvas = document.getElementById('moon-phase-canvas');
+        if (!canvas) return;
+        canvas.width = 48; canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMoonPhase(ctx, 24, 24, 19, moonPhaseVal, true);
+        const specsTab = document.getElementById('specs-tab');
+        if (specsTab && specsTab.classList.contains('active')) drawOrbit();
     }
 
     const ALERT_ICONS = {
@@ -4409,8 +4477,7 @@
             document.getElementById('uv-val').style.color = uvCol;
             document.getElementById('uv-desc').innerText = uvDesc;
             if (d.daily?.data?.[0]) {
-                document.getElementById('moonVal').innerText = getMoonPhaseName(d.daily.data[0].moonPhase);
-                moonPhaseVal = d.daily.data[0].moonPhase || 0;
+                renderMoonPhaseDisplay(d.daily.data[0].moonPhase);
             }
             if (d.hourly && d.hourly.data) {
                 var _rawHourly = d.hourly.data.slice(0, 72); // 72h is enough; full set bloats memory & SW cache
@@ -4505,8 +4572,10 @@
                     var _vbEl = document.getElementById('vibeCheck');
                     if (_vbEl && c.vibeCheck) _vbEl.innerText = c.vibeCheck;
                     // Moon phase
-                    if (c.moonPhaseName) { var _mEl = document.getElementById('moonVal'); if (_mEl) _mEl.innerText = c.moonPhaseName; }
-                    if (c.moonPhase != null) { moonPhaseVal = c.moonPhase; startSkyFX(c.moonPhase); }
+                    if (c.moonPhase != null) {
+                        renderMoonPhaseDisplay(c.moonPhase);
+                        startSkyFX(c.condition || currentCondition);
+                    }
                     // Comfort index
                     var _cValEl = document.getElementById('aqi-val');
                     var _cDescEl = document.getElementById('aqi-desc');
@@ -4903,7 +4972,7 @@
         // 0–1 convention matches PirateWeather exactly (0=new, 0.5=full).
         var phase = computeMoonPhase(new Date());
         moonPhaseVal = phase;
-        document.getElementById('moonVal').innerText = getMoonPhaseName(phase);
+        renderMoonPhaseDisplay(phase);
 
         // UV
         const uv = fakeCurr.uvIndex || 0;
@@ -5768,34 +5837,55 @@
         }
     }
 
+    function drawOrbitBody(body, isDay) {
+        if (!body) return;
+        const ctx = body.getContext('2d');
+        if (!ctx) return;
+        body.width = 48; body.height = 48;
+        ctx.clearRect(0, 0, body.width, body.height);
+        if (isDay) {
+            const glow = ctx.createRadialGradient(24, 24, 0, 24, 24, 22);
+            glow.addColorStop(0, 'rgba(255,213,79,0.7)');
+            glow.addColorStop(1, 'rgba(255,213,79,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(24, 24, 22, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffd54f';
+            ctx.beginPath(); ctx.arc(24, 24, 10, 0, Math.PI * 2); ctx.fill();
+        } else {
+            drawMoonPhase(ctx, 24, 24, 19, moonPhaseVal, true);
+        }
+    }
+
     function drawOrbit() {
+        const body = document.getElementById('celestial-body');
         if (!localRiseTime || !localSetTime) {
             // Polar region: park the celestial body at a fixed position
             if (window._polarState) {
-                var _body = document.getElementById('celestial-body');
-                if (window._polarState === 'day') {
-                    _body.style.background = '#ffd54f'; _body.style.boxShadow = '0 0 15px #ffd54f';
-                    _body.style.left = '50%'; _body.style.top = '0%'; // zenith
-                } else {
-                    _body.style.background = '#e0e0e0'; _body.style.boxShadow = '0 0 10px #ffffff';
-                    _body.style.left = '50%'; _body.style.top = '108%'; // below horizon
-                }
+                drawOrbitBody(body, window._polarState === 'day');
+                body.style.left = '50%';
+                body.style.top = window._polarState === 'day' ? '0%' : '108%';
             }
             return;
         }
-        const now = new Date().getTime(); const body = document.getElementById('celestial-body');
-        let isDay = (now > localRiseTime && now < localSetTime); let pct = 0;
+        const now = new Date().getTime();
+        const isDay = now > localRiseTime && now < localSetTime;
+        let pct = 0;
         if (isDay) {
             pct = Math.max(0, Math.min(1, (now - localRiseTime) / (localSetTime - localRiseTime)));
-            body.style.background = '#ffd54f'; body.style.boxShadow = '0 0 15px #ffd54f';
         } else {
             let totalNight, elapsedNight;
-            if (now < localRiseTime) { const prevSet = localSetTime - 86400000; totalNight = localRiseTime - prevSet; elapsedNight = now - prevSet; }
-            else { const nextRise = localRiseTime + 86400000; totalNight = nextRise - localSetTime; elapsedNight = now - localSetTime; }
+            if (now < localRiseTime) {
+                const prevSet = localSetTime - 86400000;
+                totalNight = localRiseTime - prevSet; elapsedNight = now - prevSet;
+            } else {
+                const nextRise = localRiseTime + 86400000;
+                totalNight = nextRise - localSetTime; elapsedNight = now - localSetTime;
+            }
             pct = Math.max(0, Math.min(1, elapsedNight / totalNight));
-            body.style.background = '#e0e0e0'; body.style.boxShadow = '0 0 10px #ffffff';
         }
-        body.style.left = (10 + (pct * 80)) + '%'; body.style.top = (100 - (Math.sin(pct * Math.PI) * 100)) + '%';
+        drawOrbitBody(body, isDay);
+        body.style.left = (10 + (pct * 80)) + '%';
+        body.style.top = (100 - (Math.sin(pct * Math.PI) * 100)) + '%';
     }
 
     function stopWeatherFX() {
@@ -5904,57 +5994,7 @@
                     ctx.beginPath(); ctx.arc(star.x * W, star.y * H, star.size, 0, Math.PI * 2); ctx.fill();
                 });
                 const moonX = W * 0.82, moonY = H * 0.12, moonR = Math.min(W, H) * 0.035;
-                const moonGlow = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 3);
-                const moonBrightness = moonPhaseVal > 0.4 && moonPhaseVal < 0.6 ? 0.18 : 0.08;
-                moonGlow.addColorStop(0, 'rgba(220,220,180,' + moonBrightness + ')');
-                moonGlow.addColorStop(1, 'rgba(220,220,180,0)');
-                ctx.fillStyle = moonGlow; ctx.beginPath(); ctx.arc(moonX, moonY, moonR * 3, 0, Math.PI * 2); ctx.fill();
-                // Moon phase rendering: single compound path (outer arc + terminator ellipse arc)
-                // so there is no shared edge between two fills and therefore no anti-aliasing seam.
-                ctx.save();
-                ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2); ctx.clip();
-                const _mp = moonPhaseVal;
-                const _isWax = _mp <= 0.5;
-                const _eScale = Math.cos(_mp * Math.PI * 2); // +1 new, 0 quarter, -1 full, 0, +1
-                const _litCol = '#ddd8c0', _darkCol = 'rgba(10,20,35,0.97)';
-                const _absScale = Math.abs(_eScale);
-                // Dark base fill for the whole disk
-                ctx.fillStyle = _darkCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-                if (_eScale <= -0.99) {
-                    // Full moon -- solid bright fill, no paths needed
-                    ctx.fillStyle = _litCol; ctx.fillRect(moonX - moonR, moonY - moonR, moonR * 2, moonR * 2);
-                } else if (_eScale < 0.99) {
-                    // All phases between new and full: single compound path with no shared edge.
-                    // Lit region boundary = outer moon arc (lit side) + terminator ellipse arc back.
-                    //   Waxing: lit = RIGHT. Arc CW top->bottom along right circle edge,
-                    //           then ellipse CCW (crescent) or CW (gibbous) bottom->top.
-                    //   Waning: lit = LEFT.  Arc CCW top->bottom along left circle edge,
-                    //           then ellipse CW (crescent) or CCW (gibbous) bottom->top.
-                    ctx.beginPath();
-                    if (_isWax) {
-                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, false); // right side CW
-                        if (_eScale >= 0) {
-                            // Waxing crescent: terminator on right, trace right ellipse CCW (inner curve)
-                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
-                        } else {
-                            // Waxing gibbous: terminator on left, trace left ellipse CW
-                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
-                        }
-                    } else {
-                        ctx.arc(moonX, moonY, moonR, -Math.PI / 2, Math.PI / 2, true); // left side CCW
-                        if (_eScale >= 0) {
-                            // Waning crescent: terminator on left, trace left ellipse CW (inner curve)
-                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, false);
-                        } else {
-                            // Waning gibbous: terminator on right, trace right ellipse CCW
-                            ctx.ellipse(moonX, moonY, moonR * _absScale, moonR, 0, Math.PI / 2, -Math.PI / 2, true);
-                        }
-                    }
-                    ctx.closePath();
-                    ctx.fillStyle = _litCol; ctx.fill();
-                }
-                // eScale >= 0.99 -> new moon, disk stays dark, nothing more needed
-                ctx.restore(); // remove moon clip
+                drawMoonPhase(ctx, moonX, moonY, moonR, moonPhaseVal, true);
             } else {
                 const nowMs = Date.now(), fifteenMins = 15 * 60 * 1000;
                 const isGolden = localRiseTime > 0 && ((nowMs >= localRiseTime - fifteenMins && nowMs <= localRiseTime + fifteenMins) || (nowMs >= localSetTime - fifteenMins && nowMs <= localSetTime + fifteenMins));
