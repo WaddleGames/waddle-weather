@@ -464,6 +464,10 @@
         .report-nearby-icon img {
             display: block; width: 100%; height: 100%; object-fit: contain;
         }
+        .report-icon-emoji {
+            display: flex; width: 100%; height: 100%; align-items: center;
+            justify-content: center; line-height: 1; font-size: 1.05em;
+        }
         .report-map-icon {
             width: 26px; height: 26px; display: block;
         }
@@ -2541,10 +2545,10 @@
         "tornado watch":"https://www.weather.gov/images/nws/newicons/fc.png",
         "severe thunderstorm warning":"https://www.weather.gov/images/nws/newicons/tsra.png",
         "severe thunderstorm watch":"https://www.weather.gov/images/nws/newicons/scttsra.png",
-        "non-tstm wind gusts":"icons/reports/wind-damage.svg",
-        "non-tstm wnd gst":"icons/reports/wind-damage.svg",
-        "tstm/non-tstm wind damage":"icons/reports/wind-damage.svg",
-        "tstm/non-tstm wnd dmg":"icons/reports/wind-damage.svg",
+        "non-tstm wind gusts":"icons/wu/23.svg",
+        "non-tstm wnd gst":"icons/wu/23.svg",
+        "tstm/non-tstm wind damage":"icons/wu/23.svg",
+        "tstm/non-tstm wnd dmg":"icons/wu/23.svg",
         "flash flood warning":"https://www.weather.gov/images/nws/newicons/shra.png",
         "snow squall warning":"https://www.weather.gov/images/nws/newicons/snip.png",
         "blizzard warning":"https://www.weather.gov/images/nws/newicons/blizzard.png",
@@ -7382,48 +7386,59 @@
     let reportPinMarker = null;
     let selectedReportType = '';
 
-    // Report icons live in the repository at icons/reports/.
-    // Use this mapping everywhere a report type is displayed so report
-    // pickers, markers, nearby reports, and popups stay visually consistent.
-    const REPORT_ICON_DIR = 'icons/reports/';
-    const REPORT_ICON_FILES = {
-        'Rain': 'rain.svg',
-        'Thunderstorm': 'thunderstorm.svg',
-        'Wind Damage': 'wind-damage.svg',
-        'Flooding': 'flooding.svg',
-        'Flash Flood': 'flooding.svg',
-        'Hail': 'hail.svg',
-        'Tornado / Funnel Cloud': 'tornado.svg',
-        'Tornado': 'tornado.svg',
-        'Rotation': 'rotation.svg',
-        'Winter Weather': 'winter-wx.svg',
-        'Heavy Snow': 'winter-wx.svg',
-        'Ice / Freezing Rain': 'winter-wx.svg',
-        'Blizzard Conditions': 'snow-squall.svg',
-        'Lightning Strike': 'lightning.svg',
-        'Lightning': 'lightning.svg',
-        'Fire': 'fire.svg',
-        'Wildfire': 'fire.svg',
-        'Wildfire / Smoke': 'fire.svg',
-        'Fog / Low Visibility': 'fog-vis.svg',
-        'Fog': 'fog-vis.svg',
-        'Low Visibility': 'low-visibility.svg',
-        'Snow Squall': 'snow-squall.svg',
-        'Dust Storm': 'dust-storm.svg',
-        'Other': 'other.svg'
+    // Report icons are resolved here so report pickers, IEM/NWS storm reports,
+    // user-report markers, nearby reports, and popups stay visually consistent.
+    // Keep this list limited to paths that actually exist; unspecified report
+    // types intentionally use an emoji until a TWC/WU SVG is assigned.
+    const REPORT_ICON_DEFINITIONS = {
+        'Rain':                   { src: 'icons/wu/12.svg' },
+        'Thunderstorm':           { src: 'icons/wu/3.svg' },
+        'Wind Damage':            { src: 'icons/wu/23.svg' },
+        'Flooding':               { emoji: '\uD83C\uDF0A' },
+        'Flash Flood':            { emoji: '\uD83C\uDF0A' },
+        'Hail':                   { src: 'icons/wu/17.svg' },
+        'Tornado / Funnel Cloud': { emoji: '\uD83C\uDF2A\uFE0F' },
+        'Tornado':                { emoji: '\uD83C\uDF2A\uFE0F' },
+        'Rotation':               { src: 'icons/wu/2.svg' },
+        'Winter Weather':         { src: 'icons/wu/16.svg' },
+        'Heavy Snow':             { src: 'icons/wu/16.svg' },
+        'Ice / Freezing Rain':    { src: 'icons/wu/10.svg' },
+        'Blizzard Conditions':    { src: 'icons/wu/15.svg' },
+        'Lightning Strike':       { emoji: '\u26A1' },
+        'Lightning':              { emoji: '\u26A1' },
+        'Fire':                   { src: 'icons/other/fire.svg' },
+        'Wildfire':               { src: 'icons/other/fire.svg' },
+        'Wildfire / Smoke':       { src: 'icons/other/fire.svg' },
+        'Fog / Low Visibility':   { src: 'icons/wu/22.svg' },
+        'Fog':                    { src: 'icons/wu/22.svg' },
+        'Low Visibility':         { emoji: '\uD83D\uDC41\uFE0F' },
+        'Snow Squall':            { src: 'icons/wu/15.svg' },
+        'Dust Storm':             { src: 'icons/other/dust-storm.svg' },
+        'Other':                  { emoji: '\u2754' }
     };
 
-    function reportIconPath(type) {
-        if (!type) return REPORT_ICON_DIR + REPORT_ICON_FILES.Other;
-        if (type.startsWith('Hail \u2014') || type.startsWith('Hail -')) {
-            return REPORT_ICON_DIR + REPORT_ICON_FILES.Hail;
+    const REPORT_ICON_FALLBACK = { emoji: '\u2754' };
+
+    function reportIconDefinition(type) {
+        if (type && (type.startsWith('Hail \u2014') || type.startsWith('Hail -'))) {
+            return REPORT_ICON_DEFINITIONS.Hail;
         }
-        return REPORT_ICON_DIR + (REPORT_ICON_FILES[type] || REPORT_ICON_FILES.Other);
+        return REPORT_ICON_DEFINITIONS[type] || REPORT_ICON_FALLBACK;
+    }
+
+    function reportIconPath(type) {
+        const definition = reportIconDefinition(type);
+        return definition.src || '';
     }
 
     function reportIconMarkup(type, className) {
+        const definition = reportIconDefinition(type);
+        const content = definition.src
+            ? '<img src="' + definition.src + '" alt="" aria-hidden="true">'
+            : '<span class="report-icon-emoji" role="img" aria-label="' + escapeHtml(type || 'Other') + '">'
+                + escapeHtml(definition.emoji) + '</span>';
         return '<span class="' + (className || 'report-category-icon') + '">'
-            + '<img src="' + reportIconPath(type) + '" alt="" aria-hidden="true"></span>';
+            + content + '</span>';
     }
 
     const REPORT_CATEGORIES = [
@@ -8866,7 +8881,7 @@
             const lsrRes = await fetch('https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=' + lsrHours + '&fmt=geojson');
             if (lsrRes.ok) {
                 const lsrData = await lsrRes.json();
-                const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', wind:'Wind Damage', wnd:'Wind Damage', tstm:'Thunderstorm', flood:'Flooding', snow:'Winter Weather', rain:'Rain', ice:'Winter Weather', fire:'Fire', dust:'Dust Storm' };
+                    const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', wind:'Wind Damage', wnd:'Wind Damage', tstm:'Thunderstorm', flood:'Flooding', snow:'Heavy Snow', rain:'Rain', ice:'Ice / Freezing Rain', fire:'Fire', dust:'Dust Storm' };
                 const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', wind:'#ff9100', wnd:'#ff9100', tstm:'#ffeb3b', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa', dust:'#c8a800' };
                 // IEM uses several abbreviated storm-report type names. Resolve
                 // the wind reports explicitly before the broad fallback matching
