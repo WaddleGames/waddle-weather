@@ -191,7 +191,7 @@
 
         #orbit-container { position: relative; height: 120px; width: 100%; margin: 20px 0; border-bottom: 2px solid #444; overflow: hidden; }
         .orbit-arc { position: absolute; bottom: 0; left: 10%; right: 10%; height: 200%; border: 2px dashed rgba(255,255,255,0.2); border-radius: 50%; }
-        #celestial-body { position: absolute; width: 24px; height: 24px; display: block; background: transparent; border: 0; transform: translate(-50%, 50%); transition: 1s ease-out; }
+        #celestial-body { position: absolute; width: 24px; height: 24px; display: block; background: transparent; border: 0; border-radius: 50%; overflow: hidden; clip-path: circle(50%); transform: translate(-50%, 50%); transition: 1s ease-out; }
 
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0b1e2d; display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000; }
         .nav-item { color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-size: 1.1em; transition: 0.3s; }
@@ -1076,7 +1076,7 @@
             <div id="station-clock" style="font-family:monospace; font-size:1.4em; color:var(--accent); margin-bottom:15px; font-weight:bold; letter-spacing:1px;">00:00:00</div>
             <div style="display:flex; justify-content:space-around; font-size:0.85em; font-weight:bold; color:#aaa; margin-bottom:10px;">
                 <div>&#127749; Sunrise:<br><span id="riseVal" style="color:var(--accent); font-size:1.2em;">--</span></div>
-                <div>Moon Phase:<br><span style="display:inline-flex;align-items:center;gap:4px;color:white;font-size:1.2em;line-height:1.2;"><span id="moonVal">--</span><canvas id="moon-phase-canvas" width="48" height="48" style="display:inline-block;width:24px;height:24px;background:transparent;border:0;vertical-align:middle;" aria-hidden="true"></canvas></span></div>
+                <div>Moon Phase:<br><span style="display:inline-flex;align-items:center;gap:4px;color:white;font-size:1.2em;line-height:1.2;"><span id="moonVal">--</span><canvas id="moon-phase-canvas" width="48" height="48" style="display:inline-block;width:24px;height:24px;background:transparent;border:0;border-radius:50%;overflow:hidden;clip-path:circle(50%);vertical-align:middle;" aria-hidden="true"></canvas></span></div>
                 <div>&#127751; Sunset:<br><span id="setVal" style="color:#ff5252; font-size:1.2em;">--</span></div>
             </div>
             <div id="orbit-container" style="position:relative; margin-top:10px;">
