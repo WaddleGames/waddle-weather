@@ -5316,12 +5316,6 @@
         const rainChance = Math.max.apply(null, upcoming.map(function(h) {
             return Math.round((Number(h.precipProbability) || 0) * 100);
         }));
-         // Only reserve/show a precipitation row when at least one visible
-         // hour has a non-zero chance.  Otherwise the outlook cards should
-         // not have an empty gap beneath their weather icons.
-         const hasPrecipChance = upcoming.some(function(h) {
-             return Math.round((Number(h.precipProbability) || 0) * 100) > 0;
-         });
          const currentChance = _estimateCurrentPrecipChance();
         const wind = Number(first.windSpeed);
         const gust = Number(first.windGust);
@@ -5374,13 +5368,9 @@
             card.className = 'hourly-outlook-card';
              const isCurrent = i === 0;
              const chance = isCurrent ? currentChance : Math.round((Number(h.precipProbability) || 0) * 100);
-             const chanceHtml = isCurrent
+             const chanceHtml = chance > 0
                  ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
-                 : (!hasPrecipChance
-                     ? ''
-                     : (chance > 0
-                         ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
-                         : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>'));
+                 : '';
              const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
              const iconHtml = isCurrent
                   ? _currentTWCOutlookIconHtml()
