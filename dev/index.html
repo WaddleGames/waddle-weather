@@ -7257,7 +7257,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
@@ -7266,10 +7266,14 @@
         const precipType = String(details?.precipType || '').toLowerCase();
         const intensity = Number(details?.precipIntensity);
         const precipProbability = Number(details?.precipProbability);
-        // An explicit 0% forecast must not be overridden by a stale/broad
-        // precipType or trace intensity field. If probability is absent, the
-        // metadata can still be useful for providers that omit PoP entirely.
-        const usePrecipMetadata = !isFinite(precipProbability) || precipProbability > 0;
+        // The displayed summary is authoritative for the icon family. Do not
+        // turn "Partly Cloudy" into rain merely because PW supplies a broad
+        // precipType, probability, or intensity alongside it. Metadata may
+        // refine an already-precipitating summary, but can never introduce
+        // precipitation that the summary does not mention.
+        const summaryHasPrecip = /rain|drizzle|shower|snow|sleet|ice pellet|hail|thunder|t-storm|tstm/.test(s);
+        const usePrecipMetadata = summaryHasPrecip &&
+            (!isFinite(precipProbability) || precipProbability > 0);
         if (s.includes('tornado')) return 1;
         if (s.includes('hurricane')) return 2;
         if (s.includes('tropical storm')) return 3;
@@ -7299,6 +7303,12 @@
         if (s.includes('wind') || s.includes('breezy') || s.includes('blustery')) return 24;
         if (s.includes('haze')) return 21;
         if (s.includes('smoke')) return 22;
+        if (s.includes('partly cloudy')) {
+            return String(icon || '').toLowerCase().includes('night') ? 29 : 30;
+        }
+        if (s.includes('mostly cloudy')) {
+            return String(icon || '').toLowerCase().includes('night') ? 27 : 28;
+        }
         if (s.includes('cloud') || s.includes('overcast')) return 26;
         if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return 32;
         if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
