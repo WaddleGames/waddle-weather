@@ -2296,6 +2296,12 @@
         document.getElementById('presVal').innerText = '--';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
+        // Prevent the previous location's TWC forecast from driving the score
+        // while the new daily forecast is loading.
+        window.twcForecastData = null;
+        twcMaxFeelsLike = null;
+        var _outdoorBox = document.getElementById('outdoor-score-box');
+        if (_outdoorBox) _outdoorBox.style.display = 'none';
         var _minuteHeadEl = document.getElementById('minute-heading');
         if (_minuteHeadEl) _minuteHeadEl.innerText = 'Minutely Forecast';
         var _minuteChartEl = document.getElementById('minute-chart-wrap');
@@ -2622,10 +2628,10 @@
         "tornado watch":"https://www.weather.gov/images/nws/newicons/fc.png",
         "severe thunderstorm warning":"https://www.weather.gov/images/nws/newicons/tsra.png",
         "severe thunderstorm watch":"https://www.weather.gov/images/nws/newicons/scttsra.png",
-        "non-tstm wind gusts":"..icons/wu/23.svg",
-        "non-tstm wnd gst":"..icons/wu/23.svg",
-        "tstm/non-tstm wind damage":"..icons/wu/23.svg",
-        "tstm/non-tstm wnd dmg":"..icons/wu/23.svg",
+        "non-tstm wind gusts":"icons/wu/23.svg",
+        "non-tstm wnd gst":"icons/wu/23.svg",
+        "tstm/non-tstm wind damage":"icons/wu/23.svg",
+        "tstm/non-tstm wnd dmg":"icons/wu/23.svg",
         "flash flood warning":"https://www.weather.gov/images/nws/newicons/shra.png",
         "snow squall warning":"https://www.weather.gov/images/nws/newicons/snip.png",
         "blizzard warning":"https://www.weather.gov/images/nws/newicons/blizzard.png",
@@ -3199,7 +3205,10 @@
         })();
         // Populate the QC panel for international locations (NWS unavailable)
         _renderPWSQCPanel(window.wuData || null, null, null);
-        _wxReveal(); // International location — PirateWeather is authoritative; reveal now
+        _wxReveal(); // International location — current observation is ready
+        if (window.pirateHourlyData) {
+            renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+        }
     }
 
     function applyUSMode() {
@@ -3215,7 +3224,191 @@
         }
     }
 
-    function computeOutdoorScore(hourlyData) {
+    // Outdoor Score is intentionally driven only by the TWC daily forecast.
+    // The compact hourly feed can still power the separate hourly/comfort views,
+    // but it must never influence this score.
+    function _computeOutdoorScoreFromTWC(data) {
+        var box = document.getElementById('outdoor-score-box');
+        var scoreEl = document.getElementById('outdoor-score-val');
+        var descEl = document.getElementById('outdoor-score-desc');
+        var isDaytime = (function() {
+            var nowMs = Date.now();
+            if (window._polarState === 'day') return true;
+            if (window._polarState === 'night') return false;
+            if (localRiseTime && localSetTime) return nowMs >= localRiseTime && nowMs <= localSetTime;
+            // If sunrise/sunset has not arrived yet, use the browser's local
+            // clock rather than borrowing time metadata from another provider.
+            var fallbackHour = new Date(nowMs).getHours();
+            return fallbackHour >= 6 && fallbackHour < 18;
+        })();
+        if (!isDaytime) {
+            if (box) box.style.display = 'none';
+            return;
+        }
+        if (box) box.style.display = 'block';
+
+        var dp = data && data.daypart && data.daypart[0];
+        if (!dp) {
+            if (box) box.style.display = 'none';
+            return;
+        }
+        // Daytime is the first TWC daypart. If it is unavailable, use the
+        // current populated daypart rather than falling back to another source.
+        var j = 0;
+        if (dp.temperature?.[j] == null && dp.wxPhraseLong?.[j] == null &&
+            dp.precipChance?.[j] == null) j = 1;
+        var temp = Number(dp.temperature?.[j]);
+        if (!isFinite(temp)) temp = Number(data.calendarDayTemperatureMax?.[0]);
+        if (!isFinite(temp)) temp = 70;
+        var heatIndex = Number(dp.temperatureHeatIndex?.[j]);
+        var windChill = Number(dp.temperatureWindChill?.[j]);
+        var feels = isFinite(heatIndex) && heatIndex > temp ? heatIndex :
+                    isFinite(windChill) && windChill < temp ? windChill : temp;
+        var chance = Number(dp.precipChance?.[j]);
+        if (!isFinite(chance)) chance = 0;
+        chance = Math.max(0, Math.min(100, chance));
+        var wind = Number(dp.windSpeed?.[j]);
+        if (!isFinite(wind)) wind = 0;
+        var gust = Number(dp.windGust?.[j]);
+        if (!isFinite(gust)) gust = wind;
+        var uv = Number(dp.uvIndex?.[j]);
+        if (!isFinite(uv)) uv = 0;
+        var humidity = Number(dp.relativeHumidity?.[j] ?? dp.humidity?.[j]);
+        if (!isFinite(humidity)) humidity = 50;
+        if (humidity <= 1) humidity *= 100;
+        var phrase = String(dp.wxPhraseLong?.[j] || '').toLowerCase();
+        var narrative = String(dp.narrative?.[j] || '').toLowerCase();
+        var hasThunder = /thunder|t-storm|tstorm|tstm/.test(phrase + ' ' + narrative);
+        var hasFrozen = /snow|sleet|ice pellet|freezing rain/.test(phrase);
+        var hasRain = /rain|drizzle|shower/.test(phrase);
+
+        var score = 100;
+        if (chance >= 80) score -= 50;
+        else if (chance >= 60) score -= 35;
+        else if (chance >= 40) score -= 22;
+        else if (chance >= 20) score -= 10;
+        else if (chance >= 10) score -= 4;
+        if (hasThunder) score -= 30;
+        else if (hasFrozen) score -= 25;
+        else if (hasRain) score -= 20;
+        if (feels >= 65 && feels <= 80) { /* ideal */ }
+        else if (feels >= 58 && feels < 65) score -= 8;
+        else if (feels > 80 && feels <= 88) score -= 8;
+        else if (feels >= 50 && feels < 58) score -= 18;
+        else if (feels > 88 && feels <= 95) score -= 18;
+        else if (feels >= 40 && feels < 50) score -= 30;
+        else if (feels > 95 && feels < 103) score -= 30;
+        else if (feels >= 103) score -= 42;
+        else if (feels >= 25 && feels < 40) score -= 45;
+        else if (feels >= 10 && feels < 25) score -= 58;
+        else if (feels < 10) score -= 70;
+        var effectiveWind = Math.max(wind, gust * 0.7);
+        if (effectiveWind > 40) score -= 28;
+        else if (effectiveWind > 25) score -= 18;
+        else if (effectiveWind > 15) score -= 8;
+        else if (effectiveWind > 10) score -= 3;
+        if (uv >= 11) score -= 15;
+        else if (uv >= 8) score -= 10;
+        else if (uv >= 6) score -= 5;
+        if (humidity > 85 && temp > 70) score -= 10;
+        else if (humidity > 75 && temp > 75) score -= 5;
+        else if (humidity < 20) score -= 4;
+        score = Math.max(0, Math.min(100, Math.round(score)));
+
+        // Preserve the safety overrides, but evaluate them independently of
+        // any forecast provider.
+        var activeNow = function(keyword) {
+            var onsets = window.activeAlertOnsets || {};
+            return (window.activeAlertEvents || []).some(function(eventName) {
+                var onset = onsets[eventName] || 0;
+                return String(eventName).toLowerCase().includes(keyword) &&
+                    (!onset || onset <= Date.now());
+            });
+        };
+        var override = null;
+        if (activeNow('tornado warning') || activeNow('severe thunderstorm warning')) {
+            override = { value: 0, text: 'Dangerous to be outside — active severe weather warning' };
+        } else if (activeNow('blizzard warning') || activeNow('winter storm warning') ||
+                   activeNow('ice storm warning') || activeNow('snow squall warning')) {
+            override = { value: 25, text: 'Not recommended — severe winter weather occurring' };
+        } else if (activeNow('extreme heat warning')) {
+            override = { value: 25, text: 'Not recommended — extremely hot conditions occurring' };
+        } else if (activeNow('extreme cold warning')) {
+            override = { value: 25, text: 'Not recommended — extremely cold conditions occurring' };
+        } else if (activeNow('heat advisory')) {
+            override = { value: 50, text: 'Not recommended — uncomfortably hot conditions occurring' };
+        } else if (activeNow('cold weather advisory')) {
+            override = { value: 50, text: 'Not recommended — uncomfortably cold conditions occurring' };
+        } else if (activeNow('air quality alert') || activeNow('dense smoke advisory')) {
+            override = { value: 75, text: 'Be cautious outdoors if sensitive to poor air quality or heavy smoke' };
+        }
+        if (override) {
+            if (scoreEl) scoreEl.innerText = override.value;
+            if (descEl) descEl.innerText = override.text;
+            SkyDB.set(SkyDB.S.weather, 'outdoor_score', {
+                ts: Date.now(), val: String(override.value), desc: override.text,
+                boxDisplay: box ? box.style.display : null
+            });
+            return;
+        }
+
+        var description;
+        if (score === 100 && feels >= 65 && feels <= 80) {
+            description = 'A completely perfect day to be outside! Get out there and enjoy it!';
+        } else if (score >= 90) {
+            description = feels >= 65 && feels <= 80
+                ? 'Nearly perfect — enjoy your time outside!'
+                : 'Excellent conditions for the forecast period.';
+        } else if (hasThunder) {
+            description = chance >= 70
+                ? 'Thunderstorms likely. Watch lightning closely.'
+                : 'Storms possible — watch lightning closely.';
+        } else if (feels >= 103) {
+            description = 'Dangerous heat ahead. Minimize outdoor exposure and hydrate.';
+        } else if (feels >= 95) {
+            description = 'Very hot (feels like ' + _fmtTemp(feels) + '). Limit activity during peak heat.';
+        } else if (feels < 15) {
+            description = 'Dangerously cold wind chills. Limit time outdoors.';
+        } else if (feels < 32) {
+            description = 'Freezing temperatures. Dress warmly before heading out.';
+        } else if (feels < 45) {
+            description = 'Chilly — jacket required. Otherwise manageable.';
+        } else if (chance >= 80) {
+            description = 'Rain very likely. Best to stay inside.';
+        } else if (score >= 75 && chance >= 25) {
+            description = 'Mostly good, but watch for rain.';
+        } else if (score >= 75) {
+            description = 'Great conditions for outdoor activities!';
+        } else if (chance >= 60) {
+            description = 'Rain likely. Plan accordingly.';
+        } else if (chance >= 25) {
+            description = 'Rain possible. Have an umbrella ready.';
+        } else if (gust >= 35) {
+            description = 'Very windy (' + _fmtWind(gust) + ' gusts). Outdoor plans may be disrupted.';
+        } else if (score >= 45) {
+            description = 'Marginal — plan carefully and dress for the conditions.';
+        } else if (score >= 30) {
+            description = 'Poor conditions — significant discomfort or hazard expected.';
+        } else {
+            description = 'Not recommended for outdoor activity.';
+        }
+        if (scoreEl) scoreEl.innerText = score;
+        if (descEl) descEl.innerText = description;
+        SkyDB.set(SkyDB.S.weather, 'outdoor_score', {
+            ts: Date.now(), val: String(score), desc: description,
+            boxDisplay: box ? box.style.display : null
+        });
+    }
+
+    function computeOutdoorScore() {
+        // Outdoor Score is TWC daily forecast only.
+        if (!window.twcForecastData) {
+            var noForecastBox = document.getElementById('outdoor-score-box');
+            if (noForecastBox) noForecastBox.style.display = 'none';
+            return;
+        }
+        return _computeOutdoorScoreFromTWC(window.twcForecastData);
+        /*
         // Only show outdoor section between sunrise and sunset at the weather station's local time
         const _isDaytime = (function() {
             const _nowMs = Date.now();
@@ -3425,6 +3618,8 @@
             desc = 'Not recommended for outdoor activity.';
         }
         if (descEl) descEl.innerText = desc;
+    }
+        */
     }
 
     // ── Flood Impact Score ─────────────────────────────────────────────────────
@@ -4166,7 +4361,7 @@
                 }));
                 SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: _div.innerHTML, bannerDisplay: _ban.style.display, bannerText: _ban.innerText, bannerBg: _ban.style.background, bannerClass: _ban.className, checklistText: _chk.style.display === 'block' ? _chk.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
             })(stack, banner, checklist);
-            if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+            computeOutdoorScore();
             // Save outdoor score now — alerts are active so alert-override descriptions are correct
             SkyDB.set(SkyDB.S.weather, 'outdoor_score', { ts: Date.now(), val: (document.getElementById('outdoor-score-val') || {}).innerText || null, desc: (document.getElementById('outdoor-score-desc') || {}).innerText || null, boxDisplay: (document.getElementById('outdoor-score-box') || {}).style.display || null });
             computeFloodOutlook();
@@ -4272,7 +4467,7 @@
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         window._pirateLoadFailed = false;
         try {
-            const resP = await fetch('https://api.pirateweathe.net/forecast/' + PIRATE_API_KEY + '/' + lat + ',' + lon + '?units=us');
+            const resP = await fetch('https://api.pirateweather.net/forecast/' + PIRATE_API_KEY + '/' + lat + ',' + lon + '?units=us');
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
             const d = await resP.json();
             if (!d || !d.currently) throw new Error('Pirate response missing currently data');
@@ -4507,7 +4702,6 @@
                 window.pirateHourlyData = _rawHourly;
                 window.pirateTimezoneOffset = d.offset || 0;
                 SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: _rawHourly, tzOffset: d.offset || 0 });
-                computeOutdoorScore(window.pirateHourlyData);
                 computeFloodOutlook();
                 // Silently patch any bad sentinel values from Open-Meteo
                 if (_uvWasBad || _hourlyHasBadUV || _currSentinelBad || _hourlyHasBadOther) {
@@ -4694,7 +4888,6 @@
         try {
             const res = await fetch(
                 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
-                '&models=ecmwf_ifs025' +
                 '&current=uv_index,temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation,cloud_cover,dew_point_2m' +
                 '&hourly=uv_index,temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation,cloud_cover,dew_point_2m,precipitation_probability,visibility' +
                 '&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=3'
@@ -4788,7 +4981,6 @@
                 liveFeelsLike = _fl;
                 (function(){ var _fv = Math.round(_fl); var _fe = document.getElementById('feelsVal'); if (_fe) { _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); } })();
                 updateSmartComfort(_T, liveFeelsLike, _RH, liveWindSpd, curr.summary || '', liveUV, (curr.precipProbability || 0) * 100);
-                if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
                 computeFloodOutlook();
             }
 
@@ -4903,6 +5095,16 @@
         window.pirateAlerts = window.pirateAlerts || [];
 
         document.getElementById('vibeCheck').innerText = fakeCurr.summary;
+        // Open-Meteo is the live backup for the current observation when
+        // PirateWeather is unavailable. Keep the Now card synchronized with
+        // that same current condition until NWS supplies a better observation.
+        currentCondition = fakeCurr.summary || '';
+        document.getElementById('conditionText').innerText = currentCondition || '--';
+        var _omCurrentIcon = _pwSummaryIcon(currentCondition, isNightAtStation);
+        if (_omCurrentIcon) {
+            document.getElementById('weatherIcon').src = _omCurrentIcon;
+            document.getElementById('weatherIcon').style.display = 'block';
+        }
 
         // Temperature
         const temp = fakeCurr.temperature;
@@ -5012,7 +5214,7 @@
         window.pirateHourlyData = hourlyRows;
         renderHourlyOutlook(hourlyRows, window.pirateTimezoneOffset || 0);
         SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
-        computeOutdoorScore(hourlyRows);
+        // Outdoor Score is rendered when the TWC daily forecast arrives.
         computeFloodOutlook();
         updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, fakeCurr.summary, liveUV, (fakeCurr.precipIntensity || 0) * 100);
         SkyDB.set(SkyDB.S.weather, 'last_conditions', {
@@ -5034,6 +5236,33 @@
 
         _isOffline = false;
         lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
+    }
+
+    function _estimateCurrentPrecipChance() {
+        var dp = window.twcForecastData?.daypart?.[0];
+        var chance = null;
+        if (dp && Array.isArray(dp.precipChance)) {
+            var part = window._polarState === 'night' ? 1 : 0;
+            chance = Number(dp.precipChance[part]);
+            if (!isFinite(chance)) chance = Number(dp.precipChance.find(function(v) { return v != null; }));
+        }
+        if (!isFinite(chance)) chance = 0;
+        // An active observation is stronger evidence than a forecast PoP. The
+        // condition itself comes from the authoritative current observation;
+        // no PirateWeather precipitation value is used here.
+        if (/rain|drizzle|shower|thunder|snow|sleet|hail/.test(String(currentCondition || '').toLowerCase())) {
+            return 100;
+        }
+        return Math.max(0, Math.min(100, Math.round(chance)));
+    }
+
+    function _currentOutlookIconHtml() {
+        var icon = document.getElementById('weatherIcon');
+        var src = icon && icon.style.display !== 'none' ? icon.getAttribute('src') : '';
+        if (!src) return null;
+        return '<img class="hourly-outlook-icon" src="' + escapeHtml(src) + '" alt="' +
+            escapeHtml(currentCondition || 'Current weather conditions') +
+            '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
     }
 
     function renderHourlyOutlook(hourlyData, timezoneOffset) {
@@ -5071,6 +5300,7 @@
          const hasPrecipChance = upcoming.some(function(h) {
              return Math.round((Number(h.precipProbability) || 0) * 100) > 0;
          });
+         const currentChance = _estimateCurrentPrecipChance();
         const wind = Number(first.windSpeed);
         const gust = Number(first.windGust);
         const windText = isFinite(wind) && wind > 0
@@ -5120,23 +5350,33 @@
             const hourLabel = i === 0 ? 'Now' : date.toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
             const card = document.createElement('div');
             card.className = 'hourly-outlook-card';
-            const chance = Math.round((Number(h.precipProbability) || 0) * 100);
-             const chanceHtml = !hasPrecipChance
-                 ? ''
-                 : (chance > 0
-                     ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
-                     : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>');
-            const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
+             const isCurrent = i === 0;
+             const chance = isCurrent ? currentChance : Math.round((Number(h.precipProbability) || 0) * 100);
+             const chanceHtml = isCurrent
+                 ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
+                 : (!hasPrecipChance
+                     ? ''
+                     : (chance > 0
+                         ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
+                         : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>'));
+             const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
+             const iconHtml = isCurrent
+                 ? (_currentOutlookIconHtml() || _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon'))
+                 : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
+             const conditionHtml = isCurrent && currentCondition
+                 ? '<div style="font-size:0.62em; color:#cbd5e1; line-height:1.1; margin-top:2px; max-width:62px; white-space:normal;">' + escapeHtml(currentCondition) + '</div>'
+                 : '';
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
                 iconHtml +
                 chanceHtml +
-                '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
+                 '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(cardTemp) + '</div>' +
+                 conditionHtml;
             // Apply the exact same Fahrenheit-based scale used by tempVal and
             // feelsVal. Set it after insertion so no card/inherited color rule
             // can replace the inline temperature color.
             var outlookTempEl = card.querySelector('.hourly-temperature');
-            if (outlookTempEl) outlookTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
+             if (outlookTempEl) outlookTempEl.style.setProperty('color', colorFeelsLike(Number(cardTemp)), 'important');
             cardsEl.appendChild(card);
         });
         wrap.style.display = '';
@@ -5713,6 +5953,9 @@
                 liveHumidity:  (function(){ var el=document.getElementById('humVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })()
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
+            if (window.pirateHourlyData) {
+                renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+            }
         } catch(e) {
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
             // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
@@ -5767,7 +6010,10 @@
                         liveFeelsLike, pw.humidity != null ? Math.round(pw.humidity * 100) : 50,
                         liveWindSpd, fbCond, liveUV, (pw.precipProbability || 0) * 100);
                 })();
-                _wxReveal(); // Water location — PirateWeather is the sole source; reveal now
+                _wxReveal(); // Water location — current observation is ready
+                if (window.pirateHourlyData) {
+                    renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+                }
                 return;
             }
             // NWS chain failed — restore cached station metadata and condition text,
@@ -6764,6 +7010,12 @@
                     daypartName:           _dp.daypartName,
                     temperature:           _dp.temperature,
                     humidity:              _dp.humidity,
+                     relativeHumidity:      _dp.relativeHumidity,
+                     windSpeed:             _dp.windSpeed,
+                     windGust:              _dp.windGust,
+                     windDirection:         _dp.windDirection,
+                     windDirectionCardinal: _dp.windDirectionCardinal,
+                     windPhrase:            _dp.windPhrase,
                     uvIndex:               _dp.uvIndex,
                     uvDescription:         _dp.uvDescription,
                     cloudCoverPhrase:      _dp.cloudCoverPhrase,
@@ -6835,6 +7087,29 @@
         function narrPart(j) { return (dp.narrative?.[j]    || '').toLowerCase(); }
         function snowPart(j) { return dp.qpfSnow?.[j] ?? 0; }
         function pcPart(j)   { return dp.precipChance?.[j] ?? 0; }
+        function thunderCoverage(j) {
+            var source = [
+                dp.thunderCategory?.[j],
+                dp.wxPhraseLong?.[j],
+                dp.narrative?.[j]
+            ].join(' ').toLowerCase();
+            if (source.includes('widespread')) return 'Widespread';
+            if (source.includes('numerous')) return 'Numerous';
+            if (source.includes('scattered')) return 'Scattered';
+            if (source.includes('isolated')) return 'Isolated';
+            return '';
+        }
+        function thunderSummary(j) {
+            var chance = Number(pcPart(j));
+            var coverage = thunderCoverage(j);
+            var lead = coverage ? coverage + ' thunderstorms' : 'Thunderstorms';
+            var likelihood = chance >= 70 ? 'likely' : chance >= 40 ? 'possible' : 'possible';
+            lead = lead.charAt(0).toUpperCase() + lead.slice(1);
+            return lead + ' ' + likelihood + ' ' + daypartLabel(j) + '.';
+        }
+        function rainLikelihood(chance) {
+            return Number(chance) >= 70 ? 'likely' : 'possible';
+        }
         function fmtT(f) {
             if (f == null) return '--°';
             return _isMetric() ? Math.round((f - 32) * 5 / 9) + '°' : Math.round(f) + '°';
@@ -6862,8 +7137,10 @@
         // ── Priority 2: Thunderstorms ────────────────────────────────────────
         for (var j = 0; j < n * 2 && !s1; j++) {
             var wx = wxPart(j);
-            if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm')) {
-                s1 = 'Thunderstorms possible ' + daypartLabel(j) + '.';
+            var narr = narrPart(j);
+            if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm') ||
+                narr.includes('thunder') || narr.includes('t-storm') || narr.includes('tstorm')) {
+                s1 = thunderSummary(j);
             }
         }
 
@@ -6875,24 +7152,28 @@
             var narr = narrPart(j);
             if (narr.includes('heavy rain') || narr.includes('heavy rainfall')) {
                 var amt = totalQpf(Math.floor(j / 2));
-                s1 = 'Potential for heavy rainfall ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
+                var heavyWord = pcPart(j) >= 70 ? 'likely' : 'possible';
+                s1 = 'Heavy rain ' + heavyWord + ' ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
             }
         }
 
-        // ── Priority 4: Rain / showers (≥40% chance) ────────────────────────
+        // ── Priority 4: Rain / showers (≥25% chance) ────────────────────────
         // Multi-day cases stay at day level; single-day case pinpoints day vs night.
         if (!s1) {
             var rainDaySet = [];
-            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 40) rainDaySet.push(i); }
+            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 25) rainDaySet.push(i); }
             if (rainDaySet.length === 1) {
                 var di = rainDaySet[0];
-                var dayRain   = pcPart(di * 2)     >= 40;
-                var nightRain = pcPart(di * 2 + 1) >= 40;
+                var dayRain   = pcPart(di * 2)     >= 25;
+                var nightRain = pcPart(di * 2 + 1) >= 25;
                 // Use night-specific label only when rain is exclusively at night
                 var rainLbl = (!dayRain && nightRain) ? daypartLabel(di * 2 + 1) : dayLabel(di);
-                s1 = 'Rain possible ' + rainLbl + '.';
+                s1 = 'Rain ' + rainLikelihood(maxPrecipChance(di)) + ' ' + rainLbl + '.';
             } else if (rainDaySet.length === 2) {
-                s1 = 'Rain possible ' + dayLabel(rainDaySet[0]) + ' and ' + dayLabel(rainDaySet[1]) + '.';
+                var firstChance = maxPrecipChance(rainDaySet[0]);
+                var secondChance = maxPrecipChance(rainDaySet[1]);
+                var multiLikelihood = Math.min(firstChance, secondChance) >= 70 ? 'likely' : 'possible';
+                s1 = 'Rain ' + multiLikelihood + ' ' + dayLabel(rainDaySet[0]) + ' and ' + dayLabel(rainDaySet[1]) + '.';
             } else if (rainDaySet.length >= 3) {
                 s1 = 'Unsettled and rainy pattern through ' + dayLabel(rainDaySet[rainDaySet.length - 1]) + '.';
             }
@@ -6950,7 +7231,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary) {
         if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
@@ -7005,10 +7286,9 @@
                 else twcMaxFeelsLike = t;
             }
         })();
-        // Re-run outdoor score now that twcMaxFeelsLike is set — fetchPirate() ran first
-        // so the initial computeOutdoorScore call had twcMaxFeelsLike = null and fell back
-        // to Pirate's (potentially lagged) hourly apparentTemperature for the description.
-        if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+        // TWC is the sole source for Outdoor Score. The separate hourly feed
+        // must not be used to calculate it.
+        computeOutdoorScore();
         // Store TWC per-day QPF totals (day + night slots) for the Flood Outlook,
         // so it matches the same source as the daily forecast cards.
         window.twcDailyQPF = (data.dayOfWeek || []).map(function(_, i) {
@@ -7444,19 +7724,19 @@
     // Keep this list limited to paths that actually exist; unspecified report
     // types intentionally use an emoji until a TWC/WU SVG is assigned.
     const REPORT_ICON_DEFINITIONS = {
-        'Rain':                   { src: '..icons/wu/12.svg' },
-        'Thunderstorm':           { src: '..icons/wu/3.svg' },
-        'Wind Damage':            { src: '..icons/wu/23.svg' },
+        'Rain':                   { src: 'icons/wu/12.svg' },
+        'Thunderstorm':           { src: 'icons/wu/3.svg' },
+        'Wind Damage':            { src: 'icons/wu/23.svg' },
         'Flooding':               { emoji: '\uD83C\uDF0A' },
         'Flash Flood':            { emoji: '\uD83C\uDF0A' },
-        'Hail':                   { src: '..icons/wu/17.svg' },
+        'Hail':                   { src: 'icons/wu/17.svg' },
         'Tornado / Funnel Cloud': { emoji: '\uD83C\uDF2A\uFE0F' },
         'Tornado':                { emoji: '\uD83C\uDF2A\uFE0F' },
-        'Rotation':               { src: '..icons/wu/2.svg' },
-        'Winter Weather':         { src: '..icons/wu/16.svg' },
-        'Heavy Snow':             { src: '..icons/wu/16.svg' },
-        'Ice / Freezing Rain':    { src: '..icons/wu/10.svg' },
-        'Blizzard Conditions':    { src: '..icons/wu/15.svg' },
+        'Rotation':               { src: 'icons/wu/2.svg' },
+        'Winter Weather':         { src: 'icons/wu/16.svg' },
+        'Heavy Snow':             { src: 'icons/wu/16.svg' },
+        'Ice / Freezing Rain':    { src: 'icons/wu/10.svg' },
+        'Blizzard Conditions':    { src: 'icons/wu/15.svg' },
         'Lightning Strike':       { emoji: '\u26A1' },
         'Lightning':              { emoji: '\u26A1' },
         'Fire':                   { src: 'icons/other/fire.svg' },
