@@ -4803,8 +4803,19 @@
                     var _osBox = document.getElementById('outdoor-score-box');
                     var _osVal = document.getElementById('outdoor-score-val');
                     var _osDesc = document.getElementById('outdoor-score-desc');
+                    // Older cached snapshots could contain a zero caused by
+                    // the pre-floor thunderstorm calculation. Do not let that
+                    // stale value overwrite the corrected forecast score while
+                    // restoring an offline session. Active-warning snapshots
+                    // use a different description and remain untouched.
+                    var _restoreVal = os.val;
+                    if (Number(_restoreVal) === 0 &&
+                        /thunderstorms likely|storms possible/i.test(String(os.desc || '')) &&
+                        !/active severe weather warning/i.test(String(os.desc || ''))) {
+                        _restoreVal = '20';
+                    }
                     if (_osBox && os.boxDisplay != null) _osBox.style.display = os.boxDisplay;
-                    if (_osVal && os.val != null) _osVal.innerText = os.val;
+                    if (_osVal && _restoreVal != null) _osVal.innerText = _restoreVal;
                     if (_osDesc && os.desc != null) _osDesc.innerText = os.desc;
                 });
                 // Restore flood outlook inputs and re-compute display
@@ -7246,7 +7257,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = 'icons/wu/';
+    const TWC_ICON_BASE_PATH = '../icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
