@@ -2296,6 +2296,7 @@
         document.getElementById('presVal').innerText = '--';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
+        window._minuteHasPrecip = null;
         // Prevent the previous location's TWC forecast from driving the score
         // while the new daily forecast is loading.
         window.twcForecastData = null;
@@ -4599,6 +4600,7 @@
                     return m && ((m.precipIntensity != null && m.precipIntensity > 0) ||
                                  (m.precipAccumulation != null && m.precipAccumulation > 0));
                 }));
+            window._minuteHasPrecip = _minuteHasPrecip;
             const _minuteHeading = document.getElementById('minute-heading');
             const _minuteChartWrap = document.getElementById('minute-chart-wrap');
             const _hourlyOutlook = document.getElementById('hourly-outlook');
@@ -5157,6 +5159,7 @@
         // used when PirateWeather reports a quiet/non-precipitating hour.
         var _omMinuteHeading = document.getElementById('minute-heading');
         var _omMinuteChart = document.getElementById('minute-chart-wrap');
+        window._minuteHasPrecip = false;
         if (_omMinuteHeading) _omMinuteHeading.innerText = '';
         document.getElementById('minuteSummary').innerText = '';
         if (_omMinuteChart) _omMinuteChart.style.display = 'none';
@@ -5265,12 +5268,44 @@
             '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
     }
 
+    function _currentTWCOutlookIconHtml(data) {
+        var dp = data && data.daypart && data.daypart[0];
+        if (!dp || !Array.isArray(dp.iconCode)) return null;
+        var slots = Math.max(
+            dp.iconCode.length,
+            Array.isArray(dp.narrative) ? dp.narrative.length : 0,
+            Array.isArray(dp.daypartName) ? dp.daypartName.length : 0,
+            Array.isArray(dp.wxPhraseLong) ? dp.wxPhraseLong.length : 0
+        );
+        var slot = -1;
+        for (var i = 0; i < slots; i++) {
+            if (dp.iconCode[i] != null || dp.narrative?.[i] ||
+                dp.daypartName?.[i] || dp.wxPhraseLong?.[i]) {
+                slot = i;
+                break;
+            }
+        }
+        var code = slot >= 0 ? Number(dp.iconCode[slot]) : NaN;
+        if (!isFinite(code)) return null;
+        var phrase = dp.wxPhraseLong?.[slot] || dp.narrative?.[slot] || 'TWC forecast conditions';
+        return '<img class="hourly-outlook-icon" src="' + _twcIconSrc(code) + '" alt="' +
+            escapeHtml(phrase) +
+            '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
+    }
+
     function renderHourlyOutlook(hourlyData, timezoneOffset) {
         const wrap = document.getElementById('hourly-outlook');
         const titleEl = document.getElementById('hourly-outlook-title');
         const summaryEl = document.getElementById('hourly-outlook-summary');
         const cardsEl = document.getElementById('hourly-outlook-cards');
         if (!wrap || !titleEl || !summaryEl || !cardsEl) return;
+        // The compact outlook is a fallback for a genuinely dry minutely
+        // forecast. Never let later NWS/PWS re-renders make both sections
+        // visible while minute-by-minute precipitation is active or unknown.
+        if (window._minuteHasPrecip !== false) {
+            wrap.style.display = 'none';
+            return;
+        }
 
          const nowSec = Date.now() / 1000;
          const offsetHours = Number(timezoneOffset) || 0;
@@ -5361,17 +5396,13 @@
                          : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>'));
              const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
              const iconHtml = isCurrent
-                 ? (_currentOutlookIconHtml() || _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon'))
+                  ? (_currentTWCOutlookIconHtml(twcData) || _currentOutlookIconHtml() || _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon'))
                  : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
-             const conditionHtml = isCurrent && currentCondition
-                 ? '<div style="font-size:0.62em; color:#cbd5e1; line-height:1.1; margin-top:2px; max-width:62px; white-space:normal;">' + escapeHtml(currentCondition) + '</div>'
-                 : '';
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
                 iconHtml +
                 chanceHtml +
-                 '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(cardTemp) + '</div>' +
-                 conditionHtml;
+                  '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(cardTemp) + '</div>';
             // Apply the exact same Fahrenheit-based scale used by tempVal and
             // feelsVal. Set it after insertion so no card/inherited color rule
             // can replace the inline temperature color.
