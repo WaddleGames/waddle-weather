@@ -5259,37 +5259,24 @@
         return Math.max(0, Math.min(100, Math.round(chance)));
     }
 
-    function _currentOutlookIconHtml() {
-        var icon = document.getElementById('weatherIcon');
-        var src = icon && icon.style.display !== 'none' ? icon.getAttribute('src') : '';
-        if (!src) return null;
-        return '<img class="hourly-outlook-icon" src="' + escapeHtml(src) + '" alt="' +
-            escapeHtml(currentCondition || 'Current weather conditions') +
-            '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
-    }
-
-    function _currentTWCOutlookIconHtml(data) {
-        var dp = data && data.daypart && data.daypart[0];
-        if (!dp || !Array.isArray(dp.iconCode)) return null;
-        var slots = Math.max(
-            dp.iconCode.length,
-            Array.isArray(dp.narrative) ? dp.narrative.length : 0,
-            Array.isArray(dp.daypartName) ? dp.daypartName.length : 0,
-            Array.isArray(dp.wxPhraseLong) ? dp.wxPhraseLong.length : 0
-        );
-        var slot = -1;
-        for (var i = 0; i < slots; i++) {
-            if (dp.iconCode[i] != null || dp.narrative?.[i] ||
-                dp.daypartName?.[i] || dp.wxPhraseLong?.[i]) {
-                slot = i;
-                break;
-            }
+    function _currentTWCOutlookIconHtml() {
+        var currentText = String(currentCondition || '').trim();
+        var currentLower = currentText.toLowerCase();
+        var currentIsNight = window._polarState === 'night' || isNightAtStation;
+        var currentCode;
+        if (/clear|sunny|fair/.test(currentLower) && !/cloud/.test(currentLower)) {
+            currentCode = currentIsNight ? 31 : 32;
+        } else if (/partly|mostly sunny|mostly clear/.test(currentLower)) {
+            currentCode = currentIsNight ? 29 : 30;
+        } else if (currentText) {
+            currentCode = _twcIconCodeForWeather(null, currentText);
+        } else {
+            // Never borrow a future forecast icon for the Now card while the
+            // authoritative observation is still loading.
+            currentCode = currentIsNight ? 33 : 34;
         }
-        var code = slot >= 0 ? Number(dp.iconCode[slot]) : NaN;
-        if (!isFinite(code)) return null;
-        var phrase = dp.wxPhraseLong?.[slot] || dp.narrative?.[slot] || 'TWC forecast conditions';
-        return '<img class="hourly-outlook-icon" src="' + _twcIconSrc(code) + '" alt="' +
-            escapeHtml(phrase) +
+        return '<img class="hourly-outlook-icon" src="' + _twcIconSrc(currentCode) + '" alt="' +
+            escapeHtml(currentText || 'Current weather conditions') +
             '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
     }
 
@@ -5396,7 +5383,7 @@
                          : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>'));
              const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
              const iconHtml = isCurrent
-                  ? (_currentTWCOutlookIconHtml(twcData) || _currentOutlookIconHtml() || _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon'))
+                  ? _currentTWCOutlookIconHtml()
                  : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
@@ -7262,7 +7249,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary) {
         if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
