@@ -7265,6 +7265,11 @@
         const s = String(summary || '').toLowerCase();
         const precipType = String(details?.precipType || '').toLowerCase();
         const intensity = Number(details?.precipIntensity);
+        const precipProbability = Number(details?.precipProbability);
+        // An explicit 0% forecast must not be overridden by a stale/broad
+        // precipType or trace intensity field. If probability is absent, the
+        // metadata can still be useful for providers that omit PoP entirely.
+        const usePrecipMetadata = !isFinite(precipProbability) || precipProbability > 0;
         if (s.includes('tornado')) return 1;
         if (s.includes('hurricane')) return 2;
         if (s.includes('tropical storm')) return 3;
@@ -7273,7 +7278,7 @@
             if (s.includes('scatter')) return 38;
             return 4;
         }
-        if (s.includes('freezing drizzle') || precipType.includes('freezing drizzle')) return 8;
+        if (s.includes('freezing drizzle') || (usePrecipMetadata && precipType.includes('freezing drizzle'))) return 8;
         if (s.includes('freezing rain')) return 10;
         if ((s.includes('rain') || s.includes('drizzle')) && s.includes('snow')) return 5;
         if ((s.includes('rain') || s.includes('drizzle')) &&
@@ -7282,12 +7287,12 @@
         if (s.includes('rain') && s.includes('hail')) return 35;
         if (s.includes('hail')) return 17;
         if (s.includes('heavy rain') || s.includes('downpour') ||
-            (precipType === 'rain' && isFinite(intensity) && intensity >= 0.1)) return 40;
-        if (s.includes('drizzle') || precipType === 'drizzle') return 9;
+            (usePrecipMetadata && precipType === 'rain' && isFinite(intensity) && intensity >= 0.1)) return 40;
+        if (s.includes('drizzle') || (usePrecipMetadata && precipType === 'drizzle')) return 9;
         if (s.includes('light rain') || s.includes('light shower')) return 11;
         if (s.includes('scattered shower')) return 39;
         if (s.includes('shower')) return 11;
-        if (s.includes('rain') || precipType === 'rain') return 12;
+        if (s.includes('rain') || (usePrecipMetadata && precipType === 'rain')) return 12;
         if (s.includes('snow') || s.includes('flurr')) return 16;
         if (s.includes('sleet') || s.includes('ice pellet') || s.includes('freezing rain')) return 18;
         if (s.includes('fog') || s.includes('mist')) return 20;
