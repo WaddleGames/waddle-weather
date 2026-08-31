@@ -5374,7 +5374,7 @@
              const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
              const iconHtml = isCurrent
                   ? _currentTWCOutlookIconHtml()
-                 : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
+                 : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon', h);
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
                 iconHtml +
@@ -5412,7 +5412,7 @@
                 const card = document.createElement('div'); card.className = 'forecast-card';
                 const rainAmt = h.precipAccumulation || (h.precipIntensity ? parseFloat(h.precipIntensity.toFixed(2)) : 0);
                 const rainLine = rainAmt > 0 ? '<div style="font-size:0.65em; color:#4fc3f7; margin-top:2px;">\uD83C\uDF27 ' + (_isMetric() ? (rainAmt * 25.4).toFixed(1) + ' mm' : rainAmt.toFixed(2) + '"') + '</div>' : '';
-                const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '48px', 'hourly-forecast-icon');
+                const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '48px', 'hourly-forecast-icon', h);
                 card.innerHTML = '<div style="font-size:0.7em;">' + hour + '</div>' + iconHtml + '<div class="hourly-temperature" style="font-size:1.2em; font-weight:bold;">' + _fmtTemp(h.temperature) + '</div><div style="font-size:0.7em; opacity:0.7;">' + escapeHtml(h.summary || '') + '</div><div style="font-size:0.65em; color:var(--primary);">Precip: ' + Math.round((h.precipProbability || 0) * 100) + '%</div>' + rainLine;
                 var pwTempEl = card.querySelector('.hourly-temperature');
                 if (pwTempEl) pwTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
@@ -7229,6 +7229,9 @@
     const PIRATE_ICON_TO_TWC_CODE = {
         'clear-day': 32,            // 32.svg = sunny
         'clear-night': 31,          // 31.svg = clear night
+        'drizzle': 9,               // 9.svg = drizzle
+        'light-rain': 11,           // 11.svg = light rain / showers
+        'showers': 11,              // 11.svg = showers
         'rain': 12,                 // 12.svg = rain
         'snow': 16,                 // 16.svg = snow
         'sleet': 18,                // 18.svg = sleet
@@ -7241,26 +7244,46 @@
     };
     const TWC_ICON_BASE_PATH = '../icons/wu/';
 
-    function _twcIconCodeForWeather(icon, summary) {
-        if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
-            return PIRATE_ICON_TO_TWC_CODE[icon];
-        }
-        // Summary fallback covers PirateWeather conditions with an unfamiliar
-        // or missing icon slug while keeping the same TWC numbering scheme.
+    function _twcIconCodeForWeather(icon, summary, details) {
+        // Prefer descriptive text and precipitation metadata over broad
+        // provider slugs such as PW's generic "rain".
         const s = String(summary || '').toLowerCase();
+        const precipType = String(details?.precipType || '').toLowerCase();
+        const intensity = Number(details?.precipIntensity);
         if (s.includes('tornado')) return 1;
         if (s.includes('hurricane')) return 2;
         if (s.includes('tropical storm')) return 3;
-        if (s.includes('thunder') || s.includes('t-storm') || s.includes('tstm')) return 4;
+        if (s.includes('thunder') || s.includes('t-storm') || s.includes('tstm')) {
+            if (s.includes('isolat')) return 37;
+            if (s.includes('scatter')) return 38;
+            return 4;
+        }
+        if (s.includes('freezing drizzle') || precipType.includes('freezing drizzle')) return 8;
+        if (s.includes('freezing rain')) return 10;
+        if ((s.includes('rain') || s.includes('drizzle')) && s.includes('snow')) return 5;
+        if ((s.includes('rain') || s.includes('drizzle')) &&
+            (s.includes('sleet') || s.includes('ice pellet'))) return 6;
+        if (s.includes('snow') && (s.includes('sleet') || s.includes('ice pellet'))) return 7;
+        if (s.includes('rain') && s.includes('hail')) return 35;
+        if (s.includes('hail')) return 17;
+        if (s.includes('heavy rain') || s.includes('downpour') ||
+            (precipType === 'rain' && isFinite(intensity) && intensity >= 0.1)) return 40;
+        if (s.includes('drizzle') || precipType === 'drizzle') return 9;
+        if (s.includes('light rain') || s.includes('light shower')) return 11;
+        if (s.includes('scattered shower')) return 39;
+        if (s.includes('shower')) return 11;
+        if (s.includes('rain') || precipType === 'rain') return 12;
         if (s.includes('snow') || s.includes('flurr')) return 16;
         if (s.includes('sleet') || s.includes('ice pellet') || s.includes('freezing rain')) return 18;
-        if (s.includes('rain') || s.includes('drizzle') || s.includes('shower')) return 12;
         if (s.includes('fog') || s.includes('mist')) return 20;
         if (s.includes('wind') || s.includes('breezy') || s.includes('blustery')) return 24;
         if (s.includes('haze')) return 21;
         if (s.includes('smoke')) return 22;
         if (s.includes('cloud') || s.includes('overcast')) return 26;
         if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return 32;
+        if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
+            return PIRATE_ICON_TO_TWC_CODE[icon];
+        }
         return 34; // 34.svg = mostly sunny / safe generic fallback
     }
 
@@ -7268,10 +7291,10 @@
         return TWC_ICON_BASE_PATH + (code || 50) + '.svg';
     }
 
-    function _twcHourlyIconHtml(icon, summary, size, className) {
+    function _twcHourlyIconHtml(icon, summary, size, className, details) {
         const label = escapeHtml(summary || 'Weather conditions');
         const classAttr = className ? ' class="' + className + '"' : '';
-        return '<img' + classAttr + ' src="' + _twcIconSrc(_twcIconCodeForWeather(icon, summary)) +
+        return '<img' + classAttr + ' src="' + _twcIconSrc(_twcIconCodeForWeather(icon, summary, details)) +
             '" alt="' + label + '" style="width:' + size + ';height:' + size +
             ';object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
     }
@@ -7503,7 +7526,7 @@
                 const c = computeHourComfort(h);
                 const hourLabel = new Date((h.time + (offsetHours * 3600)) * 1000).toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
                 const temp = _fmtTemp(h.temperature ?? 0);
-                const icon = _twcHourlyIconHtml(h.icon, h.summary, '30px', 'hourly-comfort-icon');
+                const icon = _twcHourlyIconHtml(h.icon, h.summary, '30px', 'hourly-comfort-icon', h);
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><div style="min-width:42px;font-size:0.75em;color:#aaa;text-align:right;">' + hourLabel + '</div><div style="min-width:30px;text-align:center;">' + icon + '</div><div style="min-width:36px;font-size:0.9em;font-weight:bold;color:var(--accent);">' + temp + '</div><div style="flex:1;"><div style="font-weight:900;font-size:0.85em;color:' + c.color + ';letter-spacing:0.5px;">' + c.word + '</div><div style="font-size:0.68em;opacity:0.65;">' + c.reason + '</div></div></div>';
             }).join('');
         }
