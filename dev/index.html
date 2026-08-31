@@ -3314,6 +3314,10 @@
         if (humidity > 85 && temp > 70) score -= 10;
         else if (humidity > 75 && temp > 75) score -= 5;
         else if (humidity < 20) score -= 4;
+        // A forecast thunderstorm is not the same as an active lightning
+        // warning. Keep ordinary storm forecasts above zero; the explicit
+        // zero remains reserved for active severe-weather warnings below.
+        if (hasThunder && score < 20) score = 20;
         score = Math.max(0, Math.min(100, Math.round(score)));
 
         // Preserve the safety overrides, but evaluate them independently of
@@ -7242,7 +7246,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
