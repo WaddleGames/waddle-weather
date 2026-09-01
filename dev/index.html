@@ -5611,24 +5611,32 @@
             window.nwsGridOffice = p.properties.gridId;
             window.nwsGridX = p.properties.gridX;
             window.nwsGridY = p.properties.gridY;
-            // These are part of the weather load, not background decoration.
-            // Await them so UPDATING does not disappear while they are still
-            // populating the page.
-            await Promise.all([
-                fetchNWSQPF(window.nwsGridOffice, window.nwsGridX, window.nwsGridY),
-                updateWeatherStory(wfo)
+            // QPF and the weather story are optional enrichments. Start them
+            // now, but do not make the station identity wait for either one.
+            Promise.all([
+                Promise.resolve(fetchNWSQPF(window.nwsGridOffice, window.nwsGridX, window.nwsGridY)).catch(function() {}),
+                Promise.resolve(updateWeatherStory(wfo)).catch(function() {})
             ]);
-            try {
-                const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo);
-                const hwoList = await hwoRes.json();
-                if (hwoList['@graph'] && hwoList['@graph'].length > 0) {
-                    const hwoData = await (await fetch(hwoList['@graph'][0]['@id'])).json();
-                    const text = (hwoData.productText || '').trim();
-                    if (text) { document.getElementById('cli-text').innerText = text; document.getElementById('hwo-section').style.display = localStorage.getItem('data_complexity') === 'specific' ? 'block' : 'none'; }
-                    else document.getElementById('hwo-section').style.display = 'none';
-                } else document.getElementById('hwo-section').style.display = 'none';
-            } catch(e) { document.getElementById('hwo-section').style.display = 'none'; }
-            const stations = await (await fetch(p.properties.observationStations)).json();
+
+            // HWO is also optional and has a list request followed by a product
+            // request. Run it in the background so a slow product cannot hold
+            // the current conditions behind "LOADING LOCATION...".
+            (async function() {
+                try {
+                    const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo);
+                    const hwoList = await hwoRes.json();
+                    if (hwoList['@graph'] && hwoList['@graph'].length > 0) {
+                        const hwoDataRes = await fetch(hwoList['@graph'][0]['@id']);
+                        const hwoData = await hwoDataRes.json();
+                        const text = (hwoData.productText || '').trim();
+                        if (text) { document.getElementById('cli-text').innerText = text; document.getElementById('hwo-section').style.display = localStorage.getItem('data_complexity') === 'specific' ? 'block' : 'none'; }
+                        else document.getElementById('hwo-section').style.display = 'none';
+                    } else document.getElementById('hwo-section').style.display = 'none';
+                } catch(e) { document.getElementById('hwo-section').style.display = 'none'; }
+            })();
+
+            const stationsRes = await fetch(p.properties.observationStations);
+            const stations = await stationsRes.json();
             const primaryStation = stations.features[0];
             const elevMeters = primaryStation.properties.elevation?.value;
             const _nwsStationName = primaryStation.properties.name;
@@ -5959,13 +5967,19 @@
                     }
                 }
             })();
-            try {
-                const afdList = await (await fetch('https://api.weather.gov/products/types/AFD/locations/' + wfo)).json();
-                if (afdList['@graph'] && afdList['@graph'].length > 0) {
-                    const afd = await (await fetch(afdList['@graph'][0]['@id'])).json();
-                    document.getElementById('nws-text').innerText = afd.productText;
-                }
-            } catch(e) {}
+            // The discussion text is useful but not required to finish the
+            // current-observation load.
+            (async function() {
+                try {
+                    const afdListRes = await fetch('https://api.weather.gov/products/types/AFD/locations/' + wfo);
+                    const afdList = await afdListRes.json();
+                    if (afdList['@graph'] && afdList['@graph'].length > 0) {
+                        const afdRes = await fetch(afdList['@graph'][0]['@id']);
+                        const afd = await afdRes.json();
+                        document.getElementById('nws-text').innerText = afd.productText;
+                    }
+                } catch(e) {}
+            })();
             startWeatherFX(currentCondition);
             startSkyFX(currentCondition);
             // Cache key NWS observation fields for offline restore
@@ -7284,7 +7298,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
@@ -10496,68 +10510,78 @@
             })();
 
             await fetchPirate(loadGeneration);
-            // Start the daily forecast/sun/alert enrichment as soon as the
-            // primary response is rendered. It is independent of AQI, beach
-            // classification, and the long NWS chain.
-            if (!window._pirateLoadFailed) {
-                getWeatherEnrichment().then(function() {
+            if (loadGeneration !== weatherLoadGeneration) return;
+            // Everything below is enrichment. Run it after the primary view
+            // is usable, and keep failures local to the feature that failed.
+            // This preserves alerts, risk maps, reports, and beach data without
+            // making any of them a prerequisite for weather conditions.
+            (async function() {
+                try {
+                    if (!window._pirateLoadFailed) {
+                        // Start this immediately; the two consumers below share
+                        // the same promise and therefore one network request.
+                        getWeatherEnrichment().catch(function() {});
+                    }
+                    await _locationClassificationPromise;
+                    if (window._pirateLoadFailed) loadFailed = true;
                     if (loadGeneration !== weatherLoadGeneration) return;
-                    fetchTWCForecast();
-                    fetchOpenWeather();
-                }).catch(function() {});
-            }
-            await _locationClassificationPromise;
-            if (window._pirateLoadFailed) loadFailed = true;
-            if (loadGeneration !== weatherLoadGeneration) return;
-            // Current/daily/hourly data are the home-page first wave. Do not
-            // keep the launch screen up for AQI, risk maps, reports, or radar.
-            if (!window._pirateLoadFailed && typeof window._dismissLaunch === 'function') {
-                window._dismissLaunch();
-            }
-            await Promise.all([fetchAQI(), fetchBeachForecast(lat, lon)]);
-            await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
-            if (loadGeneration !== weatherLoadGeneration) return;
-            // fetchAQI starts in parallel before NWS can classify the location.
-            // If AirNow returned stale/US data during that race, explicitly
-            // replace it with the coordinate-specific Open-Meteo result.
-            if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
-            await fetchAlerts();
-            // Re-render beach section now that alerts are resolved — fetchBeachForecast
-            // fires before fetchAlerts() so the BHS banner needs a second pass to show.
-            // Check location flags, not display state: the NDBC fetch inside
-            // fetchBeachForecast may still be in flight when fetchAlerts resolves,
-            // leaving beach-section hidden even though we're at a beach.
-            // Load qualifying, in-boundary SkyMonitor alerts before the first
-            // threat computation so custom alerts participate immediately.
-            await loadCustomSkyThreatAlerts();
-            renderCustomSkyHazards();
-            var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
-            if (window.isBeachLocation || window.isWaterLocation ||
-                _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
-                await fetchBeachForecast(lat, lon);
-            }
-            await fetchRiskLevels();
-            if (activeOutlookCenter === 'nhc') {
-                updateOutlookMap('nhc', null);
-                startNHCCountdown();
-            } else {
-                updateOutlookMap(activeOutlookCenter, activeSPCDay);
-                if (activeOutlookCenter === 'spc') startSPCCountdown(activeSPCDay);
-                else startWPCCountdown(activeSPCDay);
-            }
-            computeThreatLevel();
-            // Save threat level immediately after the definitive post-alerts computation
-            (function() { var _b=document.getElementById('threat-level-box'),_g=document.getElementById('threat-badge'),_d=document.getElementById('threat-desc'),_f=document.getElementById('threat-factors'); if(_b&&_g) SkyDB.set(SkyDB.S.weather,'threat_level',{ts:Date.now(),boxClass:_b.className||null,badgeText:_g.textContent||null,badgeColor:_g.style.color||null,descText:(_d||{}).textContent||null,factorsHtml:(_f||{}).innerHTML||null}); })();
-            await Promise.all([fetchNearbyReportsForHome(), fetchTropicalStorms()]);
-            updateLightningEstimate();
-            const radarFrame = document.getElementById('radar-frame');
-            if (radarFrame) {
-                radarFrame.src = 'https://www.rainviewer.com/map.html?loc=' + lat + ',' + lon + ',8&oFa=0&oC=1&oU=0&oCS=1&oF=0&oAP=0&rmt=4&c=3&o=83&lm=1&layer=radar&sm=1&sn=1&hu=false';
-            }
-            if (document.getElementById('reporting-tab') && document.getElementById('reporting-tab').classList.contains('active')) {
-                loadReportingMapData();
-            }
-            // Update sync timestamp on every successful online refresh (auto or manual)
+
+                    await Promise.all([
+                        Promise.resolve(fetchAQI()).catch(function() {}),
+                        Promise.resolve(fetchBeachForecast(lat, lon)).catch(function() {})
+                    ]);
+                    await Promise.all([
+                        Promise.resolve(fetchNWSChain(loadGeneration)).catch(function() {}),
+                        Promise.resolve(fetchOpenWeather()).catch(function() {}),
+                        Promise.resolve(fetchTWCForecast()).catch(function() {})
+                    ]);
+                    if (loadGeneration !== weatherLoadGeneration) return;
+                    // fetchAQI starts before NWS classifies the location. If
+                    // this is outside the US, replace any US result.
+                    if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
+
+                    await fetchAlerts();
+                    // Re-render beach data after alerts so BHS/rip-current
+                    // banners are included when applicable.
+                    await loadCustomSkyThreatAlerts();
+                    if (loadGeneration !== weatherLoadGeneration) return;
+                    renderCustomSkyHazards();
+                    var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
+                    if (window.isBeachLocation || window.isWaterLocation ||
+                        _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
+                        await fetchBeachForecast(lat, lon);
+                    }
+                    await fetchRiskLevels();
+                    if (activeOutlookCenter === 'nhc') {
+                        updateOutlookMap('nhc', null);
+                        startNHCCountdown();
+                    } else {
+                        updateOutlookMap(activeOutlookCenter, activeSPCDay);
+                        if (activeOutlookCenter === 'spc') startSPCCountdown(activeSPCDay);
+                        else startWPCCountdown(activeSPCDay);
+                    }
+                    computeThreatLevel();
+                    // Save threat level after the definitive post-alerts computation.
+                    (function() { var _b=document.getElementById('threat-level-box'),_g=document.getElementById('threat-badge'),_d=document.getElementById('threat-desc'),_f=document.getElementById('threat-factors'); if(_b&&_g) SkyDB.set(SkyDB.S.weather,'threat_level',{ts:Date.now(),boxClass:_b.className||null,badgeText:_g.textContent||null,badgeColor:_g.style.color||null,descText:(_d||{}).textContent||null,factorsHtml:(_f||{}).innerHTML||null}); })();
+                    await Promise.all([
+                        Promise.resolve(fetchNearbyReportsForHome()).catch(function() {}),
+                        Promise.resolve(fetchTropicalStorms()).catch(function() {})
+                    ]);
+                    if (loadGeneration !== weatherLoadGeneration) return;
+                    updateLightningEstimate();
+                    const radarFrame = document.getElementById('radar-frame');
+                    if (radarFrame) {
+                        radarFrame.src = 'https://www.rainviewer.com/map.html?loc=' + lat + ',' + lon + ',8&oFa=0&oC=1&oU=0&oCS=1&oF=0&oAP=0&rmt=4&c=3&o=83&lm=1&layer=radar&sm=1&sn=1&hu=false';
+                    }
+                    if (document.getElementById('reporting-tab') && document.getElementById('reporting-tab').classList.contains('active')) {
+                        loadReportingMapData();
+                    }
+                } catch(e) {
+                    console.warn('[SkyMonitor] Optional enrichment failed:', e);
+                }
+            })();
+            // A successful primary response is a successful sync for the
+            // user's main view; optional cards continue updating afterward.
             if (!_isOffline) {
                 lastSyncTime = new Date();
                 localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
