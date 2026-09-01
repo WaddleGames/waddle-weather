@@ -1298,7 +1298,7 @@
 
     // Weather provider credentials live in the Cloudflare Worker, never in this file.
     // Replace this URL with the deployed worker URL during integration.
-    const WEATHER_WORKER_URL = 'https://skymonitor-weather.skymonitor-account.workers.dev';
+    const WEATHER_WORKER_URL = 'https://skymonitor-weather.YOUR-SUBDOMAIN.workers.dev';
     const PIRATE_API_KEY = null; // legacy compatibility; do not put a key here
     const OW_API_KEY = null;      // legacy compatibility; do not put a key here
     const TWC_API_KEY = null;     // legacy compatibility; do not put a key here
@@ -7284,7 +7284,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = 'icons/wu/';
+    const TWC_ICON_BASE_PATH = '../icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
