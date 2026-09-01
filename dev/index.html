@@ -1296,9 +1296,12 @@
     const RECAPTCHA_SITE_KEY = '6LdxmhotAAAAAEF0L6UqJZwy5gq6mkavqPv3S8HW';
     var _recaptchaVerified = localStorage.getItem('recaptcha_verified') === 'true'; // persists across reloads
 
-    const PIRATE_API_KEY = "aaatr56RnNOtywpyogtLtBoFDipO9slp";
-    const OW_API_KEY = "065942b97acab61c4f876f77d1e71cfb";
-    const TWC_API_KEY = "77211cbbfe6841d6a11cbbfe6811d69a";
+    // Weather provider credentials live in the Cloudflare Worker, never in this file.
+    // Replace this URL with the deployed worker URL during integration.
+    const WEATHER_WORKER_URL = 'https://skymonitor-weather.skymonitor-account.workers.dev';
+    const PIRATE_API_KEY = null; // legacy compatibility; do not put a key here
+    const OW_API_KEY = null;      // legacy compatibility; do not put a key here
+    const TWC_API_KEY = null;     // legacy compatibility; do not put a key here
     // CloudFlare worker URL for weather reporting (v1.0.4)
     const REPORTS_WORKER_URL = 'https://skymonitor-reports.skymonitor-account.workers.dev';
     // Cloudflare Worker URL for active custom SkyMonitor alerts
@@ -1326,6 +1329,14 @@
     let isNightAtStation = false;
     let stationTzOffset = 0; // always in seconds
     let weatherLoadGeneration = 0;
+    let _loadAllPromise = null;
+    let _loadAllKey = '';
+    let _enrichmentPromise = null;
+    window._fastProviderData = null;
+    window._fastNwsAlerts = null;
+    window._fastNwsAlertsKey = '';
+    window._fastNwsAlertsAttempted = false;
+    window._weatherRequestController = null;
     let activeSPCDay = 1;
     let activeOutlookCenter = 'spc';
     let nhcBasin = 'atl';
@@ -2867,68 +2878,14 @@
     // Neighbors are filtered to ≤5 miles so isolated primaries get no neighbors and fall back
     // to the PirateWeather backstop rather than comparing against climatologically unrelated stations.
     async function fetchWUMulti(latP, lonP) {
+        // Weather.com credentials and the station fan-out now stay in the Worker.
+        // This remains best-effort and is intentionally not on the first-paint path.
         try {
-            const locRes = await fetch('https://api.weather.com/v3/location/near?geocode=' + latP + ',' + lonP + '&product=pws&format=json&apiKey=' + TWC_API_KEY);
-            if (!locRes.ok) return [];
-            const locData = await locRes.json();
-            const stationIds = locData?.location?.stationIdentifier || locData?.location?.stationId;
-            if (!stationIds?.length) return [];
-            const qcStatuses  = locData?.location?.qcStatus   || [];
-            const stationLats = locData?.location?.latitude   || [];
-            const stationLons = locData?.location?.longitude  || [];
-            // Haversine distance in miles
-            const _dist = function(la1, lo1, la2, lo2) {
-                const R = 3958.8, dLat = (la2-la1)*Math.PI/180, dLon = (lo2-lo1)*Math.PI/180;
-                const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-                          Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
-                          Math.sin(dLon/2)*Math.sin(dLon/2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            };
-            // Do not trust the API's array order: it can change between requests.
-            // Calculate distance for every returned station and use that for the
-            // primary station and distance ranking.
-            const stationOrder = stationIds.map(function(_, i) { return i; });
-            const stationDistance = function(i) {
-                if (stationLats[i] != null && stationLons[i] != null) {
-                    return _dist(latP, lonP, stationLats[i], stationLons[i]);
-                }
-                return locData?.location?.distanceMi?.[i] ?? Infinity;
-            };
-            stationOrder.sort(function(a, b) {
-                return stationDistance(a) - stationDistance(b);
-            });
-            const primaryIndex = stationOrder[0];
-            // Neighbor candidates: skip confirmed-bad (qcStatus=-1) and stations >5 mi away.
-            // Sort: qcStatus=1 first, then qcStatus=0, then by actual distance.
-            const MAX_NEIGHBOR_MI = 5;
-            const neighborCandidates = [];
-            for (let j = 1; j < stationOrder.length; j++) {
-                const i = stationOrder[j];
-                if (qcStatuses.length && qcStatuses[i] === -1) continue; // skip confirmed-bad neighbors
-                if (stationDistance(i) > MAX_NEIGHBOR_MI) continue;
-                neighborCandidates.push({ index: i, distance: stationDistance(i) });
-            }
-            neighborCandidates.sort(function(a, b) {
-                const qa = qcStatuses[a.index] ?? 0, qb = qcStatuses[b.index] ?? 0;
-                return qa !== qb ? qb - qa : a.distance - b.distance; // prefer higher qcStatus, then closer
-            });
-            const neighborIndices = neighborCandidates.slice(0, 3).map(function(c) { return c.index; });
-            const _fetchObs = async function(sid) {
-                try {
-                    const r = await fetch('https://api.weather.com/v2/pws/observations/current?stationId=' + sid + '&format=json&units=e&apiKey=' + TWC_API_KEY);
-                    if (!r.ok) return null;
-                    const d = await r.json();
-                    const o = d?.observations?.[0];
-                    if (!o) return null;
-                    return { stationId: sid, temp: o.imperial?.temp ?? null, humidity: o.humidity ?? null,
-                             windSpeed: o.imperial?.windSpeed ?? null, windDir: o.winddir ?? null,
-                             precipRate: o.imperial?.precipRate ?? null, precipTotal: o.imperial?.precipTotal ?? null,
-                             elev: o.imperial?.elev ?? null };
-                } catch(e) { return null; }
-            };
-             const obsResults = await Promise.all([primaryIndex, ...neighborIndices].map(function(i) { return _fetchObs(stationIds[i]); }));
-            if (!obsResults[0]) return []; // primary station fetch failed
-            return obsResults.filter(function(r) { return r !== null; });
+            const r = await fetch(WEATHER_WORKER_URL + '/api/weather/pws?lat=' +
+                encodeURIComponent(latP) + '&lon=' + encodeURIComponent(lonP));
+            if (!r.ok) return [];
+            const stations = await r.json();
+            return Array.isArray(stations) ? stations : [];
         } catch(e) { return []; }
     }
     // Compatibility shim — existing callers that expect a single-station object
@@ -3982,13 +3939,22 @@
         }
 
         try {
-            const res = await fetch('https://api.weather.gov/alerts/active?point=' + lat + ',' + lon);
-            if (!res.ok) {
-                stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
-                await renderPirateAlerts(stack, banner);
-                return;
+            let data = null;
+            const fastAlertKey = lat + ',' + lon;
+            if (!window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
+                await getWeatherEnrichment();
             }
-            const data = await res.json();
+            if (window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
+                data = window._fastNwsAlerts || { features: [] };
+            } else {
+                const res = await fetch('https://api.weather.gov/alerts/active?point=' + lat + ',' + lon);
+                if (!res.ok) {
+                    stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
+                    await renderPirateAlerts(stack, banner);
+                    return;
+                }
+                data = await res.json();
+            }
             const _expandedAlertIds = new Set();
             const _savedAlertScrolls = {};
             document.querySelectorAll('.alert-full-text').forEach(function(el) {
@@ -4472,18 +4438,27 @@
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         window._pirateLoadFailed = false;
         try {
-            const resP = await fetch('https://api.pirateweather.net/forecast/' + PIRATE_API_KEY + '/' + lat + ',' + lon + '?units=us');
+            const resP = await fetch(WEATHER_WORKER_URL + '/api/weather/fast?lat=' +
+                encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {
+                    signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+                });
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
-            const d = await resP.json();
+            const fastPayload = await resP.json();
+            const d = fastPayload.pirate || fastPayload;
             if (!d || !d.currently) throw new Error('Pirate response missing currently data');
+            window._fastProviderData = fastPayload;
+            window._fastNwsAlerts = fastPayload.nwsAlerts || null;
+            window._fastNwsAlertsKey = lat + ',' + lon;
             if (d.offset != null) stationTzOffset = d.offset * 3600;
             // Skip PWS entirely for water locations — nearest station is always on land
             // and its readings are completely unrepresentative of an open-water point.
             // A PWS outage must not discard an otherwise valid PirateWeather response.
+            // Do not hold the primary forecast on PWS discovery/observations.
+            // The result is applied later as an optional comparison source.
             let wuStations = [];
-            if (!window.isWaterLocation) {
-                try { wuStations = await fetchWUMulti(lat, lon); } catch(e) { wuStations = []; }
-            }
+            const wuPromise = window.isWaterLocation
+                ? Promise.resolve([])
+                : fetchWUMulti(lat, lon);
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Mark the throttle only after the PirateWeather response has been
             // validated. If rendering or the request fails, the next refresh
@@ -4739,7 +4714,23 @@
             _isOffline = false;
             window._pirateLoadFailed = false;
             lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
+            wuPromise.then(function(lateStations) {
+                if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
+                if (!Array.isArray(lateStations) || !lateStations.length) return;
+                var late = lateStations[0];
+                window.wuData = late || null;
+                window.wuNeighborData = lateStations.slice(1).filter(function(s) { return s != null; });
+                window.wuElevFt = late && late.elev != null ? late.elev : null;
+                var stationEl = document.getElementById('wuStation');
+                var linkEl = document.getElementById('wuLink');
+                if (late && late.stationId && stationEl && linkEl) {
+                    linkEl.innerText = late.stationId;
+                    linkEl.href = 'https://www.wunderground.com/dashboard/pws/' + late.stationId;
+                    stationEl.style.display = 'block';
+                }
+            }).catch(function() {});
         } catch(e) {
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Do not throttle a failed attempt. This is especially important
             // on mobile, where a transient suspended-network request is common.
             _lastPirateFetch = 0;
@@ -5463,9 +5454,10 @@
 
     async function fetchOpenWeather() {
         try {
-            const res = await fetch('https://api.openweathermap.org/data/2.5/forecast?lat=' + lat + '&lon=' + lon + '&appid=' + OW_API_KEY + '&units=imperial');
-            if (!res.ok) throw new Error('OW ' + res.status);
-            const d = await res.json();
+            const enrichment = await getWeatherEnrichment();
+            const d = (enrichment && enrichment.openWeather) ||
+                (window._fastProviderData && window._fastProviderData.openWeather);
+            if (!d) throw new Error('OpenWeather data not included in fast response');
             if (!d || !d.city) throw new Error('OW bad data');
             stationTzOffset = d.city.timezone;
             const nowMs = Date.now();
@@ -5494,6 +5486,7 @@
             updateAtmosphereTheme();
             SkyDB.set(SkyDB.S.weather, 'openweather', { ts: Date.now(), sunrise: d.city.sunrise, sunset: d.city.sunset, timezone: d.city.timezone });
         } catch(e) {
+            if (!_isOffline) return;
             SkyDB.get(SkyDB.S.weather, 'openweather').then(function(c) {
                 if (!c) return;
                 stationTzOffset = c.timezone;
@@ -5522,6 +5515,31 @@
                 updateAtmosphereTheme();
             });
         }
+    }
+
+    // One shared optional request prevents TWC, OpenWeather, and NWS alerts
+    // from each starting their own browser-side provider request.
+    async function getWeatherEnrichment() {
+        if (_enrichmentPromise) return _enrichmentPromise;
+        const key = lat + ',' + lon;
+        _enrichmentPromise = fetch(WEATHER_WORKER_URL + '/api/weather/enrichment?lat=' +
+            encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {
+                signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+            }).then(function(res) {
+                if (!res.ok) throw new Error('Weather enrichment ' + res.status);
+                return res.json();
+            }).then(function(data) {
+                if (key !== lat + ',' + lon) return data;
+                window._fastProviderData = Object.assign({}, window._fastProviderData || {}, data);
+                window._fastNwsAlerts = data.nwsAlerts || null;
+                window._fastNwsAlertsKey = key;
+                window._fastNwsAlertsAttempted = true;
+                return data;
+            }).catch(function() {
+                if (key === lat + ',' + lon) window._fastNwsAlertsAttempted = true;
+                return null;
+            });
+        return _enrichmentPromise;
     }
 
     // Renders the PWS QC diagnostic panel.
@@ -7013,9 +7031,11 @@
 
     // ——— TWC FORECAST (v1.0.4: removed windPhrase/precipType/thunderCat; added swipe) ———
     async function fetchTWCForecast() {
-        const url = 'https://api.weather.com/v3/wx/forecast/daily/5day?geocode=' + lat + ',' + lon + '&format=json&units=e&language=en-US&apiKey=' + TWC_API_KEY;
         try {
-            const res = await fetch(url); const d = await res.json();
+            const enrichment = await getWeatherEnrichment();
+            const d = (enrichment && enrichment.twc) ||
+                (window._fastProviderData && window._fastProviderData.twc);
+            if (!d) throw new Error('TWC data not included in enrichment response');
             renderTWCForecast(d);
             // Only cache the fields actually used by renderTWCForecast / openTWCDetailModal
             var _dp = d.daypart && d.daypart[0];
@@ -7067,6 +7087,13 @@
             // service worker during install — no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
         } catch(e) {
+            // Do not display an old daily forecast merely because the optional
+            // enrichment request failed while the primary weather is online.
+            if (!_isOffline) {
+                var unavailable = document.getElementById('twc-daily-forecast');
+                if (unavailable) unavailable.innerHTML = "<div style='opacity:0.6'>Forecast temporarily unavailable.</div>";
+                return;
+            }
             SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
                 if (cached && cached.data) renderTWCForecast(cached.data);
                 else document.getElementById('twc-daily-forecast').innerHTML = "<div style='opacity:0.6'>Forecast unavailable.</div>";
@@ -7257,7 +7284,7 @@
         'partly-cloudy-night': 29,  // 29.svg = partly cloudy night
         'thunderstorm': 4           // 4.svg = thunderstorm
     };
-    const TWC_ICON_BASE_PATH = '../icons/wu/';
+    const TWC_ICON_BASE_PATH = 'icons/wu/';
 
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
@@ -10397,8 +10424,15 @@
     })();
     // ─────────────────────────────────────────────────────────────────────────────
 
-    async function loadAll() {
+    async function _loadAllOnce() {
         const loadGeneration = ++weatherLoadGeneration;
+        if (window._weatherRequestController) window._weatherRequestController.abort();
+        window._weatherRequestController = new AbortController();
+        _enrichmentPromise = null;
+        window._fastProviderData = null;
+        window._fastNwsAlerts = null;
+        window._fastNwsAlertsKey = '';
+        window._fastNwsAlertsAttempted = false;
         twcMaxFeelsLike = null;
         var loadFailed = false;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
@@ -10409,6 +10443,9 @@
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
         try {
+            // Location classification is useful enrichment, but must not delay
+            // the primary current/daily/hourly weather request.
+            const _locationClassificationPromise = (async function() {
             // Water location detection — the OSM reverse geocoder tells us if coords
             // are on open water (sea, bay, lake, waterway). If so, skip PWS entirely.
             try {
@@ -10456,10 +10493,27 @@
                     }
                 }
             } catch(e) { window.isBeachLocation = false; }
+            })();
 
             await fetchPirate(loadGeneration);
+            // Start the daily forecast/sun/alert enrichment as soon as the
+            // primary response is rendered. It is independent of AQI, beach
+            // classification, and the long NWS chain.
+            if (!window._pirateLoadFailed) {
+                getWeatherEnrichment().then(function() {
+                    if (loadGeneration !== weatherLoadGeneration) return;
+                    fetchTWCForecast();
+                    fetchOpenWeather();
+                }).catch(function() {});
+            }
+            await _locationClassificationPromise;
             if (window._pirateLoadFailed) loadFailed = true;
             if (loadGeneration !== weatherLoadGeneration) return;
+            // Current/daily/hourly data are the home-page first wave. Do not
+            // keep the launch screen up for AQI, risk maps, reports, or radar.
+            if (!window._pirateLoadFailed && typeof window._dismissLaunch === 'function') {
+                window._dismissLaunch();
+            }
             await Promise.all([fetchAQI(), fetchBeachForecast(lat, lon)]);
             await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
             if (loadGeneration !== weatherLoadGeneration) return;
@@ -10535,6 +10589,29 @@
             window._maybeHideSync();
         }, 2000);
         return Promise.resolve();
+    }
+
+    // Prevent a slow refresh from overlapping the next 60-second refresh.
+    // A location change gets a new generation and is allowed to supersede
+    // the previous request; stale responses are ignored by the existing guards.
+    async function loadAll() {
+        const key = lat + ',' + lon;
+        if (_loadAllPromise && _loadAllKey === key) return _loadAllPromise;
+        const promise = _loadAllOnce();
+        _loadAllPromise = promise;
+        _loadAllKey = key;
+        promise.then(function() {
+            if (_loadAllPromise === promise) {
+                _loadAllPromise = null;
+                _loadAllKey = '';
+            }
+        }, function() {
+            if (_loadAllPromise === promise) {
+                _loadAllPromise = null;
+                _loadAllKey = '';
+            }
+        });
+        return promise;
     }
 
     function syncPushLocation() {
@@ -10934,16 +11011,16 @@
         loadLoc();
         SkyDB.migrate();
         // Dismiss launch screen once data loads, or after 4s max
-        function _dismissLaunch() {
+        window._dismissLaunch = function() {
             var ls = document.getElementById('launch-screen');
             if (!ls || ls.classList.contains('hidden')) return;
             ls.classList.add('hidden');
             setTimeout(function() { ls.style.display = 'none'; }, 550);
-        }
-        setTimeout(_dismissLaunch, 4000);
+        };
+        setTimeout(window._dismissLaunch, 4000);
         loadAll().then(function() {
             syncPushLocation();
-            _dismissLaunch();
+            window._dismissLaunch();
             checkForGitHubRelease();
         });
     };
