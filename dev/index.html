@@ -7350,38 +7350,40 @@
             }
         }
 
-        // ── Priority 2: Thunderstorms ────────────────────────────────────────
+        // ── Priority 2: Thunderstorms (≥30% chance) ─────────────────────────
         for (var j = 0; j < n * 2 && !s1; j++) {
             var wx = wxPart(j);
             var narr = narrPart(j);
-            if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm') ||
-                narr.includes('thunder') || narr.includes('t-storm') || narr.includes('tstorm')) {
+            if (pcPart(j) >= 30 &&
+                (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm') ||
+                 narr.includes('thunder') || narr.includes('t-storm') || narr.includes('tstorm'))) {
                 s1 = thunderSummary(j);
             }
         }
 
-        // ── Priority 3: Heavy rain — driven by TWC narrative keyword ────────
+        // ── Priority 3: Heavy rain — driven by TWC narrative keyword + PoP ──
         // Only flag "heavy rain" when TWC explicitly says so in the day/night
         // narrative (e.g. "Potential for heavy rainfall."). QPF alone can reach
         // 1"+ from prolonged moderate rain with no heavy-rain signal at all.
         for (var j = 0; j < n * 2 && !s1; j++) {
             var narr = narrPart(j);
-            if (narr.includes('heavy rain') || narr.includes('heavy rainfall')) {
+            if (pcPart(j) >= 30 &&
+                (narr.includes('heavy rain') || narr.includes('heavy rainfall'))) {
                 var amt = totalQpf(Math.floor(j / 2));
                 var heavyWord = pcPart(j) >= 70 ? 'likely' : 'possible';
                 s1 = 'Heavy rain ' + heavyWord + ' ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
             }
         }
 
-        // ── Priority 4: Rain / showers (≥25% chance) ────────────────────────
+        // ── Priority 4: Rain / showers (≥30% chance) ────────────────────────
         // Multi-day cases stay at day level; single-day case pinpoints day vs night.
         if (!s1) {
             var rainDaySet = [];
-            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 25) rainDaySet.push(i); }
+            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 30) rainDaySet.push(i); }
             if (rainDaySet.length === 1) {
                 var di = rainDaySet[0];
-                var dayRain   = pcPart(di * 2)     >= 25;
-                var nightRain = pcPart(di * 2 + 1) >= 25;
+                var dayRain   = pcPart(di * 2)     >= 30;
+                var nightRain = pcPart(di * 2 + 1) >= 30;
                 // Use night-specific label only when rain is exclusively at night
                 var rainLbl = (!dayRain && nightRain) ? daypartLabel(di * 2 + 1) : dayLabel(di);
                 s1 = 'Rain ' + rainLikelihood(maxPrecipChance(di)) + ' ' + rainLbl + '.';
@@ -7422,7 +7424,7 @@
         // ── Fallback: dry / quiet ────────────────────────────────────────────
         if (!s1) {
             var anyPrecip = false;
-            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 25) { anyPrecip = true; break; } }
+            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 30) { anyPrecip = true; break; } }
             s1 = anyPrecip
                 ? 'Mainly quiet weather expected through ' + dayLabel(n - 1) + '.'
                 : 'Dry conditions expected through ' + dayLabel(n - 1) + '.';
@@ -7452,10 +7454,54 @@
     };
     const TWC_ICON_BASE_PATH = '../icons/wu/';
 
+    // PW hourly timestamps are UTC epoch seconds. Convert each one to the
+    // station's local clock and use the station's sunrise/sunset when those
+    // values are available, so an evening forecast gets a night icon even
+    // when PW's generic summary only says "Clear" or "Partly Cloudy".
+    function _isNightForTWCTime(timestamp, timezoneOffset) {
+        if (window._polarState === 'night') return true;
+        if (window._polarState === 'day') return false;
+
+        var ts = Number(timestamp);
+        if (!isFinite(ts)) return !!isNightAtStation;
+
+        var offsetHours = Number(timezoneOffset);
+        if (!isFinite(offsetHours)) offsetHours = Number(window.pirateTimezoneOffset);
+        if (!isFinite(offsetHours)) offsetHours = Number(stationTzOffset) / 3600;
+        if (!isFinite(offsetHours)) offsetHours = 0;
+
+        var tsMs = ts * 1000;
+        var localMs = tsMs + offsetHours * 3600000;
+        var localHour = new Date(localMs).getUTCHours();
+
+        if (localRiseTime && localSetTime) {
+            // OpenWeather supplies rise/set for the current local date. Shift
+            // those instants by the target forecast date for later PW hours.
+            function localDateMs(absoluteMs) {
+                var shifted = new Date(absoluteMs + offsetHours * 3600000);
+                return Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+            }
+            var targetDateMs = localDateMs(tsMs);
+            var riseDateMs = localDateMs(localRiseTime);
+            var dayDelta = Math.round((targetDateMs - riseDateMs) / 86400000);
+            var riseMs = localRiseTime + dayDelta * 86400000;
+            var setMs = localSetTime + dayDelta * 86400000;
+            return tsMs < riseMs || tsMs > setMs;
+        }
+
+        // Keep a deterministic fallback for loads before sunrise/sunset data
+        // arrives or when the location has no OpenWeather metadata.
+        return localHour < 6 || localHour >= 18;
+    }
+
     function _twcIconCodeForWeather(icon, summary, details) {
         // Prefer descriptive text and precipitation metadata over broad
         // provider slugs such as PW's generic "rain".
         const s = String(summary || '').toLowerCase();
+        const iconText = String(icon || '').toLowerCase();
+        const isNight = details && details.time != null
+            ? _isNightForTWCTime(details.time, details.timezoneOffset)
+            : iconText.includes('night') || isNightAtStation;
         const precipType = String(details?.precipType || '').toLowerCase();
         const intensity = Number(details?.precipIntensity);
         const precipProbability = Number(details?.precipProbability);
@@ -7497,17 +7543,20 @@
         if (s.includes('haze')) return 21;
         if (s.includes('smoke')) return 22;
         if (s.includes('partly cloudy')) {
-            return String(icon || '').toLowerCase().includes('night') ? 29 : 30;
+            return isNight ? 29 : 30;
         }
         if (s.includes('mostly cloudy')) {
-            return String(icon || '').toLowerCase().includes('night') ? 27 : 28;
+            return isNight ? 27 : 28;
+        }
+        if (s.includes('mostly sunny') || s.includes('mostly clear')) {
+            return isNight ? 33 : 34;
         }
         if (s.includes('cloud') || s.includes('overcast')) return 26;
-        if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return 32;
+        if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return isNight ? 31 : 32;
         if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
             return PIRATE_ICON_TO_TWC_CODE[icon];
         }
-        return 34; // 34.svg = mostly sunny / safe generic fallback
+        return isNight ? 33 : 34; // 33/34 = fair night/day fallback
     }
 
     function _twcIconSrc(code) {
