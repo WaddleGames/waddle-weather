@@ -5820,13 +5820,20 @@
             if (_isValidStation(_wu)) _pool.push({ s: _wu, rank: 0 });
             _neighbors.forEach(function(n, i) { _pool.push({ s: n, rank: i + 1 }); });
 
-            // Select winner: lowest |temp − reference|; ties broken by distance rank.
+            // Select winner: prefer a QC-valid station with complete current
+            // observations, then lowest |temp − reference|, then distance.
+            // A station that has temp/humidity but no wind should not beat a
+            // nearby equally-valid station that can populate the whole home
+            // observation card.
             // When no reference exists (no neighbors AND no PirateWeather), primary wins
             // by default — we have nothing to QC against.
-            if (_pool.length > 0 && _refTemp !== null) {
+            if (_pool.length > 0) {
                 _pool.sort(function(a, b) {
-                    const da = Math.abs(a.s.temp - _refTemp);
-                    const db = Math.abs(b.s.temp - _refTemp);
+                    var aComplete = (a.s.windSpeed !== null && a.s.windSpeed !== undefined) ? 1 : 0;
+                    var bComplete = (b.s.windSpeed !== null && b.s.windSpeed !== undefined) ? 1 : 0;
+                    if (aComplete !== bComplete) return bComplete - aComplete;
+                    const da = _refTemp !== null ? Math.abs(a.s.temp - _refTemp) : 0;
+                    const db = _refTemp !== null ? Math.abs(b.s.temp - _refTemp) : 0;
                     // >1.5°F difference is meaningful; otherwise prefer closer station.
                     return Math.abs(da - db) > 1.5 ? da - db : a.rank - b.rank;
                 });
