@@ -1296,9 +1296,12 @@
     const RECAPTCHA_SITE_KEY = '6LdxmhotAAAAAEF0L6UqJZwy5gq6mkavqPv3S8HW';
     var _recaptchaVerified = localStorage.getItem('recaptcha_verified') === 'true'; // persists across reloads
 
-    const PIRATE_API_KEY = "aaatr56RnNOtywpyogtLtBoFDipO9slp";
-    const OW_API_KEY = "065942b97acab61c4f876f77d1e71cfb";
-    const TWC_API_KEY = "77211cbbfe6841d6a11cbbfe6811d69a";
+    // Weather provider credentials live in the Cloudflare Worker, never in this file.
+    // Replace this URL with the deployed worker URL during integration.
+    const WEATHER_WORKER_URL = 'https://skymonitor-weather.skymonitor-account.workers.dev';
+    const PIRATE_API_KEY = null; // legacy compatibility; do not put a key here
+    const OW_API_KEY = null;      // legacy compatibility; do not put a key here
+    const TWC_API_KEY = null;     // legacy compatibility; do not put a key here
     // CloudFlare worker URL for weather reporting (v1.0.4)
     const REPORTS_WORKER_URL = 'https://skymonitor-reports.skymonitor-account.workers.dev';
     // Cloudflare Worker URL for active custom SkyMonitor alerts
@@ -1326,6 +1329,14 @@
     let isNightAtStation = false;
     let stationTzOffset = 0; // always in seconds
     let weatherLoadGeneration = 0;
+    let _loadAllPromise = null;
+    let _loadAllKey = '';
+    let _enrichmentPromise = null;
+    window._fastProviderData = null;
+    window._fastNwsAlerts = null;
+    window._fastNwsAlertsKey = '';
+    window._fastNwsAlertsAttempted = false;
+    window._weatherRequestController = null;
     let activeSPCDay = 1;
     let activeOutlookCenter = 'spc';
     let nhcBasin = 'atl';
@@ -2296,6 +2307,13 @@
         document.getElementById('presVal').innerText = '--';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
+        window._minuteHasPrecip = null;
+        // Prevent the previous location's TWC forecast from driving the score
+        // while the new daily forecast is loading.
+        window.twcForecastData = null;
+        twcMaxFeelsLike = null;
+        var _outdoorBox = document.getElementById('outdoor-score-box');
+        if (_outdoorBox) _outdoorBox.style.display = 'none';
         var _minuteHeadEl = document.getElementById('minute-heading');
         if (_minuteHeadEl) _minuteHeadEl.innerText = 'Minutely Forecast';
         var _minuteChartEl = document.getElementById('minute-chart-wrap');
@@ -2860,68 +2878,14 @@
     // Neighbors are filtered to ≤5 miles so isolated primaries get no neighbors and fall back
     // to the PirateWeather backstop rather than comparing against climatologically unrelated stations.
     async function fetchWUMulti(latP, lonP) {
+        // Weather.com credentials and the station fan-out now stay in the Worker.
+        // This remains best-effort and is intentionally not on the first-paint path.
         try {
-            const locRes = await fetch('https://api.weather.com/v3/location/near?geocode=' + latP + ',' + lonP + '&product=pws&format=json&apiKey=' + TWC_API_KEY);
-            if (!locRes.ok) return [];
-            const locData = await locRes.json();
-            const stationIds = locData?.location?.stationIdentifier || locData?.location?.stationId;
-            if (!stationIds?.length) return [];
-            const qcStatuses  = locData?.location?.qcStatus   || [];
-            const stationLats = locData?.location?.latitude   || [];
-            const stationLons = locData?.location?.longitude  || [];
-            // Haversine distance in miles
-            const _dist = function(la1, lo1, la2, lo2) {
-                const R = 3958.8, dLat = (la2-la1)*Math.PI/180, dLon = (lo2-lo1)*Math.PI/180;
-                const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-                          Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*
-                          Math.sin(dLon/2)*Math.sin(dLon/2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            };
-            // Do not trust the API's array order: it can change between requests.
-            // Calculate distance for every returned station and use that for the
-            // primary station and distance ranking.
-            const stationOrder = stationIds.map(function(_, i) { return i; });
-            const stationDistance = function(i) {
-                if (stationLats[i] != null && stationLons[i] != null) {
-                    return _dist(latP, lonP, stationLats[i], stationLons[i]);
-                }
-                return locData?.location?.distanceMi?.[i] ?? Infinity;
-            };
-            stationOrder.sort(function(a, b) {
-                return stationDistance(a) - stationDistance(b);
-            });
-            const primaryIndex = stationOrder[0];
-            // Neighbor candidates: skip confirmed-bad (qcStatus=-1) and stations >5 mi away.
-            // Sort: qcStatus=1 first, then qcStatus=0, then by actual distance.
-            const MAX_NEIGHBOR_MI = 5;
-            const neighborCandidates = [];
-            for (let j = 1; j < stationOrder.length; j++) {
-                const i = stationOrder[j];
-                if (qcStatuses.length && qcStatuses[i] === -1) continue; // skip confirmed-bad neighbors
-                if (stationDistance(i) > MAX_NEIGHBOR_MI) continue;
-                neighborCandidates.push({ index: i, distance: stationDistance(i) });
-            }
-            neighborCandidates.sort(function(a, b) {
-                const qa = qcStatuses[a.index] ?? 0, qb = qcStatuses[b.index] ?? 0;
-                return qa !== qb ? qb - qa : a.distance - b.distance; // prefer higher qcStatus, then closer
-            });
-            const neighborIndices = neighborCandidates.slice(0, 3).map(function(c) { return c.index; });
-            const _fetchObs = async function(sid) {
-                try {
-                    const r = await fetch('https://api.weather.com/v2/pws/observations/current?stationId=' + sid + '&format=json&units=e&apiKey=' + TWC_API_KEY);
-                    if (!r.ok) return null;
-                    const d = await r.json();
-                    const o = d?.observations?.[0];
-                    if (!o) return null;
-                    return { stationId: sid, temp: o.imperial?.temp ?? null, humidity: o.humidity ?? null,
-                             windSpeed: o.imperial?.windSpeed ?? null, windDir: o.winddir ?? null,
-                             precipRate: o.imperial?.precipRate ?? null, precipTotal: o.imperial?.precipTotal ?? null,
-                             elev: o.imperial?.elev ?? null };
-                } catch(e) { return null; }
-            };
-             const obsResults = await Promise.all([primaryIndex, ...neighborIndices].map(function(i) { return _fetchObs(stationIds[i]); }));
-            if (!obsResults[0]) return []; // primary station fetch failed
-            return obsResults.filter(function(r) { return r !== null; });
+            const r = await fetch(WEATHER_WORKER_URL + '/api/weather/pws?lat=' +
+                encodeURIComponent(latP) + '&lon=' + encodeURIComponent(lonP));
+            if (!r.ok) return [];
+            const stations = await r.json();
+            return Array.isArray(stations) ? stations : [];
         } catch(e) { return []; }
     }
     // Compatibility shim — existing callers that expect a single-station object
@@ -3199,7 +3163,10 @@
         })();
         // Populate the QC panel for international locations (NWS unavailable)
         _renderPWSQCPanel(window.wuData || null, null, null);
-        _wxReveal(); // International location — PirateWeather is authoritative; reveal now
+        _wxReveal(); // International location — current observation is ready
+        if (window.pirateHourlyData) {
+            renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+        }
     }
 
     function applyUSMode() {
@@ -3215,7 +3182,195 @@
         }
     }
 
-    function computeOutdoorScore(hourlyData) {
+    // Outdoor Score is intentionally driven only by the TWC daily forecast.
+    // The compact hourly feed can still power the separate hourly/comfort views,
+    // but it must never influence this score.
+    function _computeOutdoorScoreFromTWC(data) {
+        var box = document.getElementById('outdoor-score-box');
+        var scoreEl = document.getElementById('outdoor-score-val');
+        var descEl = document.getElementById('outdoor-score-desc');
+        var isDaytime = (function() {
+            var nowMs = Date.now();
+            if (window._polarState === 'day') return true;
+            if (window._polarState === 'night') return false;
+            if (localRiseTime && localSetTime) return nowMs >= localRiseTime && nowMs <= localSetTime;
+            // If sunrise/sunset has not arrived yet, use the browser's local
+            // clock rather than borrowing time metadata from another provider.
+            var fallbackHour = new Date(nowMs).getHours();
+            return fallbackHour >= 6 && fallbackHour < 18;
+        })();
+        if (!isDaytime) {
+            if (box) box.style.display = 'none';
+            return;
+        }
+        if (box) box.style.display = 'block';
+
+        var dp = data && data.daypart && data.daypart[0];
+        if (!dp) {
+            if (box) box.style.display = 'none';
+            return;
+        }
+        // Daytime is the first TWC daypart. If it is unavailable, use the
+        // current populated daypart rather than falling back to another source.
+        var j = 0;
+        if (dp.temperature?.[j] == null && dp.wxPhraseLong?.[j] == null &&
+            dp.precipChance?.[j] == null) j = 1;
+        var temp = Number(dp.temperature?.[j]);
+        if (!isFinite(temp)) temp = Number(data.calendarDayTemperatureMax?.[0]);
+        if (!isFinite(temp)) temp = 70;
+        var heatIndex = Number(dp.temperatureHeatIndex?.[j]);
+        var windChill = Number(dp.temperatureWindChill?.[j]);
+        var feels = isFinite(heatIndex) && heatIndex > temp ? heatIndex :
+                    isFinite(windChill) && windChill < temp ? windChill : temp;
+        var chance = Number(dp.precipChance?.[j]);
+        if (!isFinite(chance)) chance = 0;
+        chance = Math.max(0, Math.min(100, chance));
+        var wind = Number(dp.windSpeed?.[j]);
+        if (!isFinite(wind)) wind = 0;
+        var gust = Number(dp.windGust?.[j]);
+        if (!isFinite(gust)) gust = wind;
+        var uv = Number(dp.uvIndex?.[j]);
+        if (!isFinite(uv)) uv = 0;
+        var humidity = Number(dp.relativeHumidity?.[j] ?? dp.humidity?.[j]);
+        if (!isFinite(humidity)) humidity = 50;
+        if (humidity <= 1) humidity *= 100;
+        var phrase = String(dp.wxPhraseLong?.[j] || '').toLowerCase();
+        var narrative = String(dp.narrative?.[j] || '').toLowerCase();
+        var hasThunder = /thunder|t-storm|tstorm|tstm/.test(phrase + ' ' + narrative);
+        var hasFrozen = /snow|sleet|ice pellet|freezing rain/.test(phrase);
+        var hasRain = /rain|drizzle|shower/.test(phrase);
+
+        var score = 100;
+        if (chance >= 80) score -= 50;
+        else if (chance >= 60) score -= 35;
+        else if (chance >= 40) score -= 22;
+        else if (chance >= 20) score -= 10;
+        else if (chance >= 10) score -= 4;
+        if (hasThunder) score -= 30;
+        else if (hasFrozen) score -= 25;
+        else if (hasRain) score -= 20;
+        if (feels >= 65 && feels <= 80) { /* ideal */ }
+        else if (feels >= 58 && feels < 65) score -= 8;
+        else if (feels > 80 && feels <= 88) score -= 8;
+        else if (feels >= 50 && feels < 58) score -= 18;
+        else if (feels > 88 && feels <= 95) score -= 18;
+        else if (feels >= 40 && feels < 50) score -= 30;
+        else if (feels > 95 && feels < 103) score -= 30;
+        else if (feels >= 103) score -= 42;
+        else if (feels >= 25 && feels < 40) score -= 45;
+        else if (feels >= 10 && feels < 25) score -= 58;
+        else if (feels < 10) score -= 70;
+        var effectiveWind = Math.max(wind, gust * 0.7);
+        if (effectiveWind > 40) score -= 28;
+        else if (effectiveWind > 25) score -= 18;
+        else if (effectiveWind > 15) score -= 8;
+        else if (effectiveWind > 10) score -= 3;
+        if (uv >= 11) score -= 15;
+        else if (uv >= 8) score -= 10;
+        else if (uv >= 6) score -= 5;
+        if (humidity > 85 && temp > 70) score -= 10;
+        else if (humidity > 75 && temp > 75) score -= 5;
+        else if (humidity < 20) score -= 4;
+        // A forecast thunderstorm is not the same as an active lightning
+        // warning. Keep ordinary storm forecasts above zero; the explicit
+        // zero remains reserved for active severe-weather warnings below.
+        if (hasThunder && score < 20) score = 20;
+        score = Math.max(0, Math.min(100, Math.round(score)));
+
+        // Preserve the safety overrides, but evaluate them independently of
+        // any forecast provider.
+        var activeNow = function(keyword) {
+            var onsets = window.activeAlertOnsets || {};
+            return (window.activeAlertEvents || []).some(function(eventName) {
+                var onset = onsets[eventName] || 0;
+                return String(eventName).toLowerCase().includes(keyword) &&
+                    (!onset || onset <= Date.now());
+            });
+        };
+        var override = null;
+        if (activeNow('tornado warning') || activeNow('severe thunderstorm warning')) {
+            override = { value: 0, text: 'Dangerous to be outside — active severe weather warning' };
+        } else if (activeNow('blizzard warning') || activeNow('winter storm warning') ||
+                   activeNow('ice storm warning') || activeNow('snow squall warning')) {
+            override = { value: 25, text: 'Not recommended — severe winter weather occurring' };
+        } else if (activeNow('extreme heat warning')) {
+            override = { value: 25, text: 'Not recommended — extremely hot conditions occurring' };
+        } else if (activeNow('extreme cold warning')) {
+            override = { value: 25, text: 'Not recommended — extremely cold conditions occurring' };
+        } else if (activeNow('heat advisory')) {
+            override = { value: 50, text: 'Not recommended — uncomfortably hot conditions occurring' };
+        } else if (activeNow('cold weather advisory')) {
+            override = { value: 50, text: 'Not recommended — uncomfortably cold conditions occurring' };
+        } else if (activeNow('air quality alert') || activeNow('dense smoke advisory')) {
+            override = { value: 75, text: 'Be cautious outdoors if sensitive to poor air quality or heavy smoke' };
+        }
+        if (override) {
+            if (scoreEl) scoreEl.innerText = override.value;
+            if (descEl) descEl.innerText = override.text;
+            SkyDB.set(SkyDB.S.weather, 'outdoor_score', {
+                ts: Date.now(), val: String(override.value), desc: override.text,
+                boxDisplay: box ? box.style.display : null
+            });
+            return;
+        }
+
+        var description;
+        if (score === 100 && feels >= 65 && feels <= 80) {
+            description = 'A completely perfect day to be outside! Get out there and enjoy it!';
+        } else if (score >= 90) {
+            description = feels >= 65 && feels <= 80
+                ? 'Nearly perfect — enjoy your time outside!'
+                : 'Excellent conditions for the forecast period.';
+        } else if (hasThunder) {
+            description = chance >= 70
+                ? 'Thunderstorms likely. Watch lightning closely.'
+                : 'Storms possible — watch lightning closely.';
+        } else if (feels >= 103) {
+            description = 'Dangerous heat ahead. Minimize outdoor exposure and hydrate.';
+        } else if (feels >= 95) {
+            description = 'Very hot (feels like ' + _fmtTemp(feels) + '). Limit activity during peak heat.';
+        } else if (feels < 15) {
+            description = 'Dangerously cold wind chills. Limit time outdoors.';
+        } else if (feels < 32) {
+            description = 'Freezing temperatures. Dress warmly before heading out.';
+        } else if (feels < 45) {
+            description = 'Chilly — jacket required. Otherwise manageable.';
+        } else if (chance >= 80) {
+            description = 'Rain very likely. Best to stay inside.';
+        } else if (score >= 75 && chance >= 25) {
+            description = 'Mostly good, but watch for rain.';
+        } else if (score >= 75) {
+            description = 'Great conditions for outdoor activities!';
+        } else if (chance >= 60) {
+            description = 'Rain likely. Plan accordingly.';
+        } else if (chance >= 25) {
+            description = 'Rain possible. Have an umbrella ready.';
+        } else if (gust >= 35) {
+            description = 'Very windy (' + _fmtWind(gust) + ' gusts). Outdoor plans may be disrupted.';
+        } else if (score >= 45) {
+            description = 'Marginal — plan carefully and dress for the conditions.';
+        } else if (score >= 30) {
+            description = 'Poor conditions — significant discomfort or hazard expected.';
+        } else {
+            description = 'Not recommended for outdoor activity.';
+        }
+        if (scoreEl) scoreEl.innerText = score;
+        if (descEl) descEl.innerText = description;
+        SkyDB.set(SkyDB.S.weather, 'outdoor_score', {
+            ts: Date.now(), val: String(score), desc: description,
+            boxDisplay: box ? box.style.display : null
+        });
+    }
+
+    function computeOutdoorScore() {
+        // Outdoor Score is TWC daily forecast only.
+        if (!window.twcForecastData) {
+            var noForecastBox = document.getElementById('outdoor-score-box');
+            if (noForecastBox) noForecastBox.style.display = 'none';
+            return;
+        }
+        return _computeOutdoorScoreFromTWC(window.twcForecastData);
+        /*
         // Only show outdoor section between sunrise and sunset at the weather station's local time
         const _isDaytime = (function() {
             const _nowMs = Date.now();
@@ -3425,6 +3580,8 @@
             desc = 'Not recommended for outdoor activity.';
         }
         if (descEl) descEl.innerText = desc;
+    }
+        */
     }
 
     // ── Flood Impact Score ─────────────────────────────────────────────────────
@@ -3782,13 +3939,22 @@
         }
 
         try {
-            const res = await fetch('https://api.weather.gov/alerts/active?point=' + lat + ',' + lon);
-            if (!res.ok) {
-                stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
-                await renderPirateAlerts(stack, banner);
-                return;
+            let data = null;
+            const fastAlertKey = lat + ',' + lon;
+            if (!window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
+                await getWeatherEnrichment();
             }
-            const data = await res.json();
+            if (window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
+                data = window._fastNwsAlerts || { features: [] };
+            } else {
+                const res = await fetch('https://api.weather.gov/alerts/active?point=' + lat + ',' + lon);
+                if (!res.ok) {
+                    stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
+                    await renderPirateAlerts(stack, banner);
+                    return;
+                }
+                data = await res.json();
+            }
             const _expandedAlertIds = new Set();
             const _savedAlertScrolls = {};
             document.querySelectorAll('.alert-full-text').forEach(function(el) {
@@ -4166,7 +4332,7 @@
                 }));
                 SkyDB.set(SkyDB.S.weather, 'alerts', { ts: Date.now(), stackHtml: _div.innerHTML, bannerDisplay: _ban.style.display, bannerText: _ban.innerText, bannerBg: _ban.style.background, bannerClass: _ban.className, checklistText: _chk.style.display === 'block' ? _chk.innerText : '', bodyTheme: Array.from(document.body.classList).find(function(c) { return c.startsWith('theme-'); }) || '' });
             })(stack, banner, checklist);
-            if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+            computeOutdoorScore();
             // Save outdoor score now — alerts are active so alert-override descriptions are correct
             SkyDB.set(SkyDB.S.weather, 'outdoor_score', { ts: Date.now(), val: (document.getElementById('outdoor-score-val') || {}).innerText || null, desc: (document.getElementById('outdoor-score-desc') || {}).innerText || null, boxDisplay: (document.getElementById('outdoor-score-box') || {}).style.display || null });
             computeFloodOutlook();
@@ -4272,18 +4438,27 @@
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         window._pirateLoadFailed = false;
         try {
-            const resP = await fetch('https://api.pirateweather.net/forecast/' + PIRATE_API_KEY + '/' + lat + ',' + lon + '?units=us');
+            const resP = await fetch(WEATHER_WORKER_URL + '/api/weather/fast?lat=' +
+                encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {
+                    signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+                });
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
-            const d = await resP.json();
+            const fastPayload = await resP.json();
+            const d = fastPayload.pirate || fastPayload;
             if (!d || !d.currently) throw new Error('Pirate response missing currently data');
+            window._fastProviderData = fastPayload;
+            window._fastNwsAlerts = fastPayload.nwsAlerts || null;
+            window._fastNwsAlertsKey = lat + ',' + lon;
             if (d.offset != null) stationTzOffset = d.offset * 3600;
             // Skip PWS entirely for water locations — nearest station is always on land
             // and its readings are completely unrepresentative of an open-water point.
             // A PWS outage must not discard an otherwise valid PirateWeather response.
+            // Do not hold the primary forecast on PWS discovery/observations.
+            // The result is applied later as an optional comparison source.
             let wuStations = [];
-            if (!window.isWaterLocation) {
-                try { wuStations = await fetchWUMulti(lat, lon); } catch(e) { wuStations = []; }
-            }
+            const wuPromise = window.isWaterLocation
+                ? Promise.resolve([])
+                : fetchWUMulti(lat, lon);
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Mark the throttle only after the PirateWeather response has been
             // validated. If rendering or the request fails, the next refresh
@@ -4404,6 +4579,7 @@
                     return m && ((m.precipIntensity != null && m.precipIntensity > 0) ||
                                  (m.precipAccumulation != null && m.precipAccumulation > 0));
                 }));
+            window._minuteHasPrecip = _minuteHasPrecip;
             const _minuteHeading = document.getElementById('minute-heading');
             const _minuteChartWrap = document.getElementById('minute-chart-wrap');
             const _hourlyOutlook = document.getElementById('hourly-outlook');
@@ -4507,7 +4683,6 @@
                 window.pirateHourlyData = _rawHourly;
                 window.pirateTimezoneOffset = d.offset || 0;
                 SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: _rawHourly, tzOffset: d.offset || 0 });
-                computeOutdoorScore(window.pirateHourlyData);
                 computeFloodOutlook();
                 // Silently patch any bad sentinel values from Open-Meteo
                 if (_uvWasBad || _hourlyHasBadUV || _currSentinelBad || _hourlyHasBadOther) {
@@ -4539,7 +4714,23 @@
             _isOffline = false;
             window._pirateLoadFailed = false;
             lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
+            wuPromise.then(function(lateStations) {
+                if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
+                if (!Array.isArray(lateStations) || !lateStations.length) return;
+                var late = lateStations[0];
+                window.wuData = late || null;
+                window.wuNeighborData = lateStations.slice(1).filter(function(s) { return s != null; });
+                window.wuElevFt = late && late.elev != null ? late.elev : null;
+                var stationEl = document.getElementById('wuStation');
+                var linkEl = document.getElementById('wuLink');
+                if (late && late.stationId && stationEl && linkEl) {
+                    linkEl.innerText = late.stationId;
+                    linkEl.href = 'https://www.wunderground.com/dashboard/pws/' + late.stationId;
+                    stationEl.style.display = 'block';
+                }
+            }).catch(function() {});
         } catch(e) {
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Do not throttle a failed attempt. This is especially important
             // on mobile, where a transient suspended-network request is common.
             _lastPirateFetch = 0;
@@ -4603,8 +4794,19 @@
                     var _osBox = document.getElementById('outdoor-score-box');
                     var _osVal = document.getElementById('outdoor-score-val');
                     var _osDesc = document.getElementById('outdoor-score-desc');
+                    // Older cached snapshots could contain a zero caused by
+                    // the pre-floor thunderstorm calculation. Do not let that
+                    // stale value overwrite the corrected forecast score while
+                    // restoring an offline session. Active-warning snapshots
+                    // use a different description and remain untouched.
+                    var _restoreVal = os.val;
+                    if (Number(_restoreVal) === 0 &&
+                        /thunderstorms likely|storms possible/i.test(String(os.desc || '')) &&
+                        !/active severe weather warning/i.test(String(os.desc || ''))) {
+                        _restoreVal = '20';
+                    }
                     if (_osBox && os.boxDisplay != null) _osBox.style.display = os.boxDisplay;
-                    if (_osVal && os.val != null) _osVal.innerText = os.val;
+                    if (_osVal && _restoreVal != null) _osVal.innerText = _restoreVal;
                     if (_osDesc && os.desc != null) _osDesc.innerText = os.desc;
                 });
                 // Restore flood outlook inputs and re-compute display
@@ -4787,7 +4989,6 @@
                 liveFeelsLike = _fl;
                 (function(){ var _fv = Math.round(_fl); var _fe = document.getElementById('feelsVal'); if (_fe) { _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); } })();
                 updateSmartComfort(_T, liveFeelsLike, _RH, liveWindSpd, curr.summary || '', liveUV, (curr.precipProbability || 0) * 100);
-                if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
                 computeFloodOutlook();
             }
 
@@ -4902,6 +5103,16 @@
         window.pirateAlerts = window.pirateAlerts || [];
 
         document.getElementById('vibeCheck').innerText = fakeCurr.summary;
+        // Open-Meteo is the live backup for the current observation when
+        // PirateWeather is unavailable. Keep the Now card synchronized with
+        // that same current condition until NWS supplies a better observation.
+        currentCondition = fakeCurr.summary || '';
+        document.getElementById('conditionText').innerText = currentCondition || '--';
+        var _omCurrentIcon = _pwSummaryIcon(currentCondition, isNightAtStation);
+        if (_omCurrentIcon) {
+            document.getElementById('weatherIcon').src = _omCurrentIcon;
+            document.getElementById('weatherIcon').style.display = 'block';
+        }
 
         // Temperature
         const temp = fakeCurr.temperature;
@@ -4954,6 +5165,7 @@
         // used when PirateWeather reports a quiet/non-precipitating hour.
         var _omMinuteHeading = document.getElementById('minute-heading');
         var _omMinuteChart = document.getElementById('minute-chart-wrap');
+        window._minuteHasPrecip = false;
         if (_omMinuteHeading) _omMinuteHeading.innerText = '';
         document.getElementById('minuteSummary').innerText = '';
         if (_omMinuteChart) _omMinuteChart.style.display = 'none';
@@ -5011,7 +5223,7 @@
         window.pirateHourlyData = hourlyRows;
         renderHourlyOutlook(hourlyRows, window.pirateTimezoneOffset || 0);
         SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
-        computeOutdoorScore(hourlyRows);
+        // Outdoor Score is rendered when the TWC daily forecast arrives.
         computeFloodOutlook();
         updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, fakeCurr.summary, liveUV, (fakeCurr.precipIntensity || 0) * 100);
         SkyDB.set(SkyDB.S.weather, 'last_conditions', {
@@ -5035,12 +5247,58 @@
         lastSyncTime = new Date(); localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
     }
 
+    function _estimateCurrentPrecipChance() {
+        var dp = window.twcForecastData?.daypart?.[0];
+        var chance = null;
+        if (dp && Array.isArray(dp.precipChance)) {
+            var part = window._polarState === 'night' ? 1 : 0;
+            chance = Number(dp.precipChance[part]);
+            if (!isFinite(chance)) chance = Number(dp.precipChance.find(function(v) { return v != null; }));
+        }
+        if (!isFinite(chance)) chance = 0;
+        // An active observation is stronger evidence than a forecast PoP. The
+        // condition itself comes from the authoritative current observation;
+        // no PirateWeather precipitation value is used here.
+        if (/rain|drizzle|shower|thunder|snow|sleet|hail/.test(String(currentCondition || '').toLowerCase())) {
+            return 100;
+        }
+        return Math.max(0, Math.min(100, Math.round(chance)));
+    }
+
+    function _currentTWCOutlookIconHtml() {
+        var currentText = String(currentCondition || '').trim();
+        var currentLower = currentText.toLowerCase();
+        var currentIsNight = window._polarState === 'night' || isNightAtStation;
+        var currentCode;
+        if (/clear|sunny|fair/.test(currentLower) && !/cloud/.test(currentLower)) {
+            currentCode = currentIsNight ? 31 : 32;
+        } else if (/partly|mostly sunny|mostly clear/.test(currentLower)) {
+            currentCode = currentIsNight ? 29 : 30;
+        } else if (currentText) {
+            currentCode = _twcIconCodeForWeather(null, currentText);
+        } else {
+            // Never borrow a future forecast icon for the Now card while the
+            // authoritative observation is still loading.
+            currentCode = currentIsNight ? 33 : 34;
+        }
+        return '<img class="hourly-outlook-icon" src="' + _twcIconSrc(currentCode) + '" alt="' +
+            escapeHtml(currentText || 'Current weather conditions') +
+            '" style="width:32px;height:32px;object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
+    }
+
     function renderHourlyOutlook(hourlyData, timezoneOffset) {
         const wrap = document.getElementById('hourly-outlook');
         const titleEl = document.getElementById('hourly-outlook-title');
         const summaryEl = document.getElementById('hourly-outlook-summary');
         const cardsEl = document.getElementById('hourly-outlook-cards');
         if (!wrap || !titleEl || !summaryEl || !cardsEl) return;
+        // The compact outlook is a fallback for a genuinely dry minutely
+        // forecast. Never let later NWS/PWS re-renders make both sections
+        // visible while minute-by-minute precipitation is active or unknown.
+        if (window._minuteHasPrecip !== false) {
+            wrap.style.display = 'none';
+            return;
+        }
 
          const nowSec = Date.now() / 1000;
          const offsetHours = Number(timezoneOffset) || 0;
@@ -5064,12 +5322,7 @@
         const rainChance = Math.max.apply(null, upcoming.map(function(h) {
             return Math.round((Number(h.precipProbability) || 0) * 100);
         }));
-         // Only reserve/show a precipitation row when at least one visible
-         // hour has a non-zero chance.  Otherwise the outlook cards should
-         // not have an empty gap beneath their weather icons.
-         const hasPrecipChance = upcoming.some(function(h) {
-             return Math.round((Number(h.precipProbability) || 0) * 100) > 0;
-         });
+         const currentChance = _estimateCurrentPrecipChance();
         const wind = Number(first.windSpeed);
         const gust = Number(first.windGust);
         const windText = isFinite(wind) && wind > 0
@@ -5119,23 +5372,25 @@
             const hourLabel = i === 0 ? 'Now' : date.toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
             const card = document.createElement('div');
             card.className = 'hourly-outlook-card';
-            const chance = Math.round((Number(h.precipProbability) || 0) * 100);
-             const chanceHtml = !hasPrecipChance
-                 ? ''
-                 : (chance > 0
-                     ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
-                     : '<div style="font-size:0.62em; color:transparent; margin-top:2px;">0%</div>');
-            const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon');
+             const isCurrent = i === 0;
+             const chance = isCurrent ? currentChance : Math.round((Number(h.precipProbability) || 0) * 100);
+             const chanceHtml = chance > 0
+                 ? '<div style="font-size:0.62em; color:#36b9d8; margin-top:2px;">' + chance + '%</div>'
+                 : '';
+             const cardTemp = isCurrent && window.liveTemp != null ? window.liveTemp : h.temperature;
+             const iconHtml = isCurrent
+                  ? _currentTWCOutlookIconHtml()
+                 : _twcHourlyIconHtml(h.icon, h.summary, '32px', 'hourly-outlook-icon', h);
             card.innerHTML =
                 '<div style="font-size:0.68em; color:#c2c9cf; white-space:nowrap;">' + hourLabel + '</div>' +
                 iconHtml +
                 chanceHtml +
-                '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(h.temperature) + '</div>';
+                  '<div class="hourly-temperature" style="font-size:1.05em; font-weight:800; margin-top:5px;">' + _fmtTemp(cardTemp) + '</div>';
             // Apply the exact same Fahrenheit-based scale used by tempVal and
             // feelsVal. Set it after insertion so no card/inherited color rule
             // can replace the inline temperature color.
             var outlookTempEl = card.querySelector('.hourly-temperature');
-            if (outlookTempEl) outlookTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
+             if (outlookTempEl) outlookTempEl.style.setProperty('color', colorFeelsLike(Number(cardTemp)), 'important');
             cardsEl.appendChild(card);
         });
         wrap.style.display = '';
@@ -5163,7 +5418,7 @@
                 const card = document.createElement('div'); card.className = 'forecast-card';
                 const rainAmt = h.precipAccumulation || (h.precipIntensity ? parseFloat(h.precipIntensity.toFixed(2)) : 0);
                 const rainLine = rainAmt > 0 ? '<div style="font-size:0.65em; color:#4fc3f7; margin-top:2px;">\uD83C\uDF27 ' + (_isMetric() ? (rainAmt * 25.4).toFixed(1) + ' mm' : rainAmt.toFixed(2) + '"') + '</div>' : '';
-                const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '48px', 'hourly-forecast-icon');
+                const iconHtml = _twcHourlyIconHtml(h.icon, h.summary, '48px', 'hourly-forecast-icon', h);
                 card.innerHTML = '<div style="font-size:0.7em;">' + hour + '</div>' + iconHtml + '<div class="hourly-temperature" style="font-size:1.2em; font-weight:bold;">' + _fmtTemp(h.temperature) + '</div><div style="font-size:0.7em; opacity:0.7;">' + escapeHtml(h.summary || '') + '</div><div style="font-size:0.65em; color:var(--primary);">Precip: ' + Math.round((h.precipProbability || 0) * 100) + '%</div>' + rainLine;
                 var pwTempEl = card.querySelector('.hourly-temperature');
                 if (pwTempEl) pwTempEl.style.setProperty('color', colorFeelsLike(Number(h.temperature)), 'important');
@@ -5199,9 +5454,10 @@
 
     async function fetchOpenWeather() {
         try {
-            const res = await fetch('https://api.openweathermap.org/data/2.5/forecast?lat=' + lat + '&lon=' + lon + '&appid=' + OW_API_KEY + '&units=imperial');
-            if (!res.ok) throw new Error('OW ' + res.status);
-            const d = await res.json();
+            const enrichment = await getWeatherEnrichment();
+            const d = (enrichment && enrichment.openWeather) ||
+                (window._fastProviderData && window._fastProviderData.openWeather);
+            if (!d) throw new Error('OpenWeather data not included in fast response');
             if (!d || !d.city) throw new Error('OW bad data');
             stationTzOffset = d.city.timezone;
             const nowMs = Date.now();
@@ -5230,6 +5486,7 @@
             updateAtmosphereTheme();
             SkyDB.set(SkyDB.S.weather, 'openweather', { ts: Date.now(), sunrise: d.city.sunrise, sunset: d.city.sunset, timezone: d.city.timezone });
         } catch(e) {
+            if (!_isOffline) return;
             SkyDB.get(SkyDB.S.weather, 'openweather').then(function(c) {
                 if (!c) return;
                 stationTzOffset = c.timezone;
@@ -5258,6 +5515,31 @@
                 updateAtmosphereTheme();
             });
         }
+    }
+
+    // One shared optional request prevents TWC, OpenWeather, and NWS alerts
+    // from each starting their own browser-side provider request.
+    async function getWeatherEnrichment() {
+        if (_enrichmentPromise) return _enrichmentPromise;
+        const key = lat + ',' + lon;
+        _enrichmentPromise = fetch(WEATHER_WORKER_URL + '/api/weather/enrichment?lat=' +
+            encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {
+                signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+            }).then(function(res) {
+                if (!res.ok) throw new Error('Weather enrichment ' + res.status);
+                return res.json();
+            }).then(function(data) {
+                if (key !== lat + ',' + lon) return data;
+                window._fastProviderData = Object.assign({}, window._fastProviderData || {}, data);
+                window._fastNwsAlerts = data.nwsAlerts || null;
+                window._fastNwsAlertsKey = key;
+                window._fastNwsAlertsAttempted = true;
+                return data;
+            }).catch(function() {
+                if (key === lat + ',' + lon) window._fastNwsAlertsAttempted = true;
+                return null;
+            });
+        return _enrichmentPromise;
     }
 
     // Renders the PWS QC diagnostic panel.
@@ -5712,6 +5994,9 @@
                 liveHumidity:  (function(){ var el=document.getElementById('humVal'); if(!el||el.innerText==='--') return null; var v=parseInt(el.innerText); return isNaN(v)?null:v; })()
             });
             _wxReveal(); // Authoritative chain complete — make observed fields visible
+            if (window.pirateHourlyData) {
+                renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+            }
         } catch(e) {
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
             // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
@@ -5766,7 +6051,10 @@
                         liveFeelsLike, pw.humidity != null ? Math.round(pw.humidity * 100) : 50,
                         liveWindSpd, fbCond, liveUV, (pw.precipProbability || 0) * 100);
                 })();
-                _wxReveal(); // Water location — PirateWeather is the sole source; reveal now
+                _wxReveal(); // Water location — current observation is ready
+                if (window.pirateHourlyData) {
+                    renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+                }
                 return;
             }
             // NWS chain failed — restore cached station metadata and condition text,
@@ -6743,9 +7031,11 @@
 
     // ——— TWC FORECAST (v1.0.4: removed windPhrase/precipType/thunderCat; added swipe) ———
     async function fetchTWCForecast() {
-        const url = 'https://api.weather.com/v3/wx/forecast/daily/5day?geocode=' + lat + ',' + lon + '&format=json&units=e&language=en-US&apiKey=' + TWC_API_KEY;
         try {
-            const res = await fetch(url); const d = await res.json();
+            const enrichment = await getWeatherEnrichment();
+            const d = (enrichment && enrichment.twc) ||
+                (window._fastProviderData && window._fastProviderData.twc);
+            if (!d) throw new Error('TWC data not included in enrichment response');
             renderTWCForecast(d);
             // Only cache the fields actually used by renderTWCForecast / openTWCDetailModal
             var _dp = d.daypart && d.daypart[0];
@@ -6763,6 +7053,12 @@
                     daypartName:           _dp.daypartName,
                     temperature:           _dp.temperature,
                     humidity:              _dp.humidity,
+                     relativeHumidity:      _dp.relativeHumidity,
+                     windSpeed:             _dp.windSpeed,
+                     windGust:              _dp.windGust,
+                     windDirection:         _dp.windDirection,
+                     windDirectionCardinal: _dp.windDirectionCardinal,
+                     windPhrase:            _dp.windPhrase,
                     uvIndex:               _dp.uvIndex,
                     uvDescription:         _dp.uvDescription,
                     cloudCoverPhrase:      _dp.cloudCoverPhrase,
@@ -6791,6 +7087,13 @@
             // service worker during install — no data-URL conversion needed.
             SkyDB.set(SkyDB.S.weather, 'twc_forecast', { ts: Date.now(), data: _slimTwc });
         } catch(e) {
+            // Do not display an old daily forecast merely because the optional
+            // enrichment request failed while the primary weather is online.
+            if (!_isOffline) {
+                var unavailable = document.getElementById('twc-daily-forecast');
+                if (unavailable) unavailable.innerHTML = "<div style='opacity:0.6'>Forecast temporarily unavailable.</div>";
+                return;
+            }
             SkyDB.get(SkyDB.S.weather, 'twc_forecast').then(function(cached) {
                 if (cached && cached.data) renderTWCForecast(cached.data);
                 else document.getElementById('twc-daily-forecast').innerHTML = "<div style='opacity:0.6'>Forecast unavailable.</div>";
@@ -6834,6 +7137,29 @@
         function narrPart(j) { return (dp.narrative?.[j]    || '').toLowerCase(); }
         function snowPart(j) { return dp.qpfSnow?.[j] ?? 0; }
         function pcPart(j)   { return dp.precipChance?.[j] ?? 0; }
+        function thunderCoverage(j) {
+            var source = [
+                dp.thunderCategory?.[j],
+                dp.wxPhraseLong?.[j],
+                dp.narrative?.[j]
+            ].join(' ').toLowerCase();
+            if (source.includes('widespread')) return 'Widespread';
+            if (source.includes('numerous')) return 'Numerous';
+            if (source.includes('scattered')) return 'Scattered';
+            if (source.includes('isolated')) return 'Isolated';
+            return '';
+        }
+        function thunderSummary(j) {
+            var chance = Number(pcPart(j));
+            var coverage = thunderCoverage(j);
+            var lead = coverage ? coverage + ' thunderstorms' : 'Thunderstorms';
+            var likelihood = chance >= 70 ? 'likely' : chance >= 40 ? 'possible' : 'possible';
+            lead = lead.charAt(0).toUpperCase() + lead.slice(1);
+            return lead + ' ' + likelihood + ' ' + daypartLabel(j) + '.';
+        }
+        function rainLikelihood(chance) {
+            return Number(chance) >= 70 ? 'likely' : 'possible';
+        }
         function fmtT(f) {
             if (f == null) return '--°';
             return _isMetric() ? Math.round((f - 32) * 5 / 9) + '°' : Math.round(f) + '°';
@@ -6861,8 +7187,10 @@
         // ── Priority 2: Thunderstorms ────────────────────────────────────────
         for (var j = 0; j < n * 2 && !s1; j++) {
             var wx = wxPart(j);
-            if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm')) {
-                s1 = 'Thunderstorms possible ' + daypartLabel(j) + '.';
+            var narr = narrPart(j);
+            if (wx.includes('thunder') || wx.includes('t-storm') || wx.includes('tstorm') ||
+                narr.includes('thunder') || narr.includes('t-storm') || narr.includes('tstorm')) {
+                s1 = thunderSummary(j);
             }
         }
 
@@ -6874,24 +7202,28 @@
             var narr = narrPart(j);
             if (narr.includes('heavy rain') || narr.includes('heavy rainfall')) {
                 var amt = totalQpf(Math.floor(j / 2));
-                s1 = 'Potential for heavy rainfall ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
+                var heavyWord = pcPart(j) >= 70 ? 'likely' : 'possible';
+                s1 = 'Heavy rain ' + heavyWord + ' ' + daypartLabel(j) + (amt >= 0.25 ? ' (' + fmtRain(amt) + ' possible).' : '.');
             }
         }
 
-        // ── Priority 4: Rain / showers (≥40% chance) ────────────────────────
+        // ── Priority 4: Rain / showers (≥25% chance) ────────────────────────
         // Multi-day cases stay at day level; single-day case pinpoints day vs night.
         if (!s1) {
             var rainDaySet = [];
-            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 40) rainDaySet.push(i); }
+            for (var i = 0; i < n; i++) { if (maxPrecipChance(i) >= 25) rainDaySet.push(i); }
             if (rainDaySet.length === 1) {
                 var di = rainDaySet[0];
-                var dayRain   = pcPart(di * 2)     >= 40;
-                var nightRain = pcPart(di * 2 + 1) >= 40;
+                var dayRain   = pcPart(di * 2)     >= 25;
+                var nightRain = pcPart(di * 2 + 1) >= 25;
                 // Use night-specific label only when rain is exclusively at night
                 var rainLbl = (!dayRain && nightRain) ? daypartLabel(di * 2 + 1) : dayLabel(di);
-                s1 = 'Rain possible ' + rainLbl + '.';
+                s1 = 'Rain ' + rainLikelihood(maxPrecipChance(di)) + ' ' + rainLbl + '.';
             } else if (rainDaySet.length === 2) {
-                s1 = 'Rain possible ' + dayLabel(rainDaySet[0]) + ' and ' + dayLabel(rainDaySet[1]) + '.';
+                var firstChance = maxPrecipChance(rainDaySet[0]);
+                var secondChance = maxPrecipChance(rainDaySet[1]);
+                var multiLikelihood = Math.min(firstChance, secondChance) >= 70 ? 'likely' : 'possible';
+                s1 = 'Rain ' + multiLikelihood + ' ' + dayLabel(rainDaySet[0]) + ' and ' + dayLabel(rainDaySet[1]) + '.';
             } else if (rainDaySet.length >= 3) {
                 s1 = 'Unsettled and rainy pattern through ' + dayLabel(rainDaySet[rainDaySet.length - 1]) + '.';
             }
@@ -6939,6 +7271,9 @@
     const PIRATE_ICON_TO_TWC_CODE = {
         'clear-day': 32,            // 32.svg = sunny
         'clear-night': 31,          // 31.svg = clear night
+        'drizzle': 9,               // 9.svg = drizzle
+        'light-rain': 11,           // 11.svg = light rain / showers
+        'showers': 11,              // 11.svg = showers
         'rain': 12,                 // 12.svg = rain
         'snow': 16,                 // 16.svg = snow
         'sleet': 18,                // 18.svg = sleet
@@ -6951,26 +7286,61 @@
     };
     const TWC_ICON_BASE_PATH = 'icons/wu/';
 
-    function _twcIconCodeForWeather(icon, summary) {
-        if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
-            return PIRATE_ICON_TO_TWC_CODE[icon];
-        }
-        // Summary fallback covers PirateWeather conditions with an unfamiliar
-        // or missing icon slug while keeping the same TWC numbering scheme.
+    function _twcIconCodeForWeather(icon, summary, details) {
+        // Prefer descriptive text and precipitation metadata over broad
+        // provider slugs such as PW's generic "rain".
         const s = String(summary || '').toLowerCase();
+        const precipType = String(details?.precipType || '').toLowerCase();
+        const intensity = Number(details?.precipIntensity);
+        const precipProbability = Number(details?.precipProbability);
+        // The displayed summary is authoritative for the icon family. Do not
+        // turn "Partly Cloudy" into rain merely because PW supplies a broad
+        // precipType, probability, or intensity alongside it. Metadata may
+        // refine an already-precipitating summary, but can never introduce
+        // precipitation that the summary does not mention.
+        const summaryHasPrecip = /rain|drizzle|shower|snow|sleet|ice pellet|hail|thunder|t-storm|tstm/.test(s);
+        const usePrecipMetadata = summaryHasPrecip &&
+            (!isFinite(precipProbability) || precipProbability > 0);
         if (s.includes('tornado')) return 1;
         if (s.includes('hurricane')) return 2;
         if (s.includes('tropical storm')) return 3;
-        if (s.includes('thunder') || s.includes('t-storm') || s.includes('tstm')) return 4;
+        if (s.includes('thunder') || s.includes('t-storm') || s.includes('tstm')) {
+            if (s.includes('isolat')) return 37;
+            if (s.includes('scatter')) return 38;
+            return 4;
+        }
+        if (s.includes('freezing drizzle') || (usePrecipMetadata && precipType.includes('freezing drizzle'))) return 8;
+        if (s.includes('freezing rain')) return 10;
+        if ((s.includes('rain') || s.includes('drizzle')) && s.includes('snow')) return 5;
+        if ((s.includes('rain') || s.includes('drizzle')) &&
+            (s.includes('sleet') || s.includes('ice pellet'))) return 6;
+        if (s.includes('snow') && (s.includes('sleet') || s.includes('ice pellet'))) return 7;
+        if (s.includes('rain') && s.includes('hail')) return 35;
+        if (s.includes('hail')) return 17;
+        if (s.includes('heavy rain') || s.includes('downpour') ||
+            (usePrecipMetadata && precipType === 'rain' && isFinite(intensity) && intensity >= 0.1)) return 40;
+        if (s.includes('drizzle') || (usePrecipMetadata && precipType === 'drizzle')) return 9;
+        if (s.includes('light rain') || s.includes('light shower')) return 11;
+        if (s.includes('scattered shower')) return 39;
+        if (s.includes('shower')) return 11;
+        if (s.includes('rain') || (usePrecipMetadata && precipType === 'rain')) return 12;
         if (s.includes('snow') || s.includes('flurr')) return 16;
         if (s.includes('sleet') || s.includes('ice pellet') || s.includes('freezing rain')) return 18;
-        if (s.includes('rain') || s.includes('drizzle') || s.includes('shower')) return 12;
         if (s.includes('fog') || s.includes('mist')) return 20;
         if (s.includes('wind') || s.includes('breezy') || s.includes('blustery')) return 24;
         if (s.includes('haze')) return 21;
         if (s.includes('smoke')) return 22;
+        if (s.includes('partly cloudy')) {
+            return String(icon || '').toLowerCase().includes('night') ? 29 : 30;
+        }
+        if (s.includes('mostly cloudy')) {
+            return String(icon || '').toLowerCase().includes('night') ? 27 : 28;
+        }
         if (s.includes('cloud') || s.includes('overcast')) return 26;
         if (s.includes('clear') || s.includes('sunny') || s.includes('fair')) return 32;
+        if (icon && Object.prototype.hasOwnProperty.call(PIRATE_ICON_TO_TWC_CODE, icon)) {
+            return PIRATE_ICON_TO_TWC_CODE[icon];
+        }
         return 34; // 34.svg = mostly sunny / safe generic fallback
     }
 
@@ -6978,10 +7348,10 @@
         return TWC_ICON_BASE_PATH + (code || 50) + '.svg';
     }
 
-    function _twcHourlyIconHtml(icon, summary, size, className) {
+    function _twcHourlyIconHtml(icon, summary, size, className, details) {
         const label = escapeHtml(summary || 'Weather conditions');
         const classAttr = className ? ' class="' + className + '"' : '';
-        return '<img' + classAttr + ' src="' + _twcIconSrc(_twcIconCodeForWeather(icon, summary)) +
+        return '<img' + classAttr + ' src="' + _twcIconSrc(_twcIconCodeForWeather(icon, summary, details)) +
             '" alt="' + label + '" style="width:' + size + ';height:' + size +
             ';object-fit:contain;display:block;margin:0 auto;" onerror="this.onerror=null;this.style.visibility=\'hidden\';">';
     }
@@ -7004,10 +7374,9 @@
                 else twcMaxFeelsLike = t;
             }
         })();
-        // Re-run outdoor score now that twcMaxFeelsLike is set — fetchPirate() ran first
-        // so the initial computeOutdoorScore call had twcMaxFeelsLike = null and fell back
-        // to Pirate's (potentially lagged) hourly apparentTemperature for the description.
-        if (window.pirateHourlyData) computeOutdoorScore(window.pirateHourlyData);
+        // TWC is the sole source for Outdoor Score. The separate hourly feed
+        // must not be used to calculate it.
+        computeOutdoorScore();
         // Store TWC per-day QPF totals (day + night slots) for the Flood Outlook,
         // so it matches the same source as the daily forecast cards.
         window.twcDailyQPF = (data.dayOfWeek || []).map(function(_, i) {
@@ -7214,7 +7583,7 @@
                 const c = computeHourComfort(h);
                 const hourLabel = new Date((h.time + (offsetHours * 3600)) * 1000).toLocaleTimeString([], { hour: 'numeric', timeZone: 'UTC' });
                 const temp = _fmtTemp(h.temperature ?? 0);
-                const icon = _twcHourlyIconHtml(h.icon, h.summary, '30px', 'hourly-comfort-icon');
+                const icon = _twcHourlyIconHtml(h.icon, h.summary, '30px', 'hourly-comfort-icon', h);
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);"><div style="min-width:42px;font-size:0.75em;color:#aaa;text-align:right;">' + hourLabel + '</div><div style="min-width:30px;text-align:center;">' + icon + '</div><div style="min-width:36px;font-size:0.9em;font-weight:bold;color:var(--accent);">' + temp + '</div><div style="flex:1;"><div style="font-weight:900;font-size:0.85em;color:' + c.color + ';letter-spacing:0.5px;">' + c.word + '</div><div style="font-size:0.68em;opacity:0.65;">' + c.reason + '</div></div></div>';
             }).join('');
         }
@@ -10055,8 +10424,15 @@
     })();
     // ─────────────────────────────────────────────────────────────────────────────
 
-    async function loadAll() {
+    async function _loadAllOnce() {
         const loadGeneration = ++weatherLoadGeneration;
+        if (window._weatherRequestController) window._weatherRequestController.abort();
+        window._weatherRequestController = new AbortController();
+        _enrichmentPromise = null;
+        window._fastProviderData = null;
+        window._fastNwsAlerts = null;
+        window._fastNwsAlertsKey = '';
+        window._fastNwsAlertsAttempted = false;
         twcMaxFeelsLike = null;
         var loadFailed = false;
         // Reset beach state every load so a previous beach result never bleeds into a new search.
@@ -10067,6 +10443,9 @@
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
         try {
+            // Location classification is useful enrichment, but must not delay
+            // the primary current/daily/hourly weather request.
+            const _locationClassificationPromise = (async function() {
             // Water location detection — the OSM reverse geocoder tells us if coords
             // are on open water (sea, bay, lake, waterway). If so, skip PWS entirely.
             try {
@@ -10114,10 +10493,27 @@
                     }
                 }
             } catch(e) { window.isBeachLocation = false; }
+            })();
 
             await fetchPirate(loadGeneration);
+            // Start the daily forecast/sun/alert enrichment as soon as the
+            // primary response is rendered. It is independent of AQI, beach
+            // classification, and the long NWS chain.
+            if (!window._pirateLoadFailed) {
+                getWeatherEnrichment().then(function() {
+                    if (loadGeneration !== weatherLoadGeneration) return;
+                    fetchTWCForecast();
+                    fetchOpenWeather();
+                }).catch(function() {});
+            }
+            await _locationClassificationPromise;
             if (window._pirateLoadFailed) loadFailed = true;
             if (loadGeneration !== weatherLoadGeneration) return;
+            // Current/daily/hourly data are the home-page first wave. Do not
+            // keep the launch screen up for AQI, risk maps, reports, or radar.
+            if (!window._pirateLoadFailed && typeof window._dismissLaunch === 'function') {
+                window._dismissLaunch();
+            }
             await Promise.all([fetchAQI(), fetchBeachForecast(lat, lon)]);
             await Promise.all([fetchNWSChain(loadGeneration), fetchOpenWeather(), fetchTWCForecast()]);
             if (loadGeneration !== weatherLoadGeneration) return;
@@ -10193,6 +10589,29 @@
             window._maybeHideSync();
         }, 2000);
         return Promise.resolve();
+    }
+
+    // Prevent a slow refresh from overlapping the next 60-second refresh.
+    // A location change gets a new generation and is allowed to supersede
+    // the previous request; stale responses are ignored by the existing guards.
+    async function loadAll() {
+        const key = lat + ',' + lon;
+        if (_loadAllPromise && _loadAllKey === key) return _loadAllPromise;
+        const promise = _loadAllOnce();
+        _loadAllPromise = promise;
+        _loadAllKey = key;
+        promise.then(function() {
+            if (_loadAllPromise === promise) {
+                _loadAllPromise = null;
+                _loadAllKey = '';
+            }
+        }, function() {
+            if (_loadAllPromise === promise) {
+                _loadAllPromise = null;
+                _loadAllKey = '';
+            }
+        });
+        return promise;
     }
 
     function syncPushLocation() {
@@ -10592,16 +11011,16 @@
         loadLoc();
         SkyDB.migrate();
         // Dismiss launch screen once data loads, or after 4s max
-        function _dismissLaunch() {
+        window._dismissLaunch = function() {
             var ls = document.getElementById('launch-screen');
             if (!ls || ls.classList.contains('hidden')) return;
             ls.classList.add('hidden');
             setTimeout(function() { ls.style.display = 'none'; }, 550);
-        }
-        setTimeout(_dismissLaunch, 4000);
+        };
+        setTimeout(window._dismissLaunch, 4000);
         loadAll().then(function() {
             syncPushLocation();
-            _dismissLaunch();
+            window._dismissLaunch();
             checkForGitHubRelease();
         });
     };
