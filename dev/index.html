@@ -4455,10 +4455,14 @@
             // A PWS outage must not discard an otherwise valid PirateWeather response.
             // Do not hold the primary forecast on PWS discovery/observations.
             // The result is applied later as an optional comparison source.
-            let wuStations = [];
+            let wuStations;
             const wuPromise = window.isWaterLocation
                 ? Promise.resolve([])
                 : fetchWUMulti(lat, lon);
+            // The PWS result is part of the authoritative current-observation
+            // load. Do not paint PirateWeather observations and then replace
+            // them a moment later when this check completes.
+            wuStations = await wuPromise;
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Mark the throttle only after the PirateWeather response has been
             // validated. If rendering or the request fails, the next refresh
@@ -4506,25 +4510,15 @@
             // _patchSentinelsFromOpenMeteo is called after hourly data is stored below
             const daySummary = d.hourly?.summary || d.daily?.data?.[0]?.summary || null;
             if (daySummary) document.getElementById('vibeCheck').innerText = daySummary;
-            // Always render PirateWeather as the initial baseline — fetchNWSChain resolves
-            // the final QC-trusted source (PWS1, NWS obs, or neighbor median) and overwrites
-            // once, after QC completes. This prevents briefly showing a bad PWS value on screen.
+            // Keep PirateWeather observations in memory for source selection.
+            // The current-condition DOM fields are rendered exactly once by
+            // fetchNWSChain after PWS/NWS QC has completed.
             let temp = curr.temperature;
-            window.liveTemp = Math.round(temp);
-            // _needsObsInit: true only when elements are being built from scratch
-            // (first load / location change sets opacity 0). On auto-refresh they
-            // already show the last authoritative value, so skip PirateWeather writes
-            // here and let fetchNWSChain do the single definitive write, no flash.
-            var _needsObsInit = (function() { var _e = document.getElementById('tempVal'); return !_e || _e.innerText === '--'; })();
-            if (_needsObsInit) { (function(){ var _tv = Math.round(temp); var _te = document.getElementById('tempVal'); _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0'; _te.style.color = colorFeelsLike(_tv); })(); }
             liveUV = curr.uvIndex || 0;
             const windSpeed = curr.windSpeed;
             const windDir = curr.windBearing;
             liveWindSpd = Math.round(windSpeed);
-            if (_needsObsInit) { document.getElementById('windVal').innerText = _isMetric() ? Math.round(liveWindSpd * 1.60934) + ' km/h' : liveWindSpd + ' mph'; }
-            if (_needsObsInit) { setWindCompass(liveWindSpd > 0 && windDir !== null ? windDir : null); }
             let humidity = curr.humidity * 100;
-            if (_needsObsInit) { (function(){ var _hv = Math.round(humidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })(); }
             // NWS-standard local feels-like: wind chill ≤50°F, heat index ≥70°F, else actual temp
             (function() {
                 var T = temp, W = liveWindSpd, RH = humidity, fl = T;
@@ -4556,7 +4550,6 @@
                 }
                 liveFeelsLike = fl;
             })();
-            if (_needsObsInit) { (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })(); }
             const presIn = (curr.pressure * 0.02953).toFixed(2);
             let trend = '\u27A1\uFE0F';
             if (lastPressureMb !== null && curr.pressure !== null) {
@@ -4693,7 +4686,6 @@
                     });
                 }
             }
-            if (_needsObsInit) { updateSmartComfort(Math.round(temp), liveFeelsLike, Math.round(humidity), liveWindSpd, curr.summary || '', liveUV, (curr.precipProbability ?? 0) * 100); }
             // Save current conditions to IndexedDB for offline restore
             SkyDB.set(SkyDB.S.weather, 'last_conditions', {
                 ts: Date.now(),
@@ -5595,6 +5587,29 @@
         });
     }
 
+    function _resetCurrentObservationFields() {
+        // A refresh starts a new source-selection pass. Clear the values that
+        // can otherwise flash from the previous load or from PirateWeather
+        // before PWS/NWS has selected the authoritative observation.
+        ['tempVal','feelsVal','windVal','humVal','conditionText'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.innerText = '--';
+        });
+        var icon = document.getElementById('weatherIcon');
+        if (icon) icon.style.display = 'none';
+        var station = document.getElementById('stationName');
+        if (station) station.innerText = 'LOADING LOCATION...';
+        ['meta-name','meta-id','meta-elev','wfo-label'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.innerText = '--';
+        });
+        var wuStation = document.getElementById('wuStation');
+        if (wuStation) wuStation.style.display = 'none';
+        window.liveTemp = null;
+        liveFeelsLike = null;
+        liveWindSpd = null;
+    }
+
     async function fetchNWSChain(loadGeneration) {
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         try {
@@ -5720,8 +5735,9 @@
             } catch(obsErr) { _obsEndpointFailed = true; /* observation fetch failed — will fall back below */ }
             // Water locations: discard all NWS obs — PirateWeather is the sole data source.
             if (window.isWaterLocation) { nwsCond = ''; nwsObsTempF = null; nwsObsHumidity = null; nwsObsWindMph = null; nwsObsWindDir = null; }
-            if (!nwsCond) {
-                // Truly no NWS conditions — fall back to PirateWeather
+            if (!nwsCond && (window.isOutsideUS || window.isWaterLocation)) {
+                // Outside the NWS domain, PirateWeather is the authoritative
+                // source rather than a provisional value.
                 const pw = window.pirateCurrently;
                 const fbCond = (pw && pw.summary) ? pw.summary
                              : (pw && pw.icon && PW_ICON_TO_TEXT[pw.icon]) ? PW_ICON_TO_TEXT[pw.icon]
@@ -5742,18 +5758,16 @@
                     else document.getElementById('weatherIcon').style.display = 'none';
                 }
                 // else: genuine dead-end — stationName stays, conditionText stays '--'
-            } else {
+            } else if (nwsCond) {
                 currentCondition = nwsCond;
                 document.getElementById('conditionText').innerText = nwsCond;
                 if (nwsIcon) { document.getElementById('weatherIcon').src = nwsIcon; document.getElementById('weatherIcon').style.display = 'block'; }
                 else document.getElementById('weatherIcon').style.display = 'none';
-            }
-            // If the obs endpoint returned nothing at all (404 or fully empty payload) —
-            // If the obs endpoint returned a non-2xx response (e.g. 404 — station has no
-            // data on record) or the fetch threw entirely, PirateWeather is the sole source.
-            // Relabel so the user knows the NWS station is dark rather than showing its name.
-            if (_obsEndpointFailed) {
-                document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
+            } else {
+                // A missing NWS description is not permission to show a
+                // different provider's condition as if it were authoritative.
+                document.getElementById('conditionText').innerText = '--';
+                document.getElementById('weatherIcon').style.display = 'none';
             }
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // ── PWS quality control — best-fit station selection ────────────────────────
@@ -5876,11 +5890,12 @@
                 // Recalculate feels-like with lapse-corrected NWS temp
                 (function() {
                     var T = nwsObsTempFAdj, W = liveWindSpd, fl = T;
-                    // Fall back to current displayed humidity if NWS didn't provide it
-                    var _humEl = document.getElementById('humVal');
-                    var _humFallback = (_humEl && _humEl.innerText) ? parseInt(_humEl.innerText) : 50;
-                    var RH = (nwsObsHumidity !== null) ? nwsObsHumidity : _humFallback;
-                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : 50; // clamp: Rothfusz polynomial is undefined outside [0,100]; NaN → 50
+                    var RH = nwsObsHumidity;
+                    RH = isFinite(RH) ? Math.min(100, Math.max(0, RH)) : null;
+                    if (RH === null || (T <= 50 && nwsObsWindMph === null)) {
+                        liveFeelsLike = null;
+                        return;
+                    }
                     if (T <= 50 && W >= 3) {
                         fl = 35.74 + 0.6215*T - 35.75*Math.pow(W,0.16) + 0.4275*T*Math.pow(W,0.16);
                     } else if (T >= 70) {
@@ -5901,7 +5916,9 @@
                     }
                     liveFeelsLike = fl;
                 })();
-                (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
+                if (liveFeelsLike !== null) {
+                    (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
+                }
                 var _pw = window.pirateCurrently;
                 var _rhForComfort = (nwsObsHumidity !== null) ? Math.round(nwsObsHumidity) : (parseInt((document.getElementById('humVal')||{}).innerText) || 50);
                 updateSmartComfort(Math.round(nwsObsTempFAdj), liveFeelsLike, _rhForComfort, liveWindSpd,
@@ -5952,21 +5969,6 @@
                 updateSmartComfort(Math.round(_wuT), liveFeelsLike, Math.round(_wuH), liveWindSpd,
                     _pw3 ? (_pw3.summary || '') : '', liveUV, _pw3 ? ((_pw3.precipProbability || 0) * 100) : 0);
             }
-            // Safety net: if neither PWS nor NWS obs provided a temp (both unavailable),
-            // tempVal is still '--' from the reset at the top of this function.
-            // Restore PirateWeather so the display is never permanently empty.
-            (function() {
-                var _te = document.getElementById('tempVal');
-                if (_te && _te.innerText === '--') {
-                    var _pw = window.pirateCurrently;
-                    if (_pw && _pw.temperature != null) {
-                        var _tv = Math.round(_pw.temperature);
-                        window.liveTemp = _tv;
-                        _te.innerText = _isMetric() ? Math.round((_tv-32)*5/9) + '\u00b0' : _tv + '\u00b0';
-                        _te.style.color = colorFeelsLike(_tv);
-                    }
-                }
-            })();
             // The discussion text is useful but not required to finish the
             // current-observation load.
             (async function() {
@@ -6071,8 +6073,12 @@
                 }
                 return;
             }
-            // NWS chain failed — restore cached station metadata and condition text,
-            // then ensure temperature is not left stuck at '--'.
+            // On an online load, keep the current-observation fields at their
+            // loading placeholders when NWS cannot complete. Cached NWS data
+            // is only appropriate for an explicitly offline restore.
+            if (!_isOffline) return;
+            // Offline restore — use the last authoritative station metadata
+            // and observations saved by a previous successful load.
             SkyDB.get(SkyDB.S.weather, 'nws_obs').then(function(c) {
                 if (!c) return;
                 document.getElementById('stationName').innerText = c.stationName || '';
@@ -10456,6 +10462,7 @@
         if (_bSec) _bSec.style.display = 'none';
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
+        _resetCurrentObservationFields();
         try {
             // Location classification is useful enrichment, but must not delay
             // the primary current/daily/hourly weather request.
@@ -10515,6 +10522,15 @@
             // is usable, and keep failures local to the feature that failed.
             // This preserves alerts, risk maps, reports, and beach data without
             // making any of them a prerequisite for weather conditions.
+            let _homeDataResolve;
+            const _homeDataReady = new Promise(function(resolve) { _homeDataResolve = resolve; });
+            function _markHomeDataReady() {
+                if (_homeDataResolve) {
+                    var _resolveHomeData = _homeDataResolve;
+                    _homeDataResolve = null;
+                    _resolveHomeData();
+                }
+            }
             (async function() {
                 try {
                     if (!window._pirateLoadFailed) {
@@ -10524,18 +10540,23 @@
                     }
                     await _locationClassificationPromise;
                     if (window._pirateLoadFailed) loadFailed = true;
-                    if (loadGeneration !== weatherLoadGeneration) return;
+                    if (loadGeneration !== weatherLoadGeneration) { _markHomeDataReady(); return; }
 
-                    await Promise.all([
+                    const _aqiAndBeachPromise = Promise.all([
                         Promise.resolve(fetchAQI()).catch(function() {}),
                         Promise.resolve(fetchBeachForecast(lat, lon)).catch(function() {})
                     ]);
-                    await Promise.all([
-                        Promise.resolve(fetchNWSChain(loadGeneration)).catch(function() {}),
-                        Promise.resolve(fetchOpenWeather()).catch(function() {}),
-                        Promise.resolve(fetchTWCForecast()).catch(function() {})
-                    ]);
+                    const _nwsHomePromise = Promise.resolve(fetchNWSChain(loadGeneration)).catch(function() {});
+                    const _openWeatherPromise = Promise.resolve(fetchOpenWeather()).catch(function() {});
+                    const _twcPromise = Promise.resolve(fetchTWCForecast()).catch(function() {});
+
+                    // The splash screen waits for this promise only. The NWS
+                    // chain includes the PWS/NWS source decision and the home
+                    // observation fields; maps and reports remain background work.
+                    await _nwsHomePromise;
+                    _markHomeDataReady();
                     if (loadGeneration !== weatherLoadGeneration) return;
+                    await Promise.all([_aqiAndBeachPromise, _openWeatherPromise, _twcPromise]);
                     // fetchAQI starts before NWS classifies the location. If
                     // this is outside the US, replace any US result.
                     if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
@@ -10577,11 +10598,14 @@
                         loadReportingMapData();
                     }
                 } catch(e) {
+                    _markHomeDataReady();
                     console.warn('[SkyMonitor] Optional enrichment failed:', e);
                 }
             })();
-            // A successful primary response is a successful sync for the
-            // user's main view; optional cards continue updating afterward.
+            // Keep the launch screen until the authoritative home observation
+            // source has finished selecting and rendering its fields.
+            await _homeDataReady;
+            if (loadGeneration !== weatherLoadGeneration) return;
             if (!_isOffline) {
                 lastSyncTime = new Date();
                 localStorage.setItem('sm_last_sync', lastSyncTime.getTime());
