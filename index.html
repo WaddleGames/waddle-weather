@@ -9526,8 +9526,8 @@
             const lsrRes = await fetch('https://mesonet.agron.iastate.edu/geojson/lsr.php?hours=' + lsrHours + '&fmt=geojson');
             if (lsrRes.ok) {
                 const lsrData = await lsrRes.json();
-                    const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', hail:'Hail', wind:'Wind Damage', wnd:'Wind Damage', tstm:'Thunderstorm', flood:'Flooding', snow:'Heavy Snow', rain:'Rain', ice:'Ice / Freezing Rain', fire:'Fire', dust:'Dust Storm' };
-                const LSR_COLORS = { tornado:'#ff1744', hail:'#e0f7fa', wind:'#ff9100', wnd:'#ff9100', tstm:'#ffeb3b', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa', dust:'#c8a800' };
+                    const LSR_ICON_TYPES = { tornado:'Tornado / Funnel Cloud', funnel:'Tornado / Funnel Cloud', hail:'Hail', wind:'Wind Damage', wnd:'Wind Damage', tstm:'Thunderstorm', flood:'Flooding', snow:'Heavy Snow', rain:'Rain', ice:'Ice / Freezing Rain', lightning:'Lightning Strike', fire:'Fire', dust:'Dust Storm' };
+                 const LSR_COLORS = { tornado:'#ff1744', funnel:'#90a4ae', hail:'#e0f7fa', wind:'#ff9100', wnd:'#ff9100', tstm:'#ffeb3b', flood:'#00e676', snow:'#b0bec5', rain:'#4fc3f7', fire:'#ff5722', ice:'#81d4fa', lightning:'#90a4ae', dust:'#c8a800' };
                 // IEM uses several abbreviated storm-report type names. Resolve
                 // the wind reports explicitly before the broad fallback matching
                 // below so WND/TSTM substrings cannot assign the wrong icon/color.
