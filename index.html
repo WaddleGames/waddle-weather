@@ -5890,6 +5890,13 @@
                 'thunderstorm':        'https://api.weather.gov/icons/land/day/tsra?size=medium'
             };
             const PW_ICON_TO_TEXT = { 'clear-day':'Clear','clear-night':'Clear','rain':'Rain','snow':'Snow','sleet':'Sleet','wind':'Windy','fog':'Fog','cloudy':'Cloudy','partly-cloudy-day':'Partly Cloudy','partly-cloudy-night':'Partly Cloudy','thunderstorm':'Thunderstorm' };
+            // NWS sometimes returns placeholder condition text even though the
+            // observation object itself is otherwise valid.  These values are
+            // not useful weather descriptions and must not outrank the
+            // PirateWeather condition fallback.
+            const _isUsableNWSCondition = function(value) {
+                return !!value && !/^(unknown(?:\s+precipitation)?|n\/a|na|not available)$/i.test(String(value).trim());
+            };
             let nwsCond = '';
             var _conditionFromPirate = false;
             let nwsIcon = null;
@@ -5904,10 +5911,11 @@
                 const obs = obsRes.ok ? await obsRes.json() : null;
                 const op = obs?.properties || {};
                 nwsCond = (op.textDescription || '').trim();
+                if (!_isUsableNWSCondition(nwsCond)) nwsCond = '';
                 // ASOS automated stations often have null textDescription but populate
                 // the weather[] array instead — try to derive a readable string from it
                 if (!nwsCond && Array.isArray(op.weather)) {
-                    const wx = op.weather.filter(function(w) { return w && w.weather; }).map(function(w) { return w.weather; });
+                    const wx = op.weather.filter(function(w) { return w && _isUsableNWSCondition(w.weather); }).map(function(w) { return w.weather; });
                     if (wx.length) nwsCond = wx.join(', ');
                 }
                 nwsIcon = op.icon || null;
