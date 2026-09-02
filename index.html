@@ -5853,8 +5853,10 @@
             const primaryStation = stations.features[0];
             const elevMeters = primaryStation.properties.elevation?.value;
             const _nwsStationName = primaryStation.properties.name;
-            if (!window.isWaterLocation) document.getElementById('stationName').innerText = _nwsStationName;
-            else document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
+            // Water/beach classification is unrelated to the observation
+            // source.  Keep the NWS station identity until source selection
+            // explicitly chooses a local fallback.
+            document.getElementById('stationName').innerText = _nwsStationName;
             document.getElementById('meta-name').innerText = _nwsStationName;
             document.getElementById('meta-id').innerText = primaryStation.properties.stationIdentifier;
             document.getElementById('meta-elev').innerText = elevMeters ? (_isMetric() ? Math.round(elevMeters) + ' m' : Math.round(elevMeters * 3.28084) + ' ft') : 'N/A';
@@ -5889,6 +5891,7 @@
             };
             const PW_ICON_TO_TEXT = { 'clear-day':'Clear','clear-night':'Clear','rain':'Rain','snow':'Snow','sleet':'Sleet','wind':'Windy','fog':'Fog','cloudy':'Cloudy','partly-cloudy-day':'Partly Cloudy','partly-cloudy-night':'Partly Cloudy','thunderstorm':'Thunderstorm' };
             let nwsCond = '';
+            var _conditionFromPirate = false;
             let nwsIcon = null;
             let nwsObsTempF = null;
             let nwsObsHumidity = null;
@@ -5931,8 +5934,6 @@
                 // observed floors apply even if the 1h sensor returned null.
                 if (window.nwsObsPrecip1h !== null || window.nwsObsPrecip3h !== null || window.nwsObsPrecip6h !== null) computeFloodOutlook();
             } catch(obsErr) { _obsEndpointFailed = true; /* observation fetch failed — will fall back below */ }
-            // Water locations: discard all NWS obs — PirateWeather is the sole data source.
-            if (window.isWaterLocation) { nwsCond = ''; nwsObsTempF = null; nwsObsHumidity = null; nwsObsWindMph = null; nwsObsWindDir = null; }
             if (!nwsCond) {
                 // NWS has finished its observation request but supplied no
                 // current condition. PirateWeather is now the defined
@@ -5942,8 +5943,10 @@
                              : (pw && pw.icon && PW_ICON_TO_TEXT[pw.icon]) ? PW_ICON_TO_TEXT[pw.icon]
                              : null;
                 if (fbCond) {
+                    _conditionFromPirate = true;
                     currentCondition = fbCond;
                     document.getElementById('conditionText').innerText = fbCond;
+                    document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
                     // Only condition text comes from PirateWeather here — temperature still
                     // comes from PWS or NWS obs. Keep meta-name as the NWS station name so
                     // Station Intel always reflects the actual data source, not the condition fallback.
@@ -6069,7 +6072,7 @@
             }
 
             // Fallback chain: QC-passing PWS → NWS obs (lapse-corrected) → PirateWeather
-            const _useNWSFallback = !_wuAvail && !window.isOutsideUS && !window.isWaterLocation && nwsObsTempFAdj !== null;
+            const _useNWSFallback = !_wuAvail && !window.isOutsideUS && nwsObsTempFAdj !== null;
 
             // Update the source QC diagnostic panel
             _renderPWSQCPanel(_wu, nwsObsTempF, nwsObsHumidity);
@@ -6089,9 +6092,10 @@
                     (function(){ var _hv = Math.round(_resolvedHumidity); var _el = document.getElementById('humVal'); _el.innerText = _hv + '%'; _el.style.color = colorHumidity(_hv); })();
                 }
                 document.getElementById('wuStation').style.display = 'none';
-                // Restore NWS station name — may have been overwritten by "LOCAL OBSERVATION"
-                // if the condition text was missing, even though temperature comes from NWS obs.
-                document.getElementById('stationName').innerText = _nwsStationName;
+                // Keep LOCAL OBSERVATION when PirateWeather supplied the
+                // condition because the NWS station had no current condition.
+                // Otherwise the NWS observation remains the displayed source.
+                if (!_conditionFromPirate) document.getElementById('stationName').innerText = _nwsStationName;
                 document.getElementById('meta-name').innerText = _nwsStationName;
                 var _resolvedWindMph = nwsObsWindMph !== null
                     ? nwsObsWindMph
@@ -6199,7 +6203,7 @@
                 var _pw3 = window.pirateCurrently;
                 updateSmartComfort(Math.round(_wuT), liveFeelsLike, Math.round(_wuH), liveWindSpd,
                     _pw3 ? (_pw3.summary || '') : '', liveUV, _pw3 ? ((_pw3.precipProbability || 0) * 100) : 0, nwsCond);
-            } else if (!window.isOutsideUS && !window.isWaterLocation && window.pirateCurrently) {
+            } else if (!window.isOutsideUS && window.pirateCurrently) {
                 // NWS observation completed without a temperature. PirateWeather
                 // is the documented replacement source, but it is rendered only
                 // at this final stage—never as the initial pre-PWS baseline.
