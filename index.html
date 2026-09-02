@@ -4540,15 +4540,14 @@
             window._fastNwsAlerts = fastPayload.nwsAlerts || null;
             window._fastNwsAlertsKey = lat + ',' + lon;
             if (d.offset != null) stationTzOffset = d.offset * 3600;
-            // Skip PWS entirely for water locations — nearest station is always on land
-            // and its readings are completely unrepresentative of an open-water point.
-            // A PWS outage must not discard an otherwise valid PirateWeather response.
+            // Always start the PWS lookup here.  Location classification runs
+            // concurrently, so checking isWaterLocation at this exact moment
+            // made the result timing-dependent: a fast classification skipped
+            // PWS, while a slower one allowed it.  The final NWS/QC pass decides
+            // whether a station is suitable for the coordinate.
             // Do not hold the primary forecast on PWS discovery/observations.
-            // The result is applied later as an optional comparison source.
             let wuStations;
-            const wuPromise = window.isWaterLocation
-                ? Promise.resolve([])
-                : fetchWUMulti(lat, lon);
+            const wuPromise = fetchWUMulti(lat, lon);
             // The PWS result is part of the authoritative current-observation
             // load. Do not paint PirateWeather observations and then replace
             // them a moment later when this check completes.
@@ -10898,6 +10897,18 @@
                     // chain includes the PWS/NWS source decision and the home
                     // observation fields; maps and reports remain background work.
                     await _nwsHomePromise;
+                    // The NWS chain has several intentional early-return guards
+                    // for superseded/partial responses.  If the active load still
+                    // owns the page and the observation card is blank, make one
+                    // final fallback attempt here as well.  This closes the gap
+                    // where no exception was thrown, so the old catch fallback
+                    // could not run.
+                    if (loadGeneration === weatherLoadGeneration) {
+                        var _homeTempEl = document.getElementById('tempVal');
+                        if (_homeTempEl && _homeTempEl.innerText === '--') {
+                            if (!_renderLocalObservationFallback()) loadFailed = true;
+                        }
+                    }
                     _markHomeDataReady();
                     if (loadGeneration !== weatherLoadGeneration) return;
                     await Promise.all([_aqiAndBeachPromise, _openWeatherPromise, _twcPromise]);
