@@ -4465,21 +4465,29 @@
         }
     }
 
-    function updateSmartComfort(T, feelsLike, H, W, cond, uv, precipProb) {
+    function updateSmartComfort(T, feelsLike, H, W, cond, uv, precipProb, observedCond) {
         try {
             T = (T !== '--' && !isNaN(T)) ? Number(T) : 70;
             H = (H !== '--' && !isNaN(H)) ? Number(H) : 50;
             W = (W !== '--' && !isNaN(W)) ? Number(W) : 0;
             precipProb = (precipProb !== undefined && !isNaN(precipProb)) ? Number(precipProb) : 0;
-            cond = cond ? cond.toLowerCase() : 'clear';
+            cond = cond ? String(cond).toLowerCase() : 'clear';
+            // This is the current-observation card, not a forecast card.
+            // Use the live observation only for the active precipitation
+            // labels. A non-precipitating NWS phrase such as "Fair" must not
+            // replace the normal comfort inputs or force a FAIR result.
+            var obsCond = observedCond ? String(observedCond).toLowerCase() : '';
+            var precipCond = obsCond || cond;
+            var hasSnowNow = /snow|flurr|sleet|ice pellet/.test(precipCond);
+            var hasRainNow = /rain|drizzle|shower|thunder/.test(precipCond);
             let word = 'FAIR', color = '#ffffff', reason = '';
-            if (feelsLike > 110) { word = 'SCORCHING'; color = '#b71c1c'; reason = 'Heat Index ' + _fmtTemp(feelsLike) + ', Dangerous Heat'; }
+            if (hasSnowNow) { word = 'SNOWY'; color = '#FFFFFF'; reason = 'Snow, ' + _fmtTemp(T); }
+            else if (hasRainNow) { word = 'DAMP'; color = '#4fc3f7'; reason = 'Rain, ' + Math.round(H) + '% humidity'; }
+            else if (feelsLike > 110) { word = 'SCORCHING'; color = '#b71c1c'; reason = 'Heat Index ' + _fmtTemp(feelsLike) + ', Dangerous Heat'; }
             else if (feelsLike > 95) { word = 'OPPRESSIVE'; color = '#ff5252'; reason = 'Heat Index ' + _fmtTemp(feelsLike) + ', Stay Hydrated'; }
             else if (feelsLike < 32) { word = 'BITING'; color = '#b0bec5'; reason = 'Wind Chill ' + _fmtTemp(feelsLike); }
             else if (uv > 7) { word = 'INTENSE'; color = '#ff7043'; reason = 'High UV (' + uv + '), Sunscreen Required'; }
-            else if ((cond.includes('rain') || cond.includes('drizzle') || cond.includes('thunderstorm')) && precipProb >= 30) { word = 'DAMP'; color = '#4fc3f7'; reason = 'Rain, ' + Math.round(H) + '% humidity'; }
             else if (T >= 68 && T <= 78 && H < 60 && W < 30) { word = 'PERFECT'; color = '#00e676'; reason = _fmtTemp(T) + ', Ideal Conditions'; }
-            else if (cond.includes('snow') || cond.includes('flurries')) { word = 'SNOWY'; color = '#FFFFFF'; reason = 'Snow, ' + _fmtTemp(T); }
             else if (W > 28) { word = 'WINDY'; color = '#cfd8dc'; reason = _fmtWind(W) + ' wind'; }
             else if (H > 80 && T > 72) { word = 'MUGGY'; color = '#aed581'; reason = Math.round(H) + '% hum, ' + _fmtTemp(T); }
             else if ((cond.includes('cloud') || cond.includes('overcast')) && T < 55) { word = 'GLOOMY'; color = '#90a4ae'; reason = 'Cloudy, ' + _fmtTemp(T); }
@@ -6023,7 +6031,7 @@
                 var _pw = window.pirateCurrently;
                 var _rhForComfort = (_resolvedHumidity !== null) ? Math.round(_resolvedHumidity) : 50;
                 updateSmartComfort(Math.round(nwsObsTempFAdj), liveFeelsLike, _rhForComfort, liveWindSpd,
-                    _pw ? (_pw.summary || '') : '', liveUV, _pw ? ((_pw.precipProbability || 0) * 100) : 0);
+                    _pw ? (_pw.summary || '') : '', liveUV, _pw ? ((_pw.precipProbability || 0) * 100) : 0, nwsCond);
             } else if (_wuAvail && !window.wuDeviates) {
                 // PWS passed WU QC — overwrite the PirateWeather baseline that fetchPirate()
                 // laid down with the actual trusted station values. Single render, no flash.
@@ -6082,7 +6090,7 @@
                 (function(){ var _fv = Math.round(liveFeelsLike); var _fe = document.getElementById('feelsVal'); _fe.innerText = _isMetric() ? Math.round((_fv-32)*5/9) + '\u00b0' : _fv + '\u00b0'; _fe.style.color = colorFeelsLike(_fv); })();
                 var _pw3 = window.pirateCurrently;
                 updateSmartComfort(Math.round(_wuT), liveFeelsLike, Math.round(_wuH), liveWindSpd,
-                    _pw3 ? (_pw3.summary || '') : '', liveUV, _pw3 ? ((_pw3.precipProbability || 0) * 100) : 0);
+                    _pw3 ? (_pw3.summary || '') : '', liveUV, _pw3 ? ((_pw3.precipProbability || 0) * 100) : 0, nwsCond);
             } else if (!window.isOutsideUS && !window.isWaterLocation && window.pirateCurrently) {
                 // NWS observation completed without a temperature. PirateWeather
                 // is the documented replacement source, but it is rendered only
@@ -6119,9 +6127,10 @@
                     liveFeelsLike,
                     _pwFallbackHumidity != null ? Math.round(_pwFallbackHumidity) : 50,
                     liveWindSpd,
-                    _pwFallback.summary || '',
+                     _pwFallback.summary || '',
                     liveUV,
-                    (_pwFallback.precipProbability || 0) * 100
+                     (_pwFallback.precipProbability || 0) * 100,
+                     nwsCond
                 );
             }
             // The discussion text is useful but not required to finish the
