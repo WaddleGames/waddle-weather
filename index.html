@@ -5700,6 +5700,115 @@
         liveWindSpd = null;
     }
 
+    // Last-resort current-observation renderer.  NWS occasionally returns a
+    // structurally valid station response but fails while the observation/QC
+    // chain is being resolved.  In that case the old broad catch left the
+    // station label and condition behind while temp/wind/humidity stayed "--".
+    // Use the already-fetched PWS first, then PirateWeather, and complete the
+    // card in one place so a retry is not required.
+    function _renderLocalObservationFallback() {
+        try {
+            var pws = window.wuData;
+            var pw = window.pirateCurrently || {};
+            var pwsUsable = !!(pws &&
+                pws.temp != null && isFinite(pws.temp) &&
+                pws.humidity != null && isFinite(pws.humidity) &&
+                pws.humidity >= 0 && pws.humidity <= 100);
+            var temp = pwsUsable ? pws.temp : pw.temperature;
+            var humidity = pwsUsable ? pws.humidity :
+                (pw.humidity != null ? pw.humidity * 100 : null);
+            var wind = pwsUsable ? pws.windSpeed : pw.windSpeed;
+            var windDir = pwsUsable ? pws.windDir : pw.windBearing;
+            if (temp == null && humidity == null && wind == null) return false;
+
+            var stationEl = document.getElementById('stationName');
+            if (stationEl) stationEl.innerText = 'LOCAL OBSERVATION';
+            var metaEl = document.getElementById('meta-name');
+            if (metaEl && !pwsUsable) metaEl.innerText = 'PirateWeather API';
+            var wuStationEl = document.getElementById('wuStation');
+            var wuLinkEl = document.getElementById('wuLink');
+            if (pwsUsable && pws.stationId && wuStationEl && wuLinkEl) {
+                wuLinkEl.innerText = pws.stationId;
+                wuLinkEl.href = 'https://www.wunderground.com/dashboard/pws/' + pws.stationId;
+                wuStationEl.style.display = 'block';
+            } else if (wuStationEl) {
+                wuStationEl.style.display = 'none';
+            }
+
+            if (temp != null && isFinite(temp)) {
+                temp = Math.round(temp);
+                window.liveTemp = temp;
+                var tempEl = document.getElementById('tempVal');
+                if (tempEl) {
+                    tempEl.innerText = _isMetric() ? Math.round((temp - 32) * 5 / 9) + '\u00b0' : temp + '\u00b0';
+                    tempEl.style.color = colorFeelsLike(temp);
+                }
+            }
+            var rh = humidity != null && isFinite(humidity) ? Math.max(0, Math.min(100, humidity)) : null;
+            if (rh != null) {
+                var humEl = document.getElementById('humVal');
+                if (humEl) {
+                    humEl.innerText = Math.round(rh) + '%';
+                    humEl.style.color = colorHumidity(Math.round(rh));
+                }
+            }
+            if (wind != null && isFinite(wind)) {
+                liveWindSpd = Math.round(wind);
+                var windEl = document.getElementById('windVal');
+                if (windEl) windEl.innerText = _isMetric() ? Math.round(liveWindSpd * 1.60934) + ' km/h' : liveWindSpd + ' mph';
+                setWindCompass(liveWindSpd > 0 && windDir != null && isFinite(windDir) ? windDir : null);
+            }
+
+            var feels = (!pwsUsable && pw.apparentTemperature != null) ? pw.apparentTemperature : temp;
+            if (temp != null && isFinite(temp)) {
+                if (temp <= 50 && liveWindSpd >= 3) {
+                    feels = 35.74 + 0.6215 * temp - 35.75 * Math.pow(liveWindSpd, 0.16) +
+                        0.4275 * temp * Math.pow(liveWindSpd, 0.16);
+                } else if (temp >= 70 && rh != null) {
+                    var simple = 0.5 * (temp + 61 + (temp - 68) * 1.2 + rh * 0.094);
+                    if (simple >= 80) {
+                        var roth = -42.379 + 2.04901523 * temp + 10.14333127 * rh
+                            - 0.22475541 * temp * rh - 0.00683783 * temp * temp
+                            - 0.05391317 * rh * rh + 0.00122874 * temp * temp * rh
+                            + 0.00085282 * temp * rh * rh - 0.00000199 * temp * temp * rh * rh;
+                        feels = (temp + roth) / 2;
+                    } else {
+                        feels = simple;
+                    }
+                }
+            }
+            if (feels != null && isFinite(feels)) {
+                liveFeelsLike = feels;
+                var feelsEl = document.getElementById('feelsVal');
+                if (feelsEl) {
+                    var roundedFeels = Math.round(feels);
+                    feelsEl.innerText = _isMetric() ? Math.round((roundedFeels - 32) * 5 / 9) + '\u00b0' : roundedFeels + '\u00b0';
+                    feelsEl.style.color = colorFeelsLike(roundedFeels);
+                }
+            }
+
+            var cond = pw.summary || (pw.icon ? String(pw.icon).replace(/-/g, ' ') : '') || currentCondition || 'Clear';
+            currentCondition = cond;
+            var condEl = document.getElementById('conditionText');
+            if (condEl) condEl.innerText = cond;
+            var iconEl = document.getElementById('weatherIcon');
+            var fallbackIcon = _pwSummaryIcon(cond, !!(pw.icon && pw.icon.indexOf('night') !== -1));
+            if (iconEl && fallbackIcon) {
+                iconEl.src = fallbackIcon;
+                iconEl.style.display = 'block';
+            }
+            updateSmartComfort(temp != null ? temp : 70, liveFeelsLike, rh != null ? rh : 50,
+                liveWindSpd || 0, cond, liveUV, (pw.precipProbability || 0) * 100);
+            _renderPWSQCPanel(pwsUsable ? pws : null, null, null);
+            _wxReveal();
+            if (window.pirateHourlyData) renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
+            return true;
+        } catch(e) {
+            console.warn('[SkyMonitor] Local observation fallback failed:', e);
+            return false;
+        }
+    }
+
     async function fetchNWSChain(loadGeneration) {
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         try {
@@ -6096,6 +6205,7 @@
                 // is the documented replacement source, but it is rendered only
                 // at this final stage—never as the initial pre-PWS baseline.
                 var _pwFallback = window.pirateCurrently;
+                document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
                 if (_pwFallback.temperature != null) {
                     var _pwFallbackTemp = Math.round(_pwFallback.temperature);
                     window.liveTemp = _pwFallbackTemp;
@@ -6178,6 +6288,14 @@
                 renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
             }
         } catch(e) {
+            // If the NWS branch stopped after painting the station/condition
+            // but before selecting an observation source, finish the card from
+            // the data already in memory.  This is the transient failure mode
+            // that previously required clicking SYNC a second time.
+            var _tempStillBlank = document.getElementById('tempVal');
+            if (!_isOffline && _tempStillBlank && _tempStillBlank.innerText === '--') {
+                if (_renderLocalObservationFallback()) return true;
+            }
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
             // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
             // PirateWeather since that is the sole data source for water locations.
@@ -6240,7 +6358,12 @@
             // On an online load, keep the current-observation fields at their
             // loading placeholders when NWS cannot complete. Cached NWS data
             // is only appropriate for an explicitly offline restore.
-            if (!_isOffline) return;
+            if (!_isOffline) {
+                // A transient NWS/QC exception must not strand a partially
+                // painted "LOCAL OBSERVATION" card.  Complete it from data
+                // already fetched for this location.
+                return _renderLocalObservationFallback();
+            }
             // Offline restore — use the last authoritative station metadata
             // and observations saved by a previous successful load.
             SkyDB.get(SkyDB.S.weather, 'nws_obs').then(function(c) {
@@ -10759,7 +10882,15 @@
                         Promise.resolve(fetchAQI()).catch(function() {}),
                         Promise.resolve(fetchBeachForecast(lat, lon)).catch(function() {})
                     ]);
-                    const _nwsHomePromise = Promise.resolve(fetchNWSChain(loadGeneration)).catch(function() {});
+                    const _nwsHomePromise = Promise.resolve(fetchNWSChain(loadGeneration)).then(function(_nwsOk) {
+                        // fetchNWSChain normally resolves undefined.  A false
+                        // result means every current-observation source failed;
+                        // keep UPDATING visible instead of presenting a blank
+                        // card as if the refresh completed successfully.
+                        if (_nwsOk === false) loadFailed = true;
+                    }).catch(function() {
+                        loadFailed = true;
+                    });
                     const _openWeatherPromise = Promise.resolve(fetchOpenWeather()).catch(function() {});
                     const _twcPromise = Promise.resolve(fetchTWCForecast()).catch(function() {});
 
