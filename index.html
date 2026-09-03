@@ -1338,6 +1338,9 @@
     let isNightAtStation = false;
     let stationTzOffset = 0; // always in seconds
     let weatherLoadGeneration = 0;
+    // Keep the initial "--" placeholders for the first paint only. Subsequent
+    // refreshes use the last known values until the new response is ready.
+    let weatherHasLoaded = false;
     let _loadAllPromise = null;
     let _loadAllKey = '';
     let _enrichmentPromise = null;
@@ -2312,8 +2315,6 @@
         }
         saveLoc();
         document.getElementById('stationName').innerText = 'LOADING LOCATION...';
-        document.getElementById('conditionText').innerText = '--';
-        document.getElementById('presVal').innerText = '--';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
         window._minuteHasPrecip = null;
@@ -2327,10 +2328,12 @@
         if (_minuteHeadEl) _minuteHeadEl.innerText = 'Minutely Forecast';
         var _minuteChartEl = document.getElementById('minute-chart-wrap');
         if (_minuteChartEl) _minuteChartEl.style.display = '';
-        // Hide observed fields without blanking — values reappear once authoritative data arrives
+        // Keep the last known observation visible while the new location loads.
+        // The initial page markup supplies the "--" placeholders before any
+        // authoritative observation has been received.
         (function(){['tempVal','feelsVal','windVal','humVal'].forEach(function(id){
             var el=document.getElementById(id);
-            if(el){el.style.transition='none';el.style.opacity='1';el.innerText='--';el.style.color='';}
+            if(el){el.style.transition='none';el.style.opacity='1';el.style.color='';}
         });})();
         setWindCompass(null);
         document.getElementById('weatherIcon').style.display = 'none';
@@ -5677,9 +5680,8 @@
     }
 
     function _resetCurrentObservationFields() {
-        // A refresh starts a new source-selection pass. Clear the values that
-        // can otherwise flash from the previous load or from PirateWeather
-        // before PWS/NWS has selected the authoritative observation.
+        // Only the very first load should show placeholders. Refreshes keep the
+        // last known values visible while the new source-selection pass runs.
         ['tempVal','feelsVal','windVal','humVal','conditionText'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) el.innerText = '--';
@@ -5976,8 +5978,8 @@
             } else {
                 // A missing NWS description is not permission to show a
                 // different provider's condition as if it were authoritative.
-                document.getElementById('conditionText').innerText = '--';
-                document.getElementById('weatherIcon').style.display = 'none';
+                // Keep the last known condition during refreshes; the initial
+                // page markup already contains the "--" placeholder.
             }
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // ── PWS quality control — best-fit station selection ────────────────────────
@@ -6308,8 +6310,8 @@
                 if (_renderLocalObservationFallback()) return true;
             }
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
-            // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
-            // PirateWeather since that is the sole data source for water locations.
+            // Restore everything from PirateWeather since that is the sole data
+            // source for water locations.
             if (window.isWaterLocation) {
                 document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
                 document.getElementById('meta-name').innerText = 'PirateWeather API';
@@ -6366,9 +6368,9 @@
                 }
                 return;
             }
-            // On an online load, keep the current-observation fields at their
-            // loading placeholders when NWS cannot complete. Cached NWS data
-            // is only appropriate for an explicitly offline restore.
+            // On an online load, leave the last known current-observation fields
+            // visible when NWS cannot complete. Cached NWS data is only
+            // appropriate for an explicitly offline restore.
             if (!_isOffline) {
                 // A transient NWS/QC exception must not strand a partially
                 // painted "LOCAL OBSERVATION" card.  Complete it from data
@@ -10755,6 +10757,8 @@
 
     async function _loadAllOnce() {
         const loadGeneration = ++weatherLoadGeneration;
+        const isInitialLoad = !weatherHasLoaded;
+        weatherHasLoaded = true;
         if (window._weatherRequestController) window._weatherRequestController.abort();
         window._weatherRequestController = new AbortController();
         _enrichmentPromise = null;
@@ -10771,7 +10775,7 @@
         if (_bSec) _bSec.style.display = 'none';
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
-        _resetCurrentObservationFields();
+        if (isInitialLoad) _resetCurrentObservationFields();
         try {
             // Location classification is useful enrichment, but must not delay
             // the primary current/daily/hourly weather request.
