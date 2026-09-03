@@ -2314,6 +2314,11 @@
             }
         }
         saveLoc();
+        // If the user chooses the first location before the initial weather
+        // request has started, preserve the same "--" loading state as a
+        // normal first page load. Later location changes stay stale-while-
+        // revalidate and keep the last known observation visible.
+        if (!weatherHasLoaded) _resetCurrentObservationFields();
         document.getElementById('stationName').innerText = 'LOADING LOCATION...';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
