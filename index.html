@@ -3356,6 +3356,12 @@
         if (humidity > 85 && temp > 70) score -= 10;
         else if (humidity > 75 && temp > 75) score -= 5;
         else if (humidity < 20) score -= 4;
+        // Ordinary rain is inconvenient, not automatically unsafe. Keep a
+        // moderate rain-only forecast from collapsing into the danger range,
+        // while allowing dangerous heat or high winds to remain influential.
+        if (hasRain && !stormRisk && chance < 70 && feels < 103 && effectiveWind <= 40) {
+            score = Math.max(score, 60);
+        }
         // Calibrate ordinary storm forecasts by probability. A low-chance
         // mention should not produce an alarmingly low score, while storms
         // above 50% should progressively pull the score down. Active severe
