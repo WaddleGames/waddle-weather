@@ -1338,9 +1338,7 @@
     let isNightAtStation = false;
     let stationTzOffset = 0; // always in seconds
     let weatherLoadGeneration = 0;
-    // Keep the initial "--" placeholders for the first paint only. Subsequent
-    // refreshes use the last known values until the new response is ready.
-    let weatherHasLoaded = false;
+    let weatherLoadedLocationKey = '';
     let _loadAllPromise = null;
     let _loadAllKey = '';
     let _enrichmentPromise = null;
@@ -2314,11 +2312,6 @@
             }
         }
         saveLoc();
-        // If the user chooses the first location before the initial weather
-        // request has started, preserve the same "--" loading state as a
-        // normal first page load. Later location changes stay stale-while-
-        // revalidate and keep the last known observation visible.
-        if (!weatherHasLoaded) _resetCurrentObservationFields();
         document.getElementById('stationName').innerText = 'LOADING LOCATION...';
         var _outlookEl = document.getElementById('hourly-outlook');
         if (_outlookEl) _outlookEl.style.display = 'none';
@@ -2333,9 +2326,7 @@
         if (_minuteHeadEl) _minuteHeadEl.innerText = 'Minutely Forecast';
         var _minuteChartEl = document.getElementById('minute-chart-wrap');
         if (_minuteChartEl) _minuteChartEl.style.display = '';
-        // Keep the last known observation visible while the new location loads.
-        // The initial page markup supplies the "--" placeholders before any
-        // authoritative observation has been received.
+        // Keep the current observation visible while the new location loads.
         (function(){['tempVal','feelsVal','windVal','humVal'].forEach(function(id){
             var el=document.getElementById(id);
             if(el){el.style.transition='none';el.style.opacity='1';el.style.color='';}
@@ -5196,7 +5187,7 @@
         // PirateWeather is unavailable. Keep the Now card synchronized with
         // that same current condition until NWS supplies a better observation.
         currentCondition = fakeCurr.summary || '';
-        document.getElementById('conditionText').innerText = currentCondition || '--';
+        if (currentCondition) document.getElementById('conditionText').innerText = currentCondition;
         var _omCurrentIcon = _pwSummaryIcon(currentCondition, isNightAtStation);
         if (_omCurrentIcon) {
             document.getElementById('weatherIcon').src = _omCurrentIcon;
@@ -5685,8 +5676,8 @@
     }
 
     function _resetCurrentObservationFields() {
-        // Only the very first load should show placeholders. Refreshes keep the
-        // last known values visible while the new source-selection pass runs.
+        // This is only used for the first load. Later refreshes keep the last
+        // known values visible while the new source-selection pass runs.
         ['tempVal','feelsVal','windVal','humVal','conditionText'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) el.innerText = '--';
@@ -5983,8 +5974,6 @@
             } else {
                 // A missing NWS description is not permission to show a
                 // different provider's condition as if it were authoritative.
-                // Keep the last known condition during refreshes; the initial
-                // page markup already contains the "--" placeholder.
             }
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // ── PWS quality control — best-fit station selection ────────────────────────
@@ -6315,8 +6304,8 @@
                 if (_renderLocalObservationFallback()) return true;
             }
             // Water locations: the NWS chain throws (no gridpoint for ocean coordinates).
-            // Restore everything from PirateWeather since that is the sole data
-            // source for water locations.
+            // fetchNWSChain() reset tempVal to '--' at its top; restore everything from
+            // PirateWeather since that is the sole data source for water locations.
             if (window.isWaterLocation) {
                 document.getElementById('stationName').innerText = 'LOCAL OBSERVATION';
                 document.getElementById('meta-name').innerText = 'PirateWeather API';
@@ -6373,9 +6362,9 @@
                 }
                 return;
             }
-            // On an online load, leave the last known current-observation fields
-            // visible when NWS cannot complete. Cached NWS data is only
-            // appropriate for an explicitly offline restore.
+            // On an online load, keep the current-observation fields at their
+            // loading placeholders when NWS cannot complete. Cached NWS data
+            // is only appropriate for an explicitly offline restore.
             if (!_isOffline) {
                 // A transient NWS/QC exception must not strand a partially
                 // painted "LOCAL OBSERVATION" card.  Complete it from data
@@ -10760,10 +10749,8 @@
     })();
     // ─────────────────────────────────────────────────────────────────────────────
 
-    async function _loadAllOnce() {
+    async function _loadAllOnce(isInitialLoad) {
         const loadGeneration = ++weatherLoadGeneration;
-        const isInitialLoad = !weatherHasLoaded;
-        weatherHasLoaded = true;
         if (window._weatherRequestController) window._weatherRequestController.abort();
         window._weatherRequestController = new AbortController();
         _enrichmentPromise = null;
@@ -10983,7 +10970,12 @@
     async function loadAll() {
         const key = lat + ',' + lon;
         if (_loadAllPromise && _loadAllKey === key) return _loadAllPromise;
-        const promise = _loadAllOnce();
+        // A new location gets the original first-load placeholder behavior.
+        // Refreshes for a location that has already loaded keep its current
+        // values visible while the new response is fetched.
+        const isInitialLoad = weatherLoadedLocationKey !== key;
+        weatherLoadedLocationKey = key;
+        const promise = _loadAllOnce(isInitialLoad);
         _loadAllPromise = promise;
         _loadAllKey = key;
         promise.then(function() {
