@@ -3318,6 +3318,10 @@
         var phrase = String(dp.wxPhraseLong?.[j] || '').toLowerCase();
         var narrative = String(dp.narrative?.[j] || '').toLowerCase();
         var hasThunder = /thunder|t-storm|tstorm|tstm/.test(phrase + ' ' + narrative);
+        // Do not let a passing mention of thunderstorms dominate the score.
+        // TWC's probability must be above 30% before the forecast counts as
+        // meaningful storm risk.
+        var stormRisk = hasThunder && chance > 30;
         var hasFrozen = /snow|sleet|ice pellet|freezing rain/.test(phrase);
         var hasRain = /rain|drizzle|shower/.test(phrase);
 
@@ -3327,7 +3331,7 @@
         else if (chance >= 40) score -= 22;
         else if (chance >= 20) score -= 10;
         else if (chance >= 10) score -= 4;
-        if (hasThunder) score -= 30;
+        if (stormRisk) score -= 30;
         else if (hasFrozen) score -= 25;
         else if (hasRain) score -= 20;
         if (feels >= 65 && feels <= 80) { /* ideal */ }
@@ -3352,10 +3356,21 @@
         if (humidity > 85 && temp > 70) score -= 10;
         else if (humidity > 75 && temp > 75) score -= 5;
         else if (humidity < 20) score -= 4;
-        // A forecast thunderstorm is not the same as an active lightning
-        // warning. Keep ordinary storm forecasts above zero; the explicit
-        // zero remains reserved for active severe-weather warnings below.
-        if (hasThunder && score < 20) score = 20;
+        // Ordinary rain is inconvenient, not automatically unsafe. Keep a
+        // moderate rain-only forecast from collapsing into the danger range,
+        // while allowing dangerous heat or high winds to remain influential.
+        if (hasRain && !stormRisk && chance < 70 && feels < 103 && effectiveWind <= 40) {
+            score = Math.max(score, 60);
+        }
+        // Calibrate ordinary storm forecasts by probability. A low-chance
+        // mention should not produce an alarmingly low score, while storms
+        // above 50% should progressively pull the score down. Active severe
+        // weather warnings still use the safety overrides below.
+        if (stormRisk) {
+            if (chance < 50) score = Math.max(score, 64);
+            else if (chance < 70) score = Math.min(score, 56);
+            else score = Math.min(score, 40);
+        }
         score = Math.max(0, Math.min(100, Math.round(score)));
 
         // Preserve the safety overrides, but evaluate them independently of
@@ -3402,7 +3417,7 @@
             description = feels >= 65 && feels <= 80
                 ? 'Nearly perfect — enjoy your time outside!'
                 : 'Excellent conditions for the forecast period.';
-        } else if (hasThunder) {
+        } else if (stormRisk) {
             description = chance >= 70
                 ? 'Thunderstorms likely. Watch lightning closely.'
                 : 'Storms possible — watch lightning closely.';
