@@ -4081,7 +4081,11 @@
             // warning at the selected location.
             for (let alertAttempt = 0; alertAttempt < 3; alertAttempt++) {
                 try {
-                    const res = await fetch(alertUrl + '&_sm=' + Date.now() + '-' + alertAttempt, {
+                    // api.weather.gov rejects unknown query parameters with 400.
+                    // cache:no-store below already prevents a stale browser or
+                    // service-worker response, so no custom cache-busting
+                    // parameter is needed here.
+                    const res = await fetch(alertUrl, {
                         cache: 'no-store',
                         signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
                     });
