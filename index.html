@@ -2527,7 +2527,7 @@
             return;
         }
         try {
-            const res = await fetch('https://withered-band-ecbf.skymonitor-account.workers.dev/?wfo=' + wfo);
+            const res = await fetch('https://weather-story.skymonitor-account.workers.dev/?wfo=' + wfo);
             const data = await res.json();
             const validImages = (data.images || []).filter(src => src && !src.includes('spacer') && !src.endsWith('.gif'))
                 .sort(function(a, b) {
