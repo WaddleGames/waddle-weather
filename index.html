@@ -4029,6 +4029,9 @@
 
 
     // v1.0.4: fetchAlerts tracks TOR vs SVR separately
+    // Alert delivery is a critical part of a refresh.  Do not accept a
+    // transient network error as "no active alerts", and do not let a stale
+    // enrichment response outrank the authoritative point query.
     async function fetchAlerts() {
         const stack = document.getElementById('alert-stack');
         const banner = document.getElementById('alert-banner');
@@ -4065,25 +4068,48 @@
             stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
             document.body.classList.remove('theme-tor', 'theme-svr', 'theme-ffw', 'emergency-banner');
             await renderPirateAlerts(stack, banner);
-            return;
+            return true;
         }
 
         try {
             let data = null;
-            const fastAlertKey = lat + ',' + lon;
-            if (!window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
-                await getWeatherEnrichment();
-            }
-            if (window._fastNwsAlertsAttempted && window._fastNwsAlertsKey === fastAlertKey) {
-                data = window._fastNwsAlerts || { features: [] };
-            } else {
-                const res = await fetch('https://api.weather.gov/alerts/active?point=' + lat + ',' + lon);
-                if (!res.ok) {
-                    stack.innerHTML = ''; checklist.style.display = 'none'; banner.style.display = 'none'; banner.className = '';
-                    await renderPirateAlerts(stack, banner);
-                    return;
+            const alertUrl = 'https://api.weather.gov/alerts/active?point=' + lat + ',' + lon;
+            let lastAlertError = null;
+            // NWS alert data is safety-critical. Retry the authoritative point
+            // query before allowing the refresh to finish. cache:no-store also
+            // prevents a browser/service-worker response from masking a new
+            // warning at the selected location.
+            for (let alertAttempt = 0; alertAttempt < 3; alertAttempt++) {
+                try {
+                    const res = await fetch(alertUrl + '&_sm=' + Date.now() + '-' + alertAttempt, {
+                        cache: 'no-store',
+                        signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+                    });
+                    if (!res.ok) throw new Error('NWS alerts ' + res.status);
+                    const candidate = await res.json();
+                    if (!candidate || !Array.isArray(candidate.features)) {
+                        throw new Error('NWS alerts response missing features');
+                    }
+                    data = candidate;
+                    lastAlertError = null;
+                    break;
+                } catch (alertErr) {
+                    lastAlertError = alertErr;
+                    if (window._weatherRequestController &&
+                        window._weatherRequestController.signal.aborted) throw alertErr;
+                    if (alertAttempt < 2) {
+                        await new Promise(function(resolve) {
+                            setTimeout(resolve, 750 * (alertAttempt + 1));
+                        });
+                    }
                 }
-                data = await res.json();
+            }
+            if (!data) {
+                console.warn('[SkyMonitor] NWS alerts did not finish after retries:', lastAlertError);
+                // Do not clear a previously successful alert display and do
+                // not render "No active hazards."  The caller keeps UPDATING
+                // visible and the next refresh will try again.
+                return false;
             }
             const _expandedAlertIds = new Set();
             const _savedAlertScrolls = {};
@@ -4466,7 +4492,11 @@
             // Save outdoor score now — alerts are active so alert-override descriptions are correct
             SkyDB.set(SkyDB.S.weather, 'outdoor_score', { ts: Date.now(), val: (document.getElementById('outdoor-score-val') || {}).innerText || null, desc: (document.getElementById('outdoor-score-desc') || {}).innerText || null, boxDisplay: (document.getElementById('outdoor-score-box') || {}).style.display || null });
             computeFloodOutlook();
-        } catch(e) {}
+            return true;
+        } catch(e) {
+            console.warn('[SkyMonitor] Alert refresh failed:', e);
+            return false;
+        }
     }
 
     // Format an ISO alert time as "today at 2:00 PM", "tomorrow at 2:00 PM", or "Jun 17 at 2:00 PM"
@@ -10885,7 +10915,7 @@
                     _resolveHomeData();
                 }
             }
-            (async function() {
+            const _fullDataReady = (async function() {
                 try {
                     if (!window._pirateLoadFailed) {
                         // Start this immediately; the two consumers below share
@@ -10935,7 +10965,8 @@
                     // this is outside the US, replace any US result.
                     if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
 
-                    await fetchAlerts();
+                    const _alertsOk = await fetchAlerts();
+                    if (_alertsOk !== true) loadFailed = true;
                     // Re-render beach data after alerts so BHS/rip-current
                     // banners are included when applicable.
                     await loadCustomSkyThreatAlerts();
@@ -10972,6 +11003,7 @@
                         loadReportingMapData();
                     }
                 } catch(e) {
+                    loadFailed = true;
                     _markHomeDataReady();
                     console.warn('[SkyMonitor] Optional enrichment failed:', e);
                 }
@@ -10979,6 +11011,12 @@
             // Keep the launch screen until the authoritative home observation
             // source has finished selecting and rendering its fields.
             await _homeDataReady;
+            if (loadGeneration !== weatherLoadGeneration) return;
+            // Do not finish this load cycle when only the home observation is
+            // ready. Alerts, risk levels, and the remaining refresh pipeline
+            // must have completed first, otherwise UPDATING can disappear
+            // while the alert request is still missing or in flight.
+            await _fullDataReady;
             if (loadGeneration !== weatherLoadGeneration) return;
             if (!_isOffline) {
                 lastSyncTime = new Date();
