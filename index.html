@@ -5052,12 +5052,21 @@
     // in both window.pirateCurrently and window.pirateHourlyData, then re-renders affected UI.
     // Called only when at least one field was nulled out by the sentinel sanitizer above.
     async function _patchSentinelsFromOpenMeteo() {
+        // This is a best-effort repair, not a prerequisite for displaying the
+        // weather. On iPhone Safari a cellular request can remain pending
+        // without rejecting; that used to leave _syncPending > 0 forever and
+        // strand the UPDATING indicator even though the page was fully usable.
+        var _patchController = (typeof AbortController === 'function') ? new AbortController() : null;
+        var _patchTimeout = setTimeout(function() {
+            if (_patchController) _patchController.abort();
+        }, 15000);
         try {
             const res = await fetch(
                 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
                 '&current=uv_index,temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation,cloud_cover,dew_point_2m' +
                 '&hourly=uv_index,temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation,cloud_cover,dew_point_2m,precipitation_probability,visibility' +
-                '&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=3'
+                '&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=3',
+                _patchController ? { signal: _patchController.signal } : undefined
             );
             if (!res.ok) return;
             const d = await res.json();
@@ -5201,6 +5210,7 @@
                 });
             }
         } catch(e) { /* silent — best-effort only */ }
+        finally { clearTimeout(_patchTimeout); }
     }
 
     // Full Open-Meteo fallback — used when PirateWeather is completely unavailable
