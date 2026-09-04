@@ -10,7 +10,7 @@ const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;  // HTML + same-origin — net
 const ALL_CACHES = [STATIC_CACHE, IMAGE_CACHE, RUNTIME_CACHE];
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const BASE_URL = 'https://chicagoeas.github.io/sky-monitor/';
+const BASE_URL = 'https://skymonitor.app/';
 
 const TAG_PATHS = {
     'nws-alert':   '#severe',
