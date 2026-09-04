@@ -1321,7 +1321,9 @@
 
     // Cloudflare Turnstile site key. The secret stays in the reports Worker.
     const TURNSTILE_SITE_KEY = '0x4AAAAAAEmdOC6zKiL4nWlt';
-    var _turnstileVerified = sessionStorage.getItem('turnstile_verified') === 'true';
+    // This flag only remembers that the visitor has passed the gate before.
+    // The Worker still requires a fresh, server-validated token for each POST.
+    var _turnstileVerified = localStorage.getItem('turnstile_verified') === 'true';
     var _turnstileToken = '';
     var _turnstileWidgetId = null;
 
@@ -2109,8 +2111,6 @@
     // ——— Cloudflare Turnstile Gate ———
     function invalidateTurnstile() {
         _turnstileToken = '';
-        _turnstileVerified = false;
-        sessionStorage.removeItem('turnstile_verified');
     }
 
     function showTurnstileGate() {
@@ -2144,7 +2144,7 @@
                 callback: function(token) {
                     _turnstileToken = token;
                     _turnstileVerified = true;
-                    sessionStorage.setItem('turnstile_verified', 'true');
+                    localStorage.setItem('turnstile_verified', 'true');
                     if (statusEl) {
                         statusEl.textContent = 'Access granted.';
                         statusEl.style.color = 'var(--success)';
