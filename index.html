@@ -1150,7 +1150,7 @@
 
         <!-- v1.0.4: Advanced analytics hidden by default, shown only in Advanced mode -->
         <div id="analytics-section" style="display:none; margin-top:20px;">
-            <div class="sky-hd" style="margin-bottom:12px;">📊 Advanced Analytics <span style="font-size:0.75em; color:#4b5563; font-weight:400; margin-left:4px;">(12h)</span></div>
+            <div class="sky-hd" style="margin-bottom:12px;">📊 Advanced Analytics</div>
             <div class="analytics-canvas-wrap">
                 <div class="analytics-label">&#127777; Pressure Trend (inHg)</div>
                 <canvas id="chart-pressure" height="120" style="width:100%; display:block;"></canvas>
@@ -4081,7 +4081,11 @@
             // warning at the selected location.
             for (let alertAttempt = 0; alertAttempt < 3; alertAttempt++) {
                 try {
-                    const res = await fetch(alertUrl + '&_sm=' + Date.now() + '-' + alertAttempt, {
+                    // api.weather.gov rejects unknown query parameters with 400.
+                    // cache:no-store below already prevents a stale browser or
+                    // service-worker response, so no custom cache-busting
+                    // parameter is needed here.
+                    const res = await fetch(alertUrl, {
                         cache: 'no-store',
                         signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
                     });
@@ -10856,6 +10860,19 @@
         if (_bSec) _bSec.style.display = 'none';
         const sync = document.getElementById('sync-indicator');
         if (sync) sync.style.opacity = '1';
+        // Reset this load's bookkeeping before any provider callbacks can
+        // increment it.  Previously a slow mobile/Safari repair request from
+        // an older load could leave the shared counter non-zero forever.
+        window._syncPending = 0;
+        window._syncMinDone = false;
+        window._syncLoadComplete = false;
+        window._syncLoadFailed = false;
+        window._maybeHideSync = function() {
+            if (window._syncMinDone &&
+                window._syncLoadComplete &&
+                window._syncPending <= 0 &&
+                sync) sync.style.opacity = '0';
+        };
         if (isInitialLoad) _resetCurrentObservationFields();
         try {
             // Location classification is useful enrichment, but must not delay
@@ -11022,11 +11039,14 @@
             // source has finished selecting and rendering its fields.
             await _homeDataReady;
             if (loadGeneration !== weatherLoadGeneration) return;
-            // Do not finish this load cycle when only the home observation is
-            // ready. Alerts, risk levels, and the remaining refresh pipeline
-            // must have completed first, otherwise UPDATING can disappear
-            // while the alert request is still missing or in flight.
-            await _fullDataReady;
+            // The home observation is the authoritative refresh. Optional
+            // enrichment must not be allowed to strand the activity indicator
+            // when a mobile browser leaves one secondary request pending.
+            // The enrichment continues in the background after this timeout.
+            await Promise.race([
+                _fullDataReady,
+                new Promise(function(resolve) { setTimeout(resolve, 15000); })
+            ]);
             if (loadGeneration !== weatherLoadGeneration) return;
             if (!_isOffline) {
                 lastSyncTime = new Date();
@@ -11038,20 +11058,17 @@
         // A newer location load owns the indicator. An older, slower request
         // must never hide the newer request's UPDATING state.
         if (loadGeneration !== weatherLoadGeneration) return Promise.resolve();
-        window._syncPending = window._syncPending || 0;
         window._syncMinDone = false;
         window._syncLoadComplete = false;
         window._syncLoadFailed = loadFailed;
         window._maybeHideSync = function() {
             if (window._syncMinDone &&
                 window._syncLoadComplete &&
-                !window._syncLoadFailed &&
                 window._syncPending <= 0 &&
                 sync) sync.style.opacity = '0';
         };
-        // Keep UPDATING visible after an incomplete load. It is intentionally
-        // a health signal: if it remains visible, the user knows a provider
-        // failed instead of mistaking a partial page for a finished refresh.
+        // UPDATING is an activity indicator, not a failure banner.  A
+        // secondary provider failure should not make it permanent.
         window._syncLoadComplete = true;
         setTimeout(function() {
             if (loadGeneration !== weatherLoadGeneration) return;
