@@ -4,6 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SkyMonitor</title>
+    <!-- Redirect visitors from the legacy GitHub Pages URL to the canonical site. -->
+    <script>
+        (() => {
+            if (window.location.hostname !== 'chicagoeas.github.io') return;
+
+            const legacyPrefix = '/sky-monitor';
+            let path = window.location.pathname;
+
+            if (path === legacyPrefix) {
+                path = '/';
+            } else if (path.startsWith(legacyPrefix + '/')) {
+                path = path.slice(legacyPrefix.length);
+            }
+
+            window.location.replace(
+                'https://skymonitor.app' + path +
+                window.location.search + window.location.hash
+            );
+        })();
+    </script>
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/1779/1779927.png">
 
     <!-- PWA -->
