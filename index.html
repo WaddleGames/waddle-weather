@@ -4,6 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SkyMonitor</title>
+    <script>
+        // Informational pages use this same document so Cloudflare Pages can
+        // serve clean URLs without duplicating the SkyMonitor application.
+        (function () {
+            var path = window.location.pathname.replace(/\/+$/, '') || '/';
+            var infoPage = path === '/privacy' || path === '/about-custom-alerts';
+            window.SKYMONITOR_INFO_PAGE = infoPage;
+            window.SKYMONITOR_INFO_KIND = path === '/privacy' ? 'privacy' :
+                (path === '/about-custom-alerts' ? 'custom-alerts' : '');
+            if (infoPage) {
+                document.documentElement.classList.add('info-route');
+                document.title = path === '/privacy'
+                    ? 'Privacy Policy · SkyMonitor'
+                    : 'About Custom Alerts · SkyMonitor';
+            }
+        })();
+    </script>
     <!-- Redirect visitors from the legacy GitHub Pages URL to the canonical site. -->
     <script>
         (() => {
@@ -57,6 +74,90 @@
             background-attachment: fixed; color: white; margin: 0;
             padding: max(20px, env(safe-area-inset-top)) 20px 100px 20px; transition: background 1.5s ease;
             overscroll-behavior-y: contain;
+        }
+
+        /* Shared shell for /privacy and /about-custom-alerts. These pages
+           deliberately stay on the standard night palette and never inherit
+           weather-specific sunrise, sunset, or warning themes. */
+        html.info-route body {
+            background: linear-gradient(180deg, #07131d 0%, #000000 100%) !important;
+            background-attachment: fixed;
+        }
+        html.info-route #launch-screen,
+        html.info-route #rainCanvas,
+        html.info-route #ptr-indicator,
+        html.info-route #sync-indicator,
+        html.info-route #github-release-modal,
+        html.info-route #dashboard {
+            display: none !important;
+        }
+        html.info-route #skyCanvas {
+            display: block !important;
+        }
+        html.info-route .bottom-nav .nav-item.active {
+            color: #70808d;
+            background: transparent;
+        }
+        #info-page-shell {
+            display: none;
+            max-width: 850px;
+            margin: 30px auto 0;
+            position: relative;
+            z-index: 10;
+        }
+        html.info-route #info-page-shell {
+            display: block;
+        }
+        .info-page {
+            display: none;
+            background: rgba(255,255,255,0.035);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            color: #fff;
+            font-family: Arial, 'Segoe UI', sans-serif;
+            line-height: 1.55;
+        }
+        .info-page.is-visible {
+            display: block;
+        }
+        .info-page h2 {
+            margin: 0 0 22px;
+            color: var(--accent);
+            font-size: 20pt;
+            line-height: 1.2;
+        }
+        .info-page h2 small {
+            font-size: 14pt;
+            white-space: nowrap;
+        }
+        .info-page h3 {
+            margin: 20px 0 6px;
+            color: #fff;
+            font-size: 13pt;
+            line-height: 1.25;
+        }
+        .info-page p {
+            margin: 0 0 16px;
+            font-size: 11pt;
+        }
+        .info-page a {
+            color: #ff8a3d;
+            text-decoration: underline;
+            overflow-wrap: anywhere;
+        }
+        .info-page .last-updated {
+            margin-top: 22px;
+            margin-bottom: 0;
+        }
+        @media (max-width: 600px) {
+            #info-page-shell { margin-top: 20px; }
+            .info-page { padding: 22px 18px; border-radius: 18px; }
+            .info-page h2 { font-size: 18pt; }
+            .info-page h2 small { font-size: 12pt; }
+            .info-page p { font-size: 10.5pt; }
         }
 
         body.theme-tor { background: linear-gradient(180deg, #3a0000 0%, #0a0000 100%) !important; }
@@ -743,6 +844,49 @@
     </div>
     </div>
 
+    <main id="info-page-shell" aria-live="polite">
+        <article id="privacy-page" class="info-page">
+            <h2>SkyMonitor Privacy Policy <small>(September 2026)</small></h2>
+
+            <h3>Who runs SkyMonitor?</h3>
+            <p>SkyMonitor is run by chicagoeas on GitHub. You can visit me here: <a href="https://github.com/chicagoeas" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas</a>. SkyMonitor is a hobby weather website I have been working on for a while now.</p>
+
+            <h3>What information does SkyMonitor use?</h3>
+            <p>As you have already noticed from using the site, SkyMonitor uses your current location ONLY if you provide us access to it (you can still use SkyMonitor perfectly fine even if you deny location permissions), and we use your current location to provide you with the most accurate, precise information for your exact location. This is especially important on SkyMonitor, as we use the Weather Underground PWS network, which has many PWS (Personal Weather Stations) around the world. You can check out the official web page for WU’s PWS network here: <a href="https://www.wunderground.com/pws/overview" target="_blank" rel="noopener noreferrer">https://www.wunderground.com/pws/overview</a>. WU has a massive network of PWS’s, and there is most likely one in your city, if not even down the street. This is one of the major benefits of using SkyMonitor, as every time you check the current conditions, you are seeing real observations from physical weather stations around the globe, not just model estimates or far-away airport observations. (Though it should be noted that the current weather, for example, whether it’s sunny, cloudy, or rainy, does use either your nearest airport or a model estimate, as WU PWS’s do not provide that kind of information.)</p>
+
+            <h3>What other features on the site use your location?</h3>
+            <p>The other two features on SkyMonitor that use your location data are push notifications and user reporting. These are both optional features, as is location access in general, but it’s important for you to know as the user what kind of your data is being sent to us, especially on the internet nowadays. When you enable push notifications (which can ONLY be done if you have added the website to your home screen on your phone; this can NOT be done through the web browser), every time you open SkyMonitor, we ping your location to check if there are any notifications that need to be sent to you. SkyMonitor is designed to use your location when the site is open. It does not intentionally request continuous background location updates. When you submit a user report, your exact location is not published as the report location. SkyMonitor adjusts the report marker before submission. SkyMonitor will automatically change the report location to anywhere within around 500 feet (or 150 meters) of your location. There is also a separate feature called “Privacy Mode” that you can enable, which will instead send reports from the exact location of your city center, for extra privacy. It should also be noted that you can clearly see where your report pin is placed on the map, and you can move it to your liking. You will then be prompted to choose a category for the user report, and you can optionally add any extra information about the report you are making in the text box provided.</p>
+
+            <h3>What does SkyMonitor store on your browser?</h3>
+            <p>SkyMonitor stores your settings, selected locations, notification preferences, and cached weather information on your browser. The reason we store this is so that every time you visit SkyMonitor from the same device, you won’t have to change your settings to how you like them every time. We also cache weather information, as SkyMonitor can actually be used completely offline, provided you have added it to your home screen on your phone. No other data is ever stored on your browser by SkyMonitor.</p>
+
+            <h3>What external services does SkyMonitor use?</h3>
+            <p>SkyMonitor uses Cloudflare services for some weather requests, hosting/backend functionality, and bot protection. Specifically, you might see a Cloudflare verification box if you try to access the Live User Reports tab for the first time. This is to ensure that no bots are able to access the live reporting section of the website, as they could cause harm by spamming reports. You can see Cloudflare’s privacy policy here: <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">https://www.cloudflare.com/privacypolicy/</a>. We also use OpenStreetMap for the map information you see on the live reporting map, which you can visit here: <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">https://www.openstreetmap.org/</a></p>
+
+            <h3>What choices do you have as a user?</h3>
+            <p>In SkyMonitor, you have a lot of choices you can make as a user. If you don’t want to share your location with us, you can always deny access when the location request shows up. You do not have to use notifications or the live reporting section, and there are also more customization settings available in the settings window as well.</p>
+
+            <h3>Contact</h3>
+            <p>Although I do not have an email set up for SkyMonitor questions, you can always send a message to me on GitHub, or if you have an issue report to make, you can visit the following link: <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml</a></p>
+
+            <p>Thank you so much for using SkyMonitor. I really hope you enjoy using it, and I am always open to feedback or suggestions if you have any.</p>
+            <p class="last-updated">Last updated: September 4th, 2026</p>
+        </article>
+
+        <article id="custom-alerts-page" class="info-page">
+            <h2>About Custom SkyMonitor alerts</h2>
+
+            <h3>What are custom SkyMonitor alerts?</h3>
+            <p>Custom SkyMonitor alerts are NWS-style alerts in the following categories: Severe Thunderstorm Warning, Tornado Warning, Flash Flood Warning, Special Weather Statement, and Mesoscale Discussion, issued by trusted SkyMonitor users. Once issued, you can view them directly in the “LIVE REPORTING MAP” section of SkyMonitor as long as you have them enabled.</p>
+
+            <h3>Can I trust SkyMonitor custom alerts?</h3>
+            <p>You should NEVER completely trust a SkyMonitor custom alert. They are not issued by meteorologists or experts. However, they are useful for tracking specific storms and what they are capable of producing, even if there is too low a probability for the NWS to rely on. For example, a storm might have a probable chance of producing a tornado; however, the NWS thinks that chance is too low or even misses the chance entirely, which can happen, although rarely, and therefore a custom SkyMonitor alert could let you know of the possible danger. There are also situations where SkyMonitor custom alerts can come a few minutes or even multiple minutes BEFORE the NWS issues one; for example, a custom SkyMonitor Severe Thunderstorm Warning could come slightly before the NWS’s actual Severe Thunderstorm Warning.</p>
+
+            <h3>Is there a quality-checking system behind the issuance of SkyMonitor custom alerts?</h3>
+            <p>If any of the alerts issued by our trusted users are deemed inaccurate or even misleading, that person may lose their privilege to issue custom alerts. You can report specific custom alerts by clicking the 📣 button at the top right of the custom alert box. You will be forwarded to a Google Form where the Alert ID you are reporting will be automatically filled in, and from there you can explain why you are reporting the alert, for example, if it was inaccurate or misleading, and if we find that to be true, we will take action to remove the alert and possibly even take action against the person who issued the alert, though that would be rare.</p>
+        </article>
+    </main>
+
     <!-- Cloudflare Turnstile Gate Modal -->
     <div id="turnstile-gate" style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); align-items:center; justify-content:center;">
     <div style="background:#0b1e2d; border:1px solid #223344; border-radius:18px; padding:30px 24px 24px 24px; width:90%; max-width:310px; box-shadow:0 0 60px rgba(0,0,0,1); text-align:center;">
@@ -766,7 +910,7 @@
             <button onclick="closeUserReportInfoModal()" style="background:none; border:none; color:#445566; cursor:pointer; font-size:1.2em;">&#10005;</button>
         </div>
         <p style="font-size:0.82em; line-height:1.65; color:#ccd6dd; margin:0;">
-            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
+            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
         </p>
         <p style="font-size:0.78em; line-height:1.6; color:#ff9100; margin:14px 0 0 0; font-weight:700;">
             DISCLAIMER: SkyMonitor reports and custom alerts are not officially supported, so mistakes can be made. Be sure to report custom alerts using the report button if you think they are inaccurate or misleading.
@@ -1201,7 +1345,7 @@
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
+                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
                   <div id="custom-sky-alerts-status" style="display:none; font-size:0.68em; color:#718496; margin:-3px 0 10px;"></div>
@@ -1256,6 +1400,8 @@
     <p style="font-size:0.75em; margin-top:12px; opacity:0.45; letter-spacing:0.5px;">&copy; 2026 SkyMonitor. All rights reserved.</p>
     <p style="font-size:0.72em; margin-top:8px; opacity:0.6; letter-spacing:0.4px;">
         <a href="https://github.com/chicagoeas/sky-monitor" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">GitHub</a>
+        <span style="margin:0 8px; opacity:0.7;">&middot;</span>
+        <a href="/privacy" style="color:inherit; text-decoration:underline;">Privacy</a>
         <span style="margin:0 8px; opacity:0.7;">&middot;</span>
         <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">Report Bugs</a>
     </p>
@@ -1779,10 +1925,51 @@
             }).catch(function() {});
     }
 
+    function navigateFromInfoPage(mode, value) {
+        var pending = { mode: mode };
+        if (value) pending.value = value;
+        try {
+            sessionStorage.setItem('skymonitor_pending_location', JSON.stringify(pending));
+        } catch (e) {}
+        window.location.href = '/';
+    }
+
+    function renderInfoLocationControls(mode) {
+        var panel = document.getElementById('coords-panel');
+        if (!panel) return;
+
+        panel.classList.toggle('city-mode', mode === 'city');
+        ['coord', 'city', 'live'].forEach(function(name) {
+            var button = document.getElementById('opt-mode-' + name);
+            if (button) button.classList.toggle('active', name === mode);
+        });
+
+        if (mode === 'coord') {
+            panel.innerHTML = '<input type="text" id="coordInput" value="' + escapeHtml((localStorage.getItem('waddle_lat') || '41.8781') + ', ' + (localStorage.getItem('waddle_lon') || '-87.6298')) + '" placeholder="lat, lon" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9.,\\-]/g,\'\')"><button class="btn-action" onclick="manualUpdateLocation()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+            var coordInput = document.getElementById('coordInput');
+            if (coordInput) coordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') manualUpdateLocation();
+            });
+        } else if (mode === 'live') {
+            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px;">&#128205; LIVE LOCATION</span><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+        } else {
+            panel.innerHTML = '<div class="city-mode-container"><input type="text" id="cityInput" placeholder="Enter City, Zip, Address..." value="' + escapeHtml(localStorage.getItem('waddle_city') || '') + '"><button class="btn-action" onclick="runCitySearch()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button></div>';
+            var cityInput = document.getElementById('cityInput');
+            if (cityInput) cityInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') runCitySearch();
+            });
+        }
+    }
+
     function setInputView(mode) {
         const panel = document.getElementById('coords-panel');
         localStorage.setItem('input_mode', mode);
         SkyDB.set(SkyDB.S.settings, 'input_mode', mode);
+
+        if (window.SKYMONITOR_INFO_PAGE) {
+            renderInfoLocationControls(mode);
+            return;
+        }
 
         // Stop any active live tracking when switching away
         if (mode !== 'live' && _liveWatchId !== null) {
@@ -1906,6 +2093,10 @@
         const cityEl = document.getElementById('cityInput');
         const query = cityEl ? cityEl.value.trim() : '';
         if (!query) return;
+        if (window.SKYMONITOR_INFO_PAGE) {
+            navigateFromInfoPage('city', query);
+            return;
+        }
         if (_isOffline) { alert('You cannot search while offline.'); return; }
         try {
             const data = await _osmGeocodeFetch('search', { q: query, limit: 5 });
@@ -2270,6 +2461,10 @@
     }
 
     function switchTab(tabId, element) {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            window.location.href = '/#' + tabId;
+            return;
+        }
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(tabId + '-tab').classList.add('active');
@@ -2328,6 +2523,13 @@
     }
 
     function manualUpdateLocation() {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            var coordInput = document.getElementById('coordInput');
+            var coords = coordInput ? coordInput.value.trim() : '';
+            if (!coords) return;
+            navigateFromInfoPage('coord', coords);
+            return;
+        }
         window._locFromGPS = false;
         updateLocation();
     }
@@ -2386,6 +2588,10 @@
     }
 
     function getLocation() {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            navigateFromInfoPage('gps');
+            return;
+        }
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(p => {
                 lat = parseFloat(p.coords.latitude.toFixed(4)); lon = parseFloat(p.coords.longitude.toFixed(4));
@@ -2397,6 +2603,41 @@
                 updateLocation();
             }, function() { alert('GPS Access Denied'); });
         }
+    }
+
+    function consumeInfoLocationHandoff() {
+        if (window.SKYMONITOR_INFO_PAGE) return false;
+        var raw = null;
+        try {
+            raw = sessionStorage.getItem('skymonitor_pending_location');
+            sessionStorage.removeItem('skymonitor_pending_location');
+        } catch (e) {}
+        if (!raw) return false;
+
+        var pending;
+        try { pending = JSON.parse(raw); } catch (e) { return false; }
+        if (!pending || !pending.mode) return false;
+
+        if (pending.mode === 'city') {
+            localStorage.setItem('input_mode', 'city');
+            setInputView('city');
+            var cityInput = document.getElementById('cityInput');
+            if (cityInput) cityInput.value = pending.value || '';
+            if (pending.value) runCitySearch();
+        } else if (pending.mode === 'coord') {
+            localStorage.setItem('input_mode', 'coord');
+            setInputView('coord');
+            var coordInput = document.getElementById('coordInput');
+            if (coordInput) coordInput.value = pending.value || '';
+            manualUpdateLocation();
+        } else if (pending.mode === 'gps') {
+            localStorage.setItem('input_mode', 'coord');
+            setInputView('coord');
+            getLocation();
+        } else {
+            return false;
+        }
+        return true;
     }
 
     async function updateSPCMap(day) {
@@ -9323,7 +9564,7 @@
              var customTiming = expires
                  ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_fmtAlertTime(expires)) + '</div>'
                 : '';
-            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
+            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
             var fullDetails = '<div id="full-' + customHazardId + '" class="alert-full-text">' + detailRows + summaryHtml + actionHtml + '</div>';
             var card = document.createElement('div');
             card.className = 'alert-card custom-skymonitor-hazard';
@@ -11119,11 +11360,13 @@
         }).catch(function() {});
     }
 
-    setInterval(function() { loadAll(); syncPushLocation(); }, 60000);
+    if (!window.SKYMONITOR_INFO_PAGE) {
+        setInterval(function() { loadAll(); syncPushLocation(); }, 60000);
 
-    // Live-update nearby user reports independently — shorter interval so the
-    // home widget and threat level stay current without waiting for a full 60s refresh
-    setInterval(function() { fetchNearbyReportsForHome(); }, 30000);
+        // Live-update nearby user reports independently — shorter interval so the
+        // home widget and threat level stay current without waiting for a full 60s refresh
+        setInterval(function() { fetchNearbyReportsForHome(); }, 30000);
+    }
 
     // ——— Notification deep-link: handle #severe / #severe-risks on load ———
     // When a user taps a push notification, sw.js opens/navigates to a URL like
@@ -11132,15 +11375,17 @@
     (function() {
         var hash = window.location.hash;
         if (!hash) return;
-        if (hash === '#severe' || hash === '#severe-risks') {
+        if (hash === '#home' || hash === '#severe' || hash === '#specs' || hash === '#reporting') {
+            var requestedTab = hash.slice(1);
+            var requestedNav = document.getElementById('nav-' + requestedTab);
+            if (requestedNav) switchTab(requestedTab, requestedNav);
+        } else if (hash === '#severe-risks') {
             var navEl = document.getElementById('nav-severe');
             if (navEl) switchTab('severe', navEl);
-            if (hash === '#severe-risks') {
-                setTimeout(function() {
-                    var el = document.getElementById('active-risks-box');
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 400);
-            }
+            setTimeout(function() {
+                var el = document.getElementById('active-risks-box');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 400);
         }
         // Clear the fragment so refreshing doesn't re-trigger the jump
         history.replaceState(null, '', window.location.pathname);
@@ -11468,8 +11713,31 @@
         if (reportingMap) reportingMap.invalidateSize();
     });
 
+    function initInfoPage() {
+        var privacyPage = document.getElementById('privacy-page');
+        var alertsPage = document.getElementById('custom-alerts-page');
+        if (!privacyPage || !alertsPage) return;
+
+        privacyPage.classList.toggle('is-visible', window.SKYMONITOR_INFO_KIND === 'privacy');
+        alertsPage.classList.toggle('is-visible', window.SKYMONITOR_INFO_KIND === 'custom-alerts');
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(function(item) {
+            item.classList.remove('active');
+        });
+
+        // Give informational pages the same calm night sky without allowing
+        // weather data to change it to a day, sunrise, or warning theme.
+        isNightAtStation = true;
+        document.body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
+        startSkyFX('');
+    }
+
     window.addEventListener('DOMContentLoaded', function() {
-        const savedMode = localStorage.getItem('input_mode') || 'live';
+        var pendingMode = null;
+        try {
+            var pendingLocation = JSON.parse(sessionStorage.getItem('skymonitor_pending_location') || 'null');
+            if (pendingLocation && pendingLocation.mode) pendingMode = pendingLocation.mode === 'city' ? 'city' : 'coord';
+        } catch (e) {}
+        const savedMode = pendingMode || localStorage.getItem('input_mode') || 'live';
         // Restore live tracking silently on startup — also re-syncs location to push subscription via window.onload
         setInputView(savedMode);
         const savedComplexity = localStorage.getItem('data_complexity') || 'normal';
@@ -11497,6 +11765,7 @@
         const savedWindMode = localStorage.getItem('wind_dir_mode') || 'compass';
         document.getElementById('opt-wind-compass')?.classList.toggle('active', savedWindMode === 'compass');
         document.getElementById('opt-wind-text')?.classList.toggle('active', savedWindMode === 'text');
+        if (window.SKYMONITOR_INFO_PAGE) initInfoPage();
     });
 
     window.onload = function() {
@@ -11509,12 +11778,18 @@
             ls.classList.add('hidden');
             setTimeout(function() { ls.style.display = 'none'; }, 550);
         };
+        if (window.SKYMONITOR_INFO_PAGE) {
+            window._dismissLaunch();
+            return;
+        }
         setTimeout(window._dismissLaunch, 4000);
-        loadAll().then(function() {
+        var handoffHandled = consumeInfoLocationHandoff();
+        if (!handoffHandled) loadAll().then(function() {
             syncPushLocation();
             window._dismissLaunch();
             checkForGitHubRelease();
         });
+        else window._dismissLaunch();
     };
 </script>
 
