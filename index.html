@@ -77,11 +77,17 @@
         }
 
         /* Shared shell for /privacy and /about-custom-alerts. These pages
-           deliberately stay on the standard night palette and never inherit
-           weather-specific sunrise, sunset, or warning themes. */
+           use the main site's daylight state, but never inherit warning,
+           sunrise, or sunset-specific theme colors. */
         html.info-route body {
-            background: linear-gradient(180deg, #07131d 0%, #000000 100%) !important;
+            background: var(--info-page-background, linear-gradient(180deg, #07131d 0%, #000000 100%)) !important;
             background-attachment: fixed;
+        }
+        html.info-route.info-day {
+            --info-page-background: linear-gradient(180deg, #1a3a5a 0%, #07131d 100%);
+        }
+        html.info-route.info-night {
+            --info-page-background: linear-gradient(180deg, #07131d 0%, #000000 100%);
         }
         html.info-route #launch-screen,
         html.info-route #rainCanvas,
@@ -901,6 +907,10 @@
         <div style="margin-top:16px; font-size:0.58em; color:#2a3d4f; line-height:1.5;">Protected by Cloudflare Turnstile &nbsp;&middot;&nbsp; <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" style="color:#2a3d4f;">Privacy</a> &nbsp;&middot;&nbsp; <a href="https://www.cloudflare.com/website-terms/" target="_blank" style="color:#2a3d4f;">Terms</a></div>
     </div>
     </div>
+    <!-- Invisible renewal widget. After the first visible verification, this
+         obtains one-use server tokens without reopening the verification modal. -->
+    <div id="turnstile-silent-container" aria-hidden="true"
+         style="position:fixed; left:-10000px; top:-10000px; width:300px; height:65px; overflow:hidden; opacity:0; pointer-events:none;"></div>
 
     <div id="user-report-info-modal" onclick="if(event.target===this)closeUserReportInfoModal()"
          style="display:none; position:fixed; inset:0; z-index:4000; background:rgba(0,0,0,0.8); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
@@ -1472,6 +1482,9 @@
     var _turnstileVerified = localStorage.getItem('turnstile_verified') === 'true';
     var _turnstileToken = '';
     var _turnstileWidgetId = null;
+    var _turnstileSilentWidgetId = null;
+    var _turnstileSilentRequestActive = false;
+    var _turnstileSilentWaiters = [];
 
     // Weather provider credentials live in the Cloudflare Worker, never in this file.
     // Replace this URL with the deployed worker URL during integration.
@@ -2304,6 +2317,68 @@
         _turnstileToken = '';
     }
 
+    function _finishSilentTurnstileRequest(token, error) {
+        _turnstileSilentRequestActive = false;
+        if (token) _turnstileToken = token;
+        var waiters = _turnstileSilentWaiters.splice(0);
+        waiters.forEach(function(waiter) {
+            if (error) waiter.reject(error);
+            else if (token) waiter.resolve(token);
+            else waiter.reject(new Error('Turnstile did not return a token.'));
+        });
+    }
+
+    function _requestSilentTurnstileToken() {
+        if (_turnstileSilentRequestActive) return;
+        if (typeof turnstile === 'undefined') {
+            setTimeout(_requestSilentTurnstileToken, 250);
+            return;
+        }
+
+        _turnstileSilentRequestActive = true;
+        try {
+            if (_turnstileSilentWidgetId === null) {
+                _turnstileSilentWidgetId = turnstile.render('#turnstile-silent-container', {
+                    sitekey: TURNSTILE_SITE_KEY,
+                    theme: 'dark',
+                    size: 'invisible',
+                    execution: 'execute',
+                    appearance: 'interaction-only',
+                    action: 'report_gate_renewal',
+                    callback: function(token) {
+                        _finishSilentTurnstileRequest(token, null);
+                    },
+                    'expired-callback': function() {
+                        _finishSilentTurnstileRequest('', new Error('Verification expired.'));
+                    },
+                    'error-callback': function() {
+                        _finishSilentTurnstileRequest('', new Error('Verification failed.'));
+                    }
+                });
+            } else {
+                turnstile.reset(_turnstileSilentWidgetId);
+            }
+            turnstile.execute(_turnstileSilentWidgetId);
+        } catch (error) {
+            _finishSilentTurnstileRequest('', error);
+        }
+    }
+
+    // The first verification is visible and remembered per browser/device.
+    // Every later POST still receives a fresh one-use token, but renewal is
+    // invisible unless Cloudflare itself decides an interaction is necessary.
+    function getTurnstileTokenForReport() {
+        if (_turnstileToken) return Promise.resolve(_turnstileToken);
+        if (!_turnstileVerified) {
+            showTurnstileGate();
+            return Promise.resolve(null);
+        }
+        return new Promise(function(resolve, reject) {
+            _turnstileSilentWaiters.push({ resolve: resolve, reject: reject });
+            _requestSilentTurnstileToken();
+        });
+    }
+
     function showTurnstileGate() {
         var gate = document.getElementById('turnstile-gate');
         var statusEl = document.getElementById('turnstile-status');
@@ -2401,17 +2476,36 @@
 
     function updateAtmosphereTheme() {
         const body = document.body;
-        if (body.classList.contains('theme-tor') || body.classList.contains('theme-svr') || body.classList.contains('theme-ffw')) return;
+        const hasWarningTheme = body.classList.contains('theme-tor') ||
+            body.classList.contains('theme-svr') || body.classList.contains('theme-ffw');
+        let isDay = false;
         if (!localRiseTime || !localSetTime) {
             // Polar region: use _polarState to pick the right gradient instead of always defaulting to night
-            if (window._polarState === 'day') { body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)'; }
-            else { body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)'; }
+            isDay = window._polarState === 'day';
+        } else {
+            const now = new Date().getTime();
+            isDay = now > localRiseTime && now < localSetTime;
+        }
+
+        // Persist the underlying day/night state separately from the visible
+        // warning theme. The info routes use this state on their next load.
+        try {
+            var savedAtmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+            savedAtmosphere.isDay = !!isDay;
+            savedAtmosphere.moonPhase = normalizeMoonPhase(moonPhaseVal);
+            savedAtmosphere.updatedAt = Date.now();
+            localStorage.setItem('skymonitor_daylight_state', JSON.stringify(savedAtmosphere));
+        } catch (e) {}
+
+        if (hasWarningTheme) return;
+        if (!localRiseTime || !localSetTime) {
+            if (isDay) body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)';
+            else body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
             return;
         }
         const now = new Date().getTime(); const fifteenMins = 15 * 60 * 1000;
         const isGoldenHourMorn = now >= localRiseTime - fifteenMins && now <= localRiseTime + fifteenMins;
         const isGoldenHourEve = now >= localSetTime - fifteenMins && now <= localSetTime + fifteenMins;
-        const isDay = (now > localRiseTime && now < localSetTime);
         if (isGoldenHourMorn || isGoldenHourEve) body.style.background = 'linear-gradient(180deg, #e65100 0%, #07131d 100%)';
         else if (isDay) body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)';
         else body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
@@ -2906,6 +3000,14 @@
 
     function renderMoonPhaseDisplay(phase) {
         moonPhaseVal = normalizeMoonPhase(phase);
+        if (!window.SKYMONITOR_INFO_PAGE) {
+            try {
+                var savedAtmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+                savedAtmosphere.moonPhase = moonPhaseVal;
+                savedAtmosphere.updatedAt = Date.now();
+                localStorage.setItem('skymonitor_daylight_state', JSON.stringify(savedAtmosphere));
+            } catch (e) {}
+        }
         const label = document.getElementById('moonVal');
         if (label) label.innerText = getMoonPhaseName(moonPhaseVal);
         const canvas = document.getElementById('moon-phase-canvas');
@@ -5087,6 +5189,7 @@
                 });
                 window.pirateHourlyData = _rawHourly;
                 window.pirateTimezoneOffset = d.offset || 0;
+                renderAnalyticsWhenReady();
                 SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: _rawHourly, tzOffset: d.offset || 0 });
                 computeFloodOutlook();
                 // Silently patch any bad sentinel values from Open-Meteo
@@ -5186,6 +5289,7 @@
                     if (!h || !h.data || !h.data.length) return;
                     window.pirateHourlyData = h.data;
                     window.pirateTimezoneOffset = h.tzOffset || 0;
+                    renderAnalyticsWhenReady();
                     // Do NOT call computeOutdoorScore here — alerts are not restored yet,
                     // so alert-override descriptions (heat advisory, etc.) would be wrong.
                     // The saved outdoor_score snapshot (captured after alerts ran online) is
@@ -5635,6 +5739,7 @@
             });
         }
         window.pirateHourlyData = hourlyRows;
+        renderAnalyticsWhenReady();
         renderHourlyOutlook(hourlyRows, window.pirateTimezoneOffset || 0);
         SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
         // Outdoor Score is rendered when the TWC daily forecast arrives.
@@ -7507,6 +7612,20 @@
     }
 
     // ——— ANALYTICS (v1.0.4: only shown in Advanced mode) ———
+    function renderAnalyticsWhenReady() {
+        var specsTab = document.getElementById('specs-tab');
+        var section = document.getElementById('analytics-section');
+        var complexity = localStorage.getItem('data_complexity') || 'normal';
+        if (!specsTab || !section || !specsTab.classList.contains('active') ||
+            complexity !== 'specific' || !window.pirateHourlyData ||
+            !window.pirateHourlyData.length) return;
+        // Wait for the tab's layout pass so Chart.js measures a non-zero width
+        // when Specs was opened from an informational route during load.
+        setTimeout(function() {
+            if (specsTab.classList.contains('active')) renderAnalytics();
+        }, 0);
+    }
+
     function renderAnalytics() {
         if (!window.pirateHourlyData || !window.pirateHourlyData.length) return;
         if (typeof Chart === 'undefined') return;
@@ -10104,12 +10223,21 @@
     async function submitUserReport() {
         const type = selectedReportType;
         if (!type) { alert('Please select a report type.'); return; }
+        if (submitUserReport._inFlight) return;
+        submitUserReport._inFlight = true;
         const notes = document.getElementById('report-notes').value.trim();
         const btn = document.querySelector('#reporting-tab button[onclick="submitUserReport()"]');
         const status = document.getElementById('report-status');
-        if (!_turnstileToken) {
-            invalidateTurnstile();
-            showTurnstileGate();
+        const reportTurnstileToken = await getTurnstileTokenForReport().catch(function(error) {
+            if (status) {
+                status.style.display = 'block';
+                status.textContent = 'Verification could not be renewed. Please try again.';
+                status.style.color = 'var(--warning)';
+            }
+            return null;
+        });
+        if (!reportTurnstileToken) {
+            submitUserReport._inFlight = false;
             return;
         }
         if (btn) { btn.textContent = '\u23F3 Submitting...'; btn.disabled = true; }
@@ -10118,26 +10246,24 @@
             const res = await fetch(REPORTS_WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: reportLat != null ? reportLat : parseFloat(lat), lon: reportLon != null ? reportLon : parseFloat(lon), type: type, notes: notes, time: new Date().toISOString(), turnstileToken: _turnstileToken })
+                body: JSON.stringify({ lat: reportLat != null ? reportLat : parseFloat(lat), lon: reportLon != null ? reportLon : parseFloat(lon), type: type, notes: notes, time: new Date().toISOString(), turnstileToken: reportTurnstileToken })
             });
             if (res.ok) {
                 clearReportCategory();
                 document.getElementById('report-notes').value = '';
                 invalidateTurnstile();
-                if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
                 if (status) { status.textContent = '\u2713 Report submitted! Thank you.'; status.style.color = 'var(--success)'; setTimeout(function() { status.style.display = 'none'; }, 4000); }
                 setTimeout(loadReportingMapData, 1500);
             } else {
                 invalidateTurnstile();
-                if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
                 if (status) { status.textContent = 'Report failed. Please try again.'; status.style.color = 'var(--danger)'; }
             }
         } catch(e) {
             invalidateTurnstile();
-            if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
             if (status) { status.textContent = _isOffline ? 'You cannot send reports when offline.' : 'Report failed. Please try again.'; status.style.color = 'var(--warning)'; }
         }
         if (btn) { btn.textContent = 'SUBMIT REPORT'; btn.disabled = false; }
+        submitUserReport._inFlight = false;
     }
 
     // ——— NEARBY USER REPORTS (home tab, BETA) ———
@@ -11724,10 +11850,19 @@
             item.classList.remove('active');
         });
 
-        // Give informational pages the same calm night sky without allowing
-        // weather data to change it to a day, sunrise, or warning theme.
-        isNightAtStation = true;
-        document.body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
+        // Informational pages intentionally ignore warning and golden-hour
+        // colors, but follow the main site's underlying day/night state.
+        var atmosphere = {};
+        try {
+            atmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+        } catch (e) {}
+        var hasDayState = typeof atmosphere.isDay === 'boolean';
+        var infoIsDay = hasDayState ? atmosphere.isDay : false;
+        var savedPhase = Number(atmosphere.moonPhase);
+        moonPhaseVal = isFinite(savedPhase) ? normalizeMoonPhase(savedPhase) : computeMoonPhase(new Date());
+        isNightAtStation = !infoIsDay;
+        document.documentElement.classList.toggle('info-day', infoIsDay);
+        document.documentElement.classList.toggle('info-night', !infoIsDay);
         startSkyFX('');
     }
 
@@ -11766,6 +11901,7 @@
         document.getElementById('opt-wind-compass')?.classList.toggle('active', savedWindMode === 'compass');
         document.getElementById('opt-wind-text')?.classList.toggle('active', savedWindMode === 'text');
         if (window.SKYMONITOR_INFO_PAGE) initInfoPage();
+        else renderAnalyticsWhenReady();
     });
 
     window.onload = function() {
