@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SkyMonitor</title>
+    <title>SkyMonitor — Real-Time Weather Monitoring &amp; Severe Weather Alerts</title>
     <script>
         // Informational pages use this same document so Cloudflare Pages can
         // serve clean URLs without duplicating the SkyMonitor application.
@@ -92,10 +92,60 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1779/1779927.png">
 
     <!-- SEO/OG -->
-    <meta name="description" content="Real-time weather monitoring, severe weather alerts, and storm tracking.">
-    <meta property="og:title" content="SkyMonitor">
-    <meta property="og:description" content="Real-time weather monitoring, severe weather alerts, and storm tracking.">
+    <meta name="description" content="SkyMonitor provides real-time weather conditions, forecasts, severe weather alerts, storm tracking, and local weather monitoring.">
+    <link rel="canonical" href="https://skymonitor.app/">
+    <meta property="og:title" content="SkyMonitor — Real-Time Weather Monitoring">
+    <meta property="og:description" content="Real-time weather conditions, forecasts, severe weather alerts, and storm tracking.">
+    <meta property="og:url" content="https://skymonitor.app/">
     <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="SkyMonitor — Real-Time Weather Monitoring">
+    <meta name="twitter:description" content="Real-time weather conditions, forecasts, severe weather alerts, and storm tracking.">
+
+    <!-- Keep titles, descriptions, and canonical URLs accurate for the
+         informational routes that share this document with the dashboard. -->
+    <script>
+        (function () {
+            var path = window.location.pathname.replace(/\/+$/, '') || '/';
+            var seo = path === '/privacy'
+                ? {
+                    title: 'Privacy Policy · SkyMonitor',
+                    description: 'Read the SkyMonitor privacy policy and learn how location, weather, and report data are handled.'
+                }
+                : path === '/about-custom-alerts'
+                    ? {
+                        title: 'About Custom Alerts · SkyMonitor',
+                        description: 'Learn how SkyMonitor custom alerts work, what they mean, and why they should not replace official warnings.'
+                    }
+                    : {
+                        title: 'SkyMonitor — Real-Time Weather Monitoring & Severe Weather Alerts',
+                        description: 'SkyMonitor provides real-time weather conditions, forecasts, severe weather alerts, storm tracking, and local weather monitoring.'
+                    };
+            var canonicalPath = path === '/' || path === '/privacy' || path === '/about-custom-alerts'
+                ? path
+                : '/';
+            var canonicalUrl = 'https://skymonitor.app' + canonicalPath;
+
+            document.title = seo.title;
+            var description = document.querySelector('meta[name="description"]');
+            if (description) description.setAttribute('content', seo.description);
+
+            var canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) canonical.setAttribute('href', canonicalUrl);
+
+            var ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute('content', seo.title);
+            var ogDescription = document.querySelector('meta[property="og:description"]');
+            if (ogDescription) ogDescription.setAttribute('content', seo.description);
+            var ogUrl = document.querySelector('meta[property="og:url"]');
+            if (ogUrl) ogUrl.setAttribute('content', canonicalUrl);
+
+            var twitterTitle = document.querySelector('meta[name="twitter:title"]');
+            if (twitterTitle) twitterTitle.setAttribute('content', seo.title);
+            var twitterDescription = document.querySelector('meta[name="twitter:description"]');
+            if (twitterDescription) twitterDescription.setAttribute('content', seo.description);
+        })();
+    </script>
 
     <!-- Leaflet CSS (v1.0.4 NEW) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -135,6 +185,7 @@
         html.info-route #ptr-indicator,
         html.info-route #sync-indicator,
         html.info-route #github-release-modal,
+        html.info-route #seo-intro,
         html.info-route #dashboard {
             display: none !important;
         }
@@ -795,6 +846,14 @@
     <h1>
         <span>SkyMonitor <span style="font-size:0.4em; color:#888; font-weight:normal;">v1.1.7.5</span></span>
     </h1>
+
+    <section id="seo-intro" aria-labelledby="seo-intro-title" style="max-width:850px; margin:0 auto 18px; color:#c6d6df;">
+        <h2 id="seo-intro-title" style="margin:0 0 6px; font-size:1.05em; color:var(--primary);">Real-time weather, simplified.</h2>
+        <p style="margin:0; line-height:1.5; font-size:0.9em;">
+            SkyMonitor is a free weather monitoring dashboard for current conditions, forecasts,
+            severe weather alerts, storm tracking, and local weather reports.
+        </p>
+    </section>
 
     <div style="display: flex; align-items: flex-start; gap: 10px; max-width: 100%; overflow: hidden;">
         <div id="coords-panel">
