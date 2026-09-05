@@ -1566,6 +1566,7 @@
     let weatherLoadedLocationKey = '';
     let _loadAllPromise = null;
     let _loadAllKey = '';
+    let _citySearchGeneration = 0;
     let _enrichmentPromise = null;
     window._fastProviderData = null;
     window._fastNwsAlerts = null;
@@ -2218,12 +2219,14 @@
         const cityEl = document.getElementById('cityInput');
         const query = cityEl ? cityEl.value.trim() : '';
         if (!query) return;
+        const searchGeneration = ++_citySearchGeneration;
         if (window.SKYMONITOR_INFO_PAGE) {
             // Resolve the city before leaving the informational route. The
             // main page can then start its weather load immediately instead
             // of depending on a second asynchronous search after navigation.
             try {
                 var infoResults = await _osmGeocodeFetch('search', { q: query, limit: 1 });
+                if (searchGeneration !== _citySearchGeneration) return;
                 var infoResult = infoResults && infoResults[0];
                 if (!infoResult) throw new Error('No city result');
                 var infoLat = parseFloat(parseFloat(infoResult.lat).toFixed(4));
@@ -2235,6 +2238,7 @@
                     city: infoCity
                 });
             } catch (e) {
+                if (searchGeneration !== _citySearchGeneration) return;
                 alert('No results found. Ensure you have not misspelled anything.');
             }
             return;
@@ -2242,6 +2246,7 @@
         if (_isOffline) { alert('You cannot search while offline.'); return; }
         try {
             const data = await _osmGeocodeFetch('search', { q: query, limit: 5 });
+            if (searchGeneration !== _citySearchGeneration) return;
             if (data && data.length > 0) {
                 lat = parseFloat(parseFloat(data[0].lat).toFixed(4));
                 lon = parseFloat(parseFloat(data[0].lon).toFixed(4));
@@ -2254,7 +2259,10 @@
                 if (dd) dd.style.display = 'none';
                 manualUpdateLocation();
             } else { alert('No results found. Ensure you have not misspelled anything.'); }
-        } catch(e) { alert('No results found. Ensure you have not misspelled anything.'); }
+        } catch(e) {
+            if (searchGeneration !== _citySearchGeneration) return;
+            alert('No results found. Ensure you have not misspelled anything.');
+        }
     }
 
     function colorHumidity(val) {
@@ -3426,13 +3434,14 @@
     // fetchNWSChain is the actual QC — qcStatus is only a soft tie-breaker for neighbor ranking.
     // Neighbors are filtered to ≤5 miles so isolated primaries get no neighbors and fall back
     // to the PirateWeather backstop rather than comparing against climatologically unrelated stations.
-    async function fetchWUMulti(latP, lonP) {
+    async function fetchWUMulti(latP, lonP, signal) {
         // Weather.com credentials and the station fan-out now stay in the Worker.
         // This is awaited before the authoritative current-observation pass
         // renders, so the home card cannot flash a provisional source.
         try {
             const r = await fetch(WEATHER_WORKER_URL + '/api/weather/pws?lat=' +
-                encodeURIComponent(latP) + '&lon=' + encodeURIComponent(lonP));
+                encodeURIComponent(latP) + '&lon=' + encodeURIComponent(lonP),
+                signal ? { signal: signal } : undefined);
             if (!r.ok) return [];
             const stations = await r.json();
             return Array.isArray(stations) ? stations : [];
@@ -5110,19 +5119,23 @@
     var _lastPirateLat = null;
     var _lastPirateLon = null;
     window._pirateLoadFailed = false;
-    async function fetchPirate(loadGeneration) {
+    async function fetchPirate(loadGeneration, requestLat, requestLon) {
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
+        requestLat = requestLat == null ? lat : requestLat;
+        requestLon = requestLon == null ? lon : requestLon;
+        var requestSignal = window._weatherRequestController ? window._weatherRequestController.signal : undefined;
         const now = Date.now();
-        const locationChanged = (lat !== _lastPirateLat || lon !== _lastPirateLon);
+        const locationChanged = (requestLat !== _lastPirateLat || requestLon !== _lastPirateLon);
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         window._pirateLoadFailed = false;
         try {
             const resP = await fetch(WEATHER_WORKER_URL + '/api/weather/fast?lat=' +
-                encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {
-                    signal: window._weatherRequestController ? window._weatherRequestController.signal : undefined
+                encodeURIComponent(requestLat) + '&lon=' + encodeURIComponent(requestLon), {
+                    signal: requestSignal
                 });
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
             const fastPayload = await resP.json();
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             const d = fastPayload.pirate || fastPayload;
             if (!d || !d.currently) throw new Error('Pirate response missing currently data');
             window._fastProviderData = fastPayload;
@@ -5136,7 +5149,7 @@
             // whether a station is suitable for the coordinate.
             // Do not hold the primary forecast on PWS discovery/observations.
             let wuStations;
-            const wuPromise = fetchWUMulti(lat, lon);
+            const wuPromise = fetchWUMulti(requestLat, requestLon, requestSignal);
             // The PWS result is part of the authoritative current-observation
             // load. Do not paint PirateWeather observations and then replace
             // them a moment later when this check completes.
@@ -5146,8 +5159,8 @@
             // validated. If rendering or the request fails, the next refresh
             // must be allowed to retry immediately.
             _lastPirateFetch = Date.now();
-            _lastPirateLat = lat;
-            _lastPirateLon = lon;
+            _lastPirateLat = requestLat;
+            _lastPirateLon = requestLon;
             const wu = wuStations[0] || null;
             const wuAvailable = wu && wu.temp !== null && wu.humidity !== null;
             // fetchWUMulti returns [primary, ...neighbors]; neighbors feed the QC median check.
@@ -5409,9 +5422,11 @@
             _lastPirateLon = null;
             // PirateWeather failed — try Open-Meteo as a live backup
             try {
-                await fetchOpenMeteoFallback();
+                await fetchOpenMeteoFallback(loadGeneration, requestLat, requestLon, requestSignal);
+                if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                 window._pirateLoadFailed = false;
             } catch(e2) {
+                if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                 window._pirateLoadFailed = true;
                 _isOffline = true;
                 // Both live sources unavailable — restore from IndexedDB cache
@@ -5728,7 +5743,7 @@
 
     // Full Open-Meteo fallback — used when PirateWeather is completely unavailable
     // Populates all weather data EXCEPT minutely (not supported by Open-Meteo)
-    async function fetchOpenMeteoFallback() {
+    async function fetchOpenMeteoFallback(loadGeneration, requestLat, requestLon, requestSignal) {
         function omIcon(code, isDay) {
             var d = isDay !== false;
             if (code === 0) return d ? 'clear-day' : 'clear-night';
@@ -5758,13 +5773,16 @@
             if (code >= 95) return 'Thunderstorm';
             return 'Mixed Conditions';
         }
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+        requestLat = requestLat == null ? lat : requestLat;
+        requestLon = requestLon == null ? lon : requestLon;
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + requestLat + '&longitude=' + requestLon
             + '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,precipitation,weather_code'
             + '&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation_probability,uv_index,weather_code,precipitation'
             + '&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=3';
-        const res = await fetch(url);
+        const res = await fetch(url, requestSignal ? { signal: requestSignal } : undefined);
         if (!res.ok) throw new Error('Open-Meteo ' + res.status);
         const d = await res.json();
+        if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
         const cur = d.current;
         const utcOffH = (d.utc_offset_seconds || 0) / 3600;
         if (d.utc_offset_seconds != null) { stationTzOffset = d.utc_offset_seconds; window.pirateTimezoneOffset = utcOffH; }
@@ -6409,13 +6427,19 @@
         }
     }
 
-    async function fetchNWSChain(loadGeneration) {
+    async function fetchNWSChain(loadGeneration, requestLat, requestLon) {
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
+        requestLat = requestLat == null ? lat : requestLat;
+        requestLon = requestLon == null ? lon : requestLon;
+        var requestSignal = window._weatherRequestController ? window._weatherRequestController.signal : undefined;
         try {
-            const pointsRes = await fetch('https://api.weather.gov/points/' + lat + ',' + lon);
+            const pointsRes = await fetch('https://api.weather.gov/points/' + requestLat + ',' + requestLon,
+                requestSignal ? { signal: requestSignal } : undefined);
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             if (!pointsRes.ok) { window.isOutsideUS = true; applyInternationalMode(); return; }
             window.isOutsideUS = false; applyUSMode();
             const p = await pointsRes.json();
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // Elevation of the user's requested coordinate (meters), returned by the NWS
             // /points/ endpoint — used for lapse-rate correction when comparing NWS obs
             // (which may be from a much higher station) against local PWS readings.
@@ -6437,11 +6461,15 @@
             // the current conditions behind "LOADING LOCATION...".
             (async function() {
                 try {
-                    const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo);
+                    const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo,
+                        requestSignal ? { signal: requestSignal } : undefined);
                     const hwoList = await hwoRes.json();
+                    if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                     if (hwoList['@graph'] && hwoList['@graph'].length > 0) {
-                        const hwoDataRes = await fetch(hwoList['@graph'][0]['@id']);
+                        const hwoDataRes = await fetch(hwoList['@graph'][0]['@id'],
+                            requestSignal ? { signal: requestSignal } : undefined);
                         const hwoData = await hwoDataRes.json();
+                        if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                         const text = (hwoData.productText || '').trim();
                         if (text) { document.getElementById('cli-text').innerText = text; document.getElementById('hwo-section').style.display = localStorage.getItem('data_complexity') === 'specific' ? 'block' : 'none'; }
                         else document.getElementById('hwo-section').style.display = 'none';
@@ -6449,8 +6477,10 @@
                 } catch(e) { document.getElementById('hwo-section').style.display = 'none'; }
             })();
 
-            const stationsRes = await fetch(p.properties.observationStations);
+            const stationsRes = await fetch(p.properties.observationStations,
+                requestSignal ? { signal: requestSignal } : undefined);
             const stations = await stationsRes.json();
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             const primaryStation = stations.features[0];
             const elevMeters = primaryStation.properties.elevation?.value;
             const _nwsStationName = primaryStation.properties.name;
@@ -6463,12 +6493,14 @@
             document.getElementById('meta-elev').innerText = elevMeters ? (_isMetric() ? Math.round(elevMeters) + ' m' : Math.round(elevMeters * 3.28084) + ' ft') : 'N/A';
             // Fetch the user's location elevation for NWS obs lapse-rate correction.
             // Cached by coordinate so it refetches automatically on location changes.
-            const _elevCacheKey = lat.toFixed(4) + ',' + lon.toFixed(4);
+            const _elevCacheKey = requestLat.toFixed(4) + ',' + requestLon.toFixed(4);
             if (window.userLocElevFt == null || window._userLocElevKey !== _elevCacheKey) {
                 try {
-                    const _eRes = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lat + '&longitude=' + lon);
+                    const _eRes = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + requestLat + '&longitude=' + requestLon,
+                        requestSignal ? { signal: requestSignal } : undefined);
                     if (_eRes.ok) {
                         const _eData = await _eRes.json();
+                        if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                         const _eM = _eData?.elevation?.[0];
                         if (_eM != null) { window.userLocElevFt = _eM * 3.28084; window._userLocElevKey = _elevCacheKey; }
                     }
@@ -6507,9 +6539,11 @@
             let nwsObsWindDir = null;
             var _obsEndpointFailed = false;
             try {
-                const obsRes = await fetch(primaryStation.id + '/observations/latest');
+                const obsRes = await fetch(primaryStation.id + '/observations/latest',
+                    requestSignal ? { signal: requestSignal } : undefined);
                 if (!obsRes.ok) _obsEndpointFailed = true;
                 const obs = obsRes.ok ? await obsRes.json() : null;
+                if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                 const op = obs?.properties || {};
                 nwsCond = (op.textDescription || '').trim();
                 if (!_isUsableNWSCondition(nwsCond)) nwsCond = '';
@@ -6898,6 +6932,7 @@
                 renderHourlyOutlook(window.pirateHourlyData, window.pirateTimezoneOffset || 0);
             }
         } catch(e) {
+            if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             // If the NWS branch stopped after painting the station/condition
             // but before selecting an observation source, finish the card from
             // the data already in memory.  This is the transient failure mode
@@ -10872,8 +10907,9 @@
     // AQI is proxied through the weather Worker.  AirNow remains authoritative
     // for U.S. locations; the Worker only uses Open-Meteo for a genuine
     // timeout/network/5xx failure, never for a valid empty AirNow response.
-    async function fetchAQI(loadGeneration) {
-        var curLat = lat, curLon = lon;
+    async function fetchAQI(loadGeneration, requestLat, requestLon) {
+        var curLat = requestLat == null ? lat : requestLat;
+        var curLon = requestLon == null ? lon : requestLon;
         if (!isFinite(curLat) || !isFinite(curLon)) return;
         var seq = ++_aqiRequestSeq;
         try {
@@ -11375,6 +11411,8 @@
 
     async function _loadAllOnce(isInitialLoad) {
         const loadGeneration = ++weatherLoadGeneration;
+        const loadLat = lat;
+        const loadLon = lon;
         if (window._weatherRequestController) window._weatherRequestController.abort();
         window._weatherRequestController = new AbortController();
         _enrichmentPromise = null;
@@ -11412,7 +11450,8 @@
             // Water location detection — the OSM reverse geocoder tells us if coords
             // are on open water (sea, bay, lake, waterway). If so, skip PWS entirely.
             try {
-                var _nomD = await _osmGeocodeFetch('reverse', { lat: lat, lon: lon });
+                var _nomD = await _osmGeocodeFetch('reverse', { lat: loadLat, lon: loadLon });
+                if (loadGeneration !== weatherLoadGeneration) return;
                 if (_nomD && _nomD.lat) {
                     if (_nomD.error) {
                         window.isWaterLocation = true;
@@ -11426,7 +11465,9 @@
                             (_nCls === 'place'   && (_nTyp === 'sea' || _nTyp === 'ocean'));
                     }
                 }
-            } catch(e) { window.isWaterLocation = false; }
+            } catch(e) {
+                if (loadGeneration === weatherLoadGeneration) window.isWaterLocation = false;
+            }
 
             // Beach detection — reverse geocoding never reliably surfaces a
             // natural=beach polygon (point features like paths/showers always
@@ -11443,9 +11484,10 @@
                     var _d = 0.01; // ~1 km — covers centroids of large beach polygons
                     var _bchD = await _osmGeocodeFetch('search', {
                         q: 'beach',
-                        bbox: (lon - _d) + ',' + (lat - _d) + ',' + (lon + _d) + ',' + (lat + _d),
+                        bbox: (loadLon - _d) + ',' + (loadLat - _d) + ',' + (loadLon + _d) + ',' + (loadLat + _d),
                         limit: 10
                     });
+                    if (loadGeneration !== weatherLoadGeneration) return;
                     if (_bchD) {
                         window.isBeachLocation = Array.isArray(_bchD) && _bchD.some(function(r) {
                             var c = (r.class || '').toLowerCase();
@@ -11455,10 +11497,12 @@
                         });
                     }
                 }
-            } catch(e) { window.isBeachLocation = false; }
+            } catch(e) {
+                if (loadGeneration === weatherLoadGeneration) window.isBeachLocation = false;
+            }
             })();
 
-            await fetchPirate(loadGeneration);
+            await fetchPirate(loadGeneration, loadLat, loadLon);
             if (loadGeneration !== weatherLoadGeneration) return;
             // Everything below is enrichment. Run it after the primary view
             // is usable, and keep failures local to the feature that failed.
@@ -11485,10 +11529,10 @@
                     if (loadGeneration !== weatherLoadGeneration) { _markHomeDataReady(); return; }
 
                     const _aqiAndBeachPromise = Promise.all([
-                        Promise.resolve(fetchAQI(loadGeneration)).catch(function() {}),
-                        Promise.resolve(fetchBeachForecast(lat, lon)).catch(function() {})
+                        Promise.resolve(fetchAQI(loadGeneration, loadLat, loadLon)).catch(function() {}),
+                        Promise.resolve(fetchBeachForecast(loadLat, loadLon)).catch(function() {})
                     ]);
-                    const _nwsHomePromise = Promise.resolve(fetchNWSChain(loadGeneration)).then(function(_nwsOk) {
+                    const _nwsHomePromise = Promise.resolve(fetchNWSChain(loadGeneration, loadLat, loadLon)).then(function(_nwsOk) {
                         // fetchNWSChain normally resolves undefined.  A false
                         // result means every current-observation source failed;
                         // keep UPDATING visible instead of presenting a blank
@@ -11521,7 +11565,7 @@
                     await Promise.all([_aqiAndBeachPromise, _openWeatherPromise, _twcPromise]);
                     // fetchAQI starts before NWS classifies the location. If
                     // this is outside the US, replace any US result.
-                    if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(lat, lon);
+                    if (window.isOutsideUS) await _fetchAQIFromOpenMeteo(loadLat, loadLon, loadGeneration);
 
                     const _alertsOk = await fetchAlerts();
                     if (_alertsOk !== true) loadFailed = true;
@@ -11533,7 +11577,7 @@
                     var _savedQBch = (localStorage.getItem('waddle_city') || '').toLowerCase();
                     if (window.isBeachLocation || window.isWaterLocation ||
                         _savedQBch.includes('beach') || _savedQBch.includes('shore')) {
-                        await fetchBeachForecast(lat, lon);
+                        await fetchBeachForecast(loadLat, loadLon);
                     }
                     await fetchRiskLevels();
                     if (activeOutlookCenter === 'nhc') {
