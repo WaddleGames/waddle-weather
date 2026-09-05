@@ -4,6 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SkyMonitor</title>
+    <script>
+        // Informational pages use this same document so Cloudflare Pages can
+        // serve clean URLs without duplicating the SkyMonitor application.
+        (function () {
+            var path = window.location.pathname.replace(/\/+$/, '') || '/';
+            var infoPage = path === '/privacy' || path === '/about-custom-alerts';
+            window.SKYMONITOR_INFO_PAGE = infoPage;
+            window.SKYMONITOR_INFO_KIND = path === '/privacy' ? 'privacy' :
+                (path === '/about-custom-alerts' ? 'custom-alerts' : '');
+            var infoPaths = { '/privacy': true, '/about-custom-alerts': true };
+            var mainPath = '/';
+
+            // A normal link from the main page to an informational page, or a
+            // browser-back navigation from one of those pages, is still an
+            // in-app handoff. Arm the one-shot flag before the destination
+            // document is requested so the main page never paints its splash
+            // screen during the return trip.
+            function armSkipLaunch() {
+                try { sessionStorage.setItem('skymonitor_skip_launch_once', 'true'); } catch (e) {}
+            }
+            try {
+                if (infoPage) {
+                    var ref = document.referrer ? new URL(document.referrer, window.location.href) : null;
+                    var refPath = ref && ref.origin === window.location.origin
+                        ? (ref.pathname.replace(/\/+$/, '') || '/')
+                        : '';
+                    if (refPath === mainPath) armSkipLaunch();
+                }
+                document.addEventListener('click', function (event) {
+                    var link = event.target && event.target.closest
+                        ? event.target.closest('a[href]')
+                        : null;
+                    if (!link || link.target === '_blank' || event.defaultPrevented) return;
+                    var destination = new URL(link.href, window.location.href);
+                    var destinationPath = destination.pathname.replace(/\/+$/, '') || '/';
+                    if (destination.origin === window.location.origin && infoPaths[destinationPath]) {
+                        armSkipLaunch();
+                    }
+                }, true);
+            } catch (e) {}
+            if (infoPage) {
+                document.documentElement.classList.add('info-route');
+                document.title = path === '/privacy'
+                    ? 'Privacy Policy · SkyMonitor'
+                    : 'About Custom Alerts · SkyMonitor';
+            }
+            // Returning from an informational page is a normal in-app
+            // navigation, not a cold start. Hide the launch splash before the
+            // body is painted so it never flashes during the handoff.
+            try {
+                if (!infoPage && sessionStorage.getItem('skymonitor_skip_launch_once') === 'true') {
+                    sessionStorage.removeItem('skymonitor_skip_launch_once');
+                    document.documentElement.classList.add('skip-launch');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <!-- Redirect visitors from the legacy GitHub Pages URL to the canonical site. -->
     <script>
         (() => {
@@ -57,6 +114,97 @@
             background-attachment: fixed; color: white; margin: 0;
             padding: max(20px, env(safe-area-inset-top)) 20px 100px 20px; transition: background 1.5s ease;
             overscroll-behavior-y: contain;
+        }
+
+        /* Shared shell for /privacy and /about-custom-alerts. These pages
+           use the main site's daylight state, but never inherit warning,
+           sunrise, or sunset-specific theme colors. */
+        html.info-route body {
+            background: var(--info-page-background, linear-gradient(180deg, #07131d 0%, #000000 100%)) !important;
+            background-attachment: fixed;
+        }
+        html.info-route.info-day {
+            --info-page-background: linear-gradient(180deg, #1a3a5a 0%, #07131d 100%);
+        }
+        html.info-route.info-night {
+            --info-page-background: linear-gradient(180deg, #07131d 0%, #000000 100%);
+        }
+        html.info-route #launch-screen,
+        html.skip-launch #launch-screen,
+        html.info-route #rainCanvas,
+        html.info-route #ptr-indicator,
+        html.info-route #sync-indicator,
+        html.info-route #github-release-modal,
+        html.info-route #dashboard {
+            display: none !important;
+        }
+        html.info-route #skyCanvas {
+            display: block !important;
+        }
+        html.info-route .bottom-nav .nav-item.active {
+            color: #70808d;
+            background: transparent;
+        }
+        #info-page-shell {
+            display: none;
+            max-width: 850px;
+            margin: 30px auto 0;
+            position: relative;
+            z-index: 10;
+        }
+        html.info-route #info-page-shell {
+            display: block;
+        }
+        .info-page {
+            display: none;
+            background: rgba(255,255,255,0.035);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            color: #fff;
+            font-family: Arial, 'Segoe UI', sans-serif;
+            line-height: 1.55;
+        }
+        .info-page.is-visible {
+            display: block;
+        }
+        .info-page h2 {
+            margin: 0 0 22px;
+            color: var(--accent);
+            font-size: 20pt;
+            line-height: 1.2;
+        }
+        .info-page h2 small {
+            font-size: 14pt;
+            white-space: nowrap;
+        }
+        .info-page h3 {
+            margin: 20px 0 6px;
+            color: #fff;
+            font-size: 13pt;
+            line-height: 1.25;
+        }
+        .info-page p {
+            margin: 0 0 16px;
+            font-size: 11pt;
+        }
+        .info-page a {
+            color: #ff8a3d;
+            text-decoration: underline;
+            overflow-wrap: anywhere;
+        }
+        .info-page .last-updated {
+            margin-top: 22px;
+            margin-bottom: 0;
+        }
+        @media (max-width: 600px) {
+            #info-page-shell { margin-top: 20px; }
+            .info-page { padding: 22px 18px; border-radius: 18px; }
+            .info-page h2 { font-size: 18pt; }
+            .info-page h2 small { font-size: 12pt; }
+            .info-page p { font-size: 10.5pt; }
         }
 
         body.theme-tor { background: linear-gradient(180deg, #3a0000 0%, #0a0000 100%) !important; }
@@ -743,6 +891,49 @@
     </div>
     </div>
 
+    <main id="info-page-shell" aria-live="polite">
+        <article id="privacy-page" class="info-page">
+            <h2>SkyMonitor Privacy Policy <small>(September 2026)</small></h2>
+
+            <h3>Who runs SkyMonitor?</h3>
+            <p>SkyMonitor is run by chicagoeas on GitHub. You can visit me here: <a href="https://github.com/chicagoeas" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas</a>. SkyMonitor is a hobby weather website I have been working on for a while now.</p>
+
+            <h3>What information does SkyMonitor use?</h3>
+            <p>As you have already noticed from using the site, SkyMonitor uses your current location ONLY if you provide us access to it (you can still use SkyMonitor perfectly fine even if you deny location permissions), and we use your current location to provide you with the most accurate, precise information for your exact location. This is especially important on SkyMonitor, as we use the Weather Underground PWS network, which has many PWS (Personal Weather Stations) around the world. You can check out the official web page for WU’s PWS network here: <a href="https://www.wunderground.com/pws/overview" target="_blank" rel="noopener noreferrer">https://www.wunderground.com/pws/overview</a>. WU has a massive network of PWS’s, and there is most likely one in your city, if not even down the street. This is one of the major benefits of using SkyMonitor, as every time you check the current conditions, you are seeing real observations from physical weather stations around the globe, not just model estimates or far-away airport observations. (Though it should be noted that the current weather, for example, whether it’s sunny, cloudy, or rainy, does use either your nearest airport or a model estimate, as WU PWS’s do not provide that kind of information.)</p>
+
+            <h3>What other features on the site use your location?</h3>
+            <p>The other two features on SkyMonitor that use your location data are push notifications and user reporting. These are both optional features, as is location access in general, but it’s important for you to know as the user what kind of your data is being sent to us, especially on the internet nowadays. When you enable push notifications (which can ONLY be done if you have added the website to your home screen on your phone; this can NOT be done through the web browser), every time you open SkyMonitor, we ping your location to check if there are any notifications that need to be sent to you. SkyMonitor is designed to use your location when the site is open. It does not intentionally request continuous background location updates. When you submit a user report, your exact location is not published as the report location. SkyMonitor adjusts the report marker before submission. SkyMonitor will automatically change the report location to anywhere within around 500 feet (or 150 meters) of your location. There is also a separate feature called “Privacy Mode” that you can enable, which will instead send reports from the exact location of your city center, for extra privacy. It should also be noted that you can clearly see where your report pin is placed on the map, and you can move it to your liking. You will then be prompted to choose a category for the user report, and you can optionally add any extra information about the report you are making in the text box provided.</p>
+
+            <h3>What does SkyMonitor store on your browser?</h3>
+            <p>SkyMonitor stores your settings, selected locations, notification preferences, and cached weather information on your browser. The reason we store this is so that every time you visit SkyMonitor from the same device, you won’t have to change your settings to how you like them every time. We also cache weather information, as SkyMonitor can actually be used completely offline, provided you have added it to your home screen on your phone. No other data is ever stored on your browser by SkyMonitor.</p>
+
+            <h3>What external services does SkyMonitor use?</h3>
+            <p>SkyMonitor uses Cloudflare services for some weather requests, hosting/backend functionality, and bot protection. Specifically, you might see a Cloudflare verification box if you try to access the Live User Reports tab for the first time. This is to ensure that no bots are able to access the live reporting section of the website, as they could cause harm by spamming reports. You can see Cloudflare’s privacy policy here: <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">https://www.cloudflare.com/privacypolicy/</a>. We also use OpenStreetMap for the map information you see on the live reporting map, which you can visit here: <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">https://www.openstreetmap.org/</a></p>
+
+            <h3>What choices do you have as a user?</h3>
+            <p>In SkyMonitor, you have a lot of choices you can make as a user. If you don’t want to share your location with us, you can always deny access when the location request shows up. You do not have to use notifications or the live reporting section, and there are also more customization settings available in the settings window as well.</p>
+
+            <h3>Contact</h3>
+            <p>You can email me at: skymonitorofficial@gmail.com, or if you have an issue report to make, you can visit the following link: <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml</a></p>
+
+            <p>Thank you so much for using SkyMonitor. I really hope you enjoy using it, and I am always open to feedback or suggestions if you have any.</p>
+            <p class="last-updated">Last updated: September 4th, 2026</p>
+        </article>
+
+        <article id="custom-alerts-page" class="info-page">
+            <h2>About Custom SkyMonitor alerts</h2>
+
+            <h3>What are custom SkyMonitor alerts?</h3>
+            <p>Custom SkyMonitor alerts are NWS-style alerts in the following categories: Severe Thunderstorm Warning, Tornado Warning, Flash Flood Warning, Special Weather Statement, and Mesoscale Discussion, issued by trusted SkyMonitor users. Once issued, you can view them directly in the “LIVE REPORTING MAP” section of SkyMonitor as long as you have them enabled.</p>
+
+            <h3>Can I trust SkyMonitor custom alerts?</h3>
+            <p>You should NEVER completely trust a SkyMonitor custom alert. They are not issued by meteorologists or experts. However, they are useful for tracking specific storms and what they are capable of producing, even if there is too low a probability for the NWS to rely on. For example, a storm might have a probable chance of producing a tornado; however, the NWS thinks that chance is too low or even misses the chance entirely, which can happen, although rarely, and therefore a custom SkyMonitor alert could let you know of the possible danger. There are also situations where SkyMonitor custom alerts can come a few minutes or even multiple minutes BEFORE the NWS issues one; for example, a custom SkyMonitor Severe Thunderstorm Warning could come slightly before the NWS’s actual Severe Thunderstorm Warning.</p>
+
+            <h3>Is there a quality-checking system behind the issuance of SkyMonitor custom alerts?</h3>
+            <p>If any of the alerts issued by our trusted users are deemed inaccurate or even misleading, that person may lose their privilege to issue custom alerts. You can report specific custom alerts by clicking the 📣 button at the top right of the custom alert box. You will be forwarded to a Google Form where the Alert ID you are reporting will be automatically filled in, and from there you can explain why you are reporting the alert, for example, if it was inaccurate or misleading, and if we find that to be true, we will take action to remove the alert and possibly even take action against the person who issued the alert, though that would be rare.</p>
+        </article>
+    </main>
+
     <!-- Cloudflare Turnstile Gate Modal -->
     <div id="turnstile-gate" style="display:none; position:fixed; inset:0; z-index:5000; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); align-items:center; justify-content:center;">
     <div style="background:#0b1e2d; border:1px solid #223344; border-radius:18px; padding:30px 24px 24px 24px; width:90%; max-width:310px; box-shadow:0 0 60px rgba(0,0,0,1); text-align:center;">
@@ -757,6 +948,10 @@
         <div style="margin-top:16px; font-size:0.58em; color:#2a3d4f; line-height:1.5;">Protected by Cloudflare Turnstile &nbsp;&middot;&nbsp; <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" style="color:#2a3d4f;">Privacy</a> &nbsp;&middot;&nbsp; <a href="https://www.cloudflare.com/website-terms/" target="_blank" style="color:#2a3d4f;">Terms</a></div>
     </div>
     </div>
+    <!-- Invisible renewal widget. After the first visible verification, this
+         obtains one-use server tokens without reopening the verification modal. -->
+    <div id="turnstile-silent-container" aria-hidden="true"
+         style="position:fixed; left:-10000px; top:-10000px; width:300px; height:65px; overflow:hidden; opacity:0; pointer-events:none;"></div>
 
     <div id="user-report-info-modal" onclick="if(event.target===this)closeUserReportInfoModal()"
          style="display:none; position:fixed; inset:0; z-index:4000; background:rgba(0,0,0,0.8); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
@@ -766,7 +961,7 @@
             <button onclick="closeUserReportInfoModal()" style="background:none; border:none; color:#445566; cursor:pointer; font-size:1.2em;">&#10005;</button>
         </div>
         <p style="font-size:0.82em; line-height:1.65; color:#ccd6dd; margin:0;">
-            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
+            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
         </p>
         <p style="font-size:0.78em; line-height:1.6; color:#ff9100; margin:14px 0 0 0; font-weight:700;">
             DISCLAIMER: SkyMonitor reports and custom alerts are not officially supported, so mistakes can be made. Be sure to report custom alerts using the report button if you think they are inaccurate or misleading.
@@ -1201,7 +1396,7 @@
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
+                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
                   <div id="custom-sky-alerts-status" style="display:none; font-size:0.68em; color:#718496; margin:-3px 0 10px;"></div>
@@ -1255,9 +1450,11 @@
     <p style="font-size:0.65em; margin-top:4px; opacity:0.5;">Powered by TWC, PirateWeather, OpenWeather, Open-Meteo, SPC, NWS, and WU</p>
     <p style="font-size:0.75em; margin-top:12px; opacity:0.45; letter-spacing:0.5px;">&copy; 2026 SkyMonitor. All rights reserved.</p>
     <p style="font-size:0.72em; margin-top:8px; opacity:0.6; letter-spacing:0.4px;">
-        <a href="https://github.com/chicagoeas/sky-monitor" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">GitHub</a>
-        <span style="margin:0 8px; opacity:0.7;">&middot;</span>
         <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">Report Bugs</a>
+        <span style="margin:0 8px; opacity:0.7;">&middot;</span>
+        <a href="/privacy" style="color:inherit; text-decoration:underline;">Privacy</a>
+        <span style="margin:0 8px; opacity:0.7;">&middot;</span>
+        <a href="https://github.com/chicagoeas/sky-monitor" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline;">GitHub</a>
     </p>
 </footer>
 
@@ -1326,6 +1523,9 @@
     var _turnstileVerified = localStorage.getItem('turnstile_verified') === 'true';
     var _turnstileToken = '';
     var _turnstileWidgetId = null;
+    var _turnstileSilentWidgetId = null;
+    var _turnstileSilentRequestActive = false;
+    var _turnstileSilentWaiters = [];
 
     // Weather provider credentials live in the Cloudflare Worker, never in this file.
     // Replace this URL with the deployed worker URL during integration.
@@ -1774,15 +1974,116 @@
                 var city = (suburb && primaryCity) ? suburb + ', ' + primaryCity : (suburb || primaryCity || 'Current Location');
                 var livePanel = document.getElementById('coords-panel');
                 if (livePanel && localStorage.getItem('input_mode') === 'live') {
+                    try { localStorage.setItem('live_location_name', city); } catch (e) {}
                     livePanel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">📍 ' + escapeHtml(city) + '</span>';
                 }
             }).catch(function() {});
+    }
+
+    function navigateFromInfoPage(mode, value, extra) {
+        var pending = { mode: mode };
+        if (value) pending.value = value;
+        if (extra && typeof extra === 'object') {
+            Object.keys(extra).forEach(function(key) {
+                if (extra[key] !== undefined && extra[key] !== null && extra[key] !== '') {
+                    pending[key] = extra[key];
+                }
+            });
+        }
+        try {
+            sessionStorage.setItem('skymonitor_pending_location', JSON.stringify(pending));
+            sessionStorage.setItem('skymonitor_skip_launch_once', 'true');
+        } catch (e) {}
+        window.location.href = '/';
+    }
+
+    function renderInfoLocationControls(mode) {
+        var panel = document.getElementById('coords-panel');
+        if (!panel) return;
+
+        panel.classList.toggle('city-mode', mode === 'city');
+        ['coord', 'city', 'live'].forEach(function(name) {
+            var button = document.getElementById('opt-mode-' + name);
+            if (button) button.classList.toggle('active', name === mode);
+        });
+
+        if (mode === 'coord') {
+            panel.innerHTML = '<input type="text" id="coordInput" value="' + escapeHtml((localStorage.getItem('waddle_lat') || '41.8781') + ', ' + (localStorage.getItem('waddle_lon') || '-87.6298')) + '" placeholder="lat, lon" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9.,\\-]/g,\'\')"><button class="btn-action" onclick="manualUpdateLocation()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+            var coordInput = document.getElementById('coordInput');
+            if (coordInput) coordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') manualUpdateLocation();
+            });
+        } else if (mode === 'live') {
+            var liveName = localStorage.getItem('live_location_name') || '';
+            var savedLat = parseFloat(localStorage.getItem('waddle_lat'));
+            var savedLon = parseFloat(localStorage.getItem('waddle_lon'));
+            var liveLabel = liveName
+                ? '&#128205; ' + escapeHtml(liveName)
+                : (isFinite(savedLat) && isFinite(savedLon)
+                    ? '&#128205; Finding saved location...'
+                    : '&#128205; LIVE LOCATION');
+            // Match the live-mode header on the main site: GPS is available
+            // through the settings/input-mode control, not inside this bar.
+            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">' + liveLabel + '</span>';
+            if (!liveName && isFinite(savedLat) && isFinite(savedLon)) {
+                _updateLivePanelCity(savedLat, savedLon);
+            }
+        } else {
+            panel.innerHTML = '<div class="city-mode-container"><input type="text" id="cityInput" placeholder="Enter City, Zip, Address..." value="' + escapeHtml(localStorage.getItem('waddle_city') || '') + '"><button class="btn-action" onclick="runCitySearch()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button></div>';
+            var cityInput = document.getElementById('cityInput');
+            // Keep the informational route's city field behavior identical to
+            // the main app, including debounced Photon autocomplete results.
+            if (!document.getElementById('city-ac-dropdown')) {
+                var infoDropdown = document.createElement('div');
+                infoDropdown.id = 'city-ac-dropdown';
+                infoDropdown.className = 'city-ac-dropdown';
+                document.body.appendChild(infoDropdown);
+            }
+            if (cityInput) {
+                var infoAcTimer = null;
+                var fetchInfoSuggestions = function(q) {
+                    clearTimeout(infoAcTimer);
+                    infoAcTimer = setTimeout(function() {
+                        _osmGeocodeFetch('search', { q: q, limit: 5 })
+                            .then(function(data) { _renderCityAC(data); })
+                            .catch(function() {});
+                    }, 350);
+                };
+                cityInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') runCitySearch();
+                });
+                cityInput.addEventListener('blur', function() {
+                    setTimeout(function() {
+                        var dropdown = document.getElementById('city-ac-dropdown');
+                        if (dropdown) dropdown.style.display = 'none';
+                    }, 200);
+                });
+                cityInput.addEventListener('focus', function() {
+                    var q = (cityInput.value || '').trim();
+                    if (q.length >= 2) fetchInfoSuggestions(q);
+                });
+                cityInput.addEventListener('input', function() {
+                    var q = (cityInput.value || '').trim();
+                    var dropdown = document.getElementById('city-ac-dropdown');
+                    if (!q || q.length < 2) {
+                        if (dropdown) dropdown.style.display = 'none';
+                        return;
+                    }
+                    fetchInfoSuggestions(q);
+                });
+            }
+        }
     }
 
     function setInputView(mode) {
         const panel = document.getElementById('coords-panel');
         localStorage.setItem('input_mode', mode);
         SkyDB.set(SkyDB.S.settings, 'input_mode', mode);
+
+        if (window.SKYMONITOR_INFO_PAGE) {
+            renderInfoLocationControls(mode);
+            return;
+        }
 
         // Stop any active live tracking when switching away
         if (mode !== 'live' && _liveWatchId !== null) {
@@ -1895,6 +2196,14 @@
                 lon = parseFloat(parseFloat(r.lon).toFixed(4));
                 var shortName = r.display_name.split(',')[0].trim();
                 if (cityEl) cityEl.value = shortName;
+                if (window.SKYMONITOR_INFO_PAGE) {
+                    navigateFromInfoPage('city', shortName, {
+                        lat: lat,
+                        lon: lon,
+                        city: shortName
+                    });
+                    return;
+                }
                 localStorage.setItem('waddle_city', shortName);
                 dd.style.display = 'none';
                 manualUpdateLocation();
@@ -1906,6 +2215,27 @@
         const cityEl = document.getElementById('cityInput');
         const query = cityEl ? cityEl.value.trim() : '';
         if (!query) return;
+        if (window.SKYMONITOR_INFO_PAGE) {
+            // Resolve the city before leaving the informational route. The
+            // main page can then start its weather load immediately instead
+            // of depending on a second asynchronous search after navigation.
+            try {
+                var infoResults = await _osmGeocodeFetch('search', { q: query, limit: 1 });
+                var infoResult = infoResults && infoResults[0];
+                if (!infoResult) throw new Error('No city result');
+                var infoLat = parseFloat(parseFloat(infoResult.lat).toFixed(4));
+                var infoLon = parseFloat(parseFloat(infoResult.lon).toFixed(4));
+                var infoCity = infoResult.display_name.split(',')[0].trim();
+                navigateFromInfoPage('city', query, {
+                    lat: infoLat,
+                    lon: infoLon,
+                    city: infoCity
+                });
+            } catch (e) {
+                alert('No results found. Ensure you have not misspelled anything.');
+            }
+            return;
+        }
         if (_isOffline) { alert('You cannot search while offline.'); return; }
         try {
             const data = await _osmGeocodeFetch('search', { q: query, limit: 5 });
@@ -2113,6 +2443,68 @@
         _turnstileToken = '';
     }
 
+    function _finishSilentTurnstileRequest(token, error) {
+        _turnstileSilentRequestActive = false;
+        if (token) _turnstileToken = token;
+        var waiters = _turnstileSilentWaiters.splice(0);
+        waiters.forEach(function(waiter) {
+            if (error) waiter.reject(error);
+            else if (token) waiter.resolve(token);
+            else waiter.reject(new Error('Turnstile did not return a token.'));
+        });
+    }
+
+    function _requestSilentTurnstileToken() {
+        if (_turnstileSilentRequestActive) return;
+        if (typeof turnstile === 'undefined') {
+            setTimeout(_requestSilentTurnstileToken, 250);
+            return;
+        }
+
+        _turnstileSilentRequestActive = true;
+        try {
+            if (_turnstileSilentWidgetId === null) {
+                _turnstileSilentWidgetId = turnstile.render('#turnstile-silent-container', {
+                    sitekey: TURNSTILE_SITE_KEY,
+                    theme: 'dark',
+                    size: 'invisible',
+                    execution: 'execute',
+                    appearance: 'interaction-only',
+                    action: 'report_gate_renewal',
+                    callback: function(token) {
+                        _finishSilentTurnstileRequest(token, null);
+                    },
+                    'expired-callback': function() {
+                        _finishSilentTurnstileRequest('', new Error('Verification expired.'));
+                    },
+                    'error-callback': function() {
+                        _finishSilentTurnstileRequest('', new Error('Verification failed.'));
+                    }
+                });
+            } else {
+                turnstile.reset(_turnstileSilentWidgetId);
+            }
+            turnstile.execute(_turnstileSilentWidgetId);
+        } catch (error) {
+            _finishSilentTurnstileRequest('', error);
+        }
+    }
+
+    // The first verification is visible and remembered per browser/device.
+    // Every later POST still receives a fresh one-use token, but renewal is
+    // invisible unless Cloudflare itself decides an interaction is necessary.
+    function getTurnstileTokenForReport() {
+        if (_turnstileToken) return Promise.resolve(_turnstileToken);
+        if (!_turnstileVerified) {
+            showTurnstileGate();
+            return Promise.resolve(null);
+        }
+        return new Promise(function(resolve, reject) {
+            _turnstileSilentWaiters.push({ resolve: resolve, reject: reject });
+            _requestSilentTurnstileToken();
+        });
+    }
+
     function showTurnstileGate() {
         var gate = document.getElementById('turnstile-gate');
         var statusEl = document.getElementById('turnstile-status');
@@ -2210,17 +2602,36 @@
 
     function updateAtmosphereTheme() {
         const body = document.body;
-        if (body.classList.contains('theme-tor') || body.classList.contains('theme-svr') || body.classList.contains('theme-ffw')) return;
+        const hasWarningTheme = body.classList.contains('theme-tor') ||
+            body.classList.contains('theme-svr') || body.classList.contains('theme-ffw');
+        let isDay = false;
         if (!localRiseTime || !localSetTime) {
             // Polar region: use _polarState to pick the right gradient instead of always defaulting to night
-            if (window._polarState === 'day') { body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)'; }
-            else { body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)'; }
+            isDay = window._polarState === 'day';
+        } else {
+            const now = new Date().getTime();
+            isDay = now > localRiseTime && now < localSetTime;
+        }
+
+        // Persist the underlying day/night state separately from the visible
+        // warning theme. The info routes use this state on their next load.
+        try {
+            var savedAtmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+            savedAtmosphere.isDay = !!isDay;
+            savedAtmosphere.moonPhase = normalizeMoonPhase(moonPhaseVal);
+            savedAtmosphere.updatedAt = Date.now();
+            localStorage.setItem('skymonitor_daylight_state', JSON.stringify(savedAtmosphere));
+        } catch (e) {}
+
+        if (hasWarningTheme) return;
+        if (!localRiseTime || !localSetTime) {
+            if (isDay) body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)';
+            else body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
             return;
         }
         const now = new Date().getTime(); const fifteenMins = 15 * 60 * 1000;
         const isGoldenHourMorn = now >= localRiseTime - fifteenMins && now <= localRiseTime + fifteenMins;
         const isGoldenHourEve = now >= localSetTime - fifteenMins && now <= localSetTime + fifteenMins;
-        const isDay = (now > localRiseTime && now < localSetTime);
         if (isGoldenHourMorn || isGoldenHourEve) body.style.background = 'linear-gradient(180deg, #e65100 0%, #07131d 100%)';
         else if (isDay) body.style.background = 'linear-gradient(180deg, #1a3a5a 0%, #07131d 100%)';
         else body.style.background = 'linear-gradient(180deg, #07131d 0%, #000000 100%)';
@@ -2270,6 +2681,10 @@
     }
 
     function switchTab(tabId, element) {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            window.location.href = '/#' + tabId;
+            return;
+        }
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(tabId + '-tab').classList.add('active');
@@ -2328,6 +2743,16 @@
     }
 
     function manualUpdateLocation() {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            var coordInput = document.getElementById('coordInput');
+            var coords = coordInput ? coordInput.value.trim() : '';
+            if (coords) {
+                navigateFromInfoPage('coord', coords);
+            } else if (isFinite(lat) && isFinite(lon)) {
+                navigateFromInfoPage('coord', lat + ', ' + lon);
+            }
+            return;
+        }
         window._locFromGPS = false;
         updateLocation();
     }
@@ -2386,6 +2811,10 @@
     }
 
     function getLocation() {
+        if (window.SKYMONITOR_INFO_PAGE) {
+            navigateFromInfoPage('gps');
+            return;
+        }
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(p => {
                 lat = parseFloat(p.coords.latitude.toFixed(4)); lon = parseFloat(p.coords.longitude.toFixed(4));
@@ -2397,6 +2826,49 @@
                 updateLocation();
             }, function() { alert('GPS Access Denied'); });
         }
+    }
+
+    function consumeInfoLocationHandoff() {
+        if (window.SKYMONITOR_INFO_PAGE) return false;
+        var raw = null;
+        try {
+            raw = sessionStorage.getItem('skymonitor_pending_location');
+            sessionStorage.removeItem('skymonitor_pending_location');
+        } catch (e) {}
+        if (!raw) return false;
+
+        var pending;
+        try { pending = JSON.parse(raw); } catch (e) { return false; }
+        if (!pending || !pending.mode) return false;
+
+        if (pending.mode === 'city') {
+            localStorage.setItem('input_mode', 'city');
+            setInputView('city');
+            var cityInput = document.getElementById('cityInput');
+            if (cityInput) cityInput.value = pending.value || '';
+            if (isFinite(Number(pending.lat)) && isFinite(Number(pending.lon))) {
+                lat = parseFloat(pending.lat);
+                lon = parseFloat(pending.lon);
+                if (pending.city) localStorage.setItem('waddle_city', pending.city);
+                saveLoc();
+                loadAll();
+            } else if (pending.value) {
+                runCitySearch();
+            }
+        } else if (pending.mode === 'coord') {
+            localStorage.setItem('input_mode', 'coord');
+            setInputView('coord');
+            var coordInput = document.getElementById('coordInput');
+            if (coordInput) coordInput.value = pending.value || '';
+            manualUpdateLocation();
+        } else if (pending.mode === 'gps') {
+            localStorage.setItem('input_mode', 'coord');
+            setInputView('coord');
+            getLocation();
+        } else {
+            return false;
+        }
+        return true;
     }
 
     async function updateSPCMap(day) {
@@ -2665,6 +3137,14 @@
 
     function renderMoonPhaseDisplay(phase) {
         moonPhaseVal = normalizeMoonPhase(phase);
+        if (!window.SKYMONITOR_INFO_PAGE) {
+            try {
+                var savedAtmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+                savedAtmosphere.moonPhase = moonPhaseVal;
+                savedAtmosphere.updatedAt = Date.now();
+                localStorage.setItem('skymonitor_daylight_state', JSON.stringify(savedAtmosphere));
+            } catch (e) {}
+        }
         const label = document.getElementById('moonVal');
         if (label) label.innerText = getMoonPhaseName(moonPhaseVal);
         const canvas = document.getElementById('moon-phase-canvas');
@@ -3402,8 +3882,8 @@
         // weather warnings still use the safety overrides below.
         if (stormRisk) {
             if (chance < 50) score = Math.max(score, 64);
-            else if (chance < 70) score = Math.min(score, 56);
-            else score = Math.min(score, 40);
+            else if (chance < 70) score = Math.max(score, 56);
+            else score = Math.max(score, 40);
         }
         score = Math.max(0, Math.min(100, Math.round(score)));
 
@@ -4846,6 +5326,7 @@
                 });
                 window.pirateHourlyData = _rawHourly;
                 window.pirateTimezoneOffset = d.offset || 0;
+                renderAnalyticsWhenReady();
                 SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: _rawHourly, tzOffset: d.offset || 0 });
                 computeFloodOutlook();
                 // Silently patch any bad sentinel values from Open-Meteo
@@ -4945,6 +5426,7 @@
                     if (!h || !h.data || !h.data.length) return;
                     window.pirateHourlyData = h.data;
                     window.pirateTimezoneOffset = h.tzOffset || 0;
+                    renderAnalyticsWhenReady();
                     // Do NOT call computeOutdoorScore here — alerts are not restored yet,
                     // so alert-override descriptions (heat advisory, etc.) would be wrong.
                     // The saved outdoor_score snapshot (captured after alerts ran online) is
@@ -5394,6 +5876,7 @@
             });
         }
         window.pirateHourlyData = hourlyRows;
+        renderAnalyticsWhenReady();
         renderHourlyOutlook(hourlyRows, window.pirateTimezoneOffset || 0);
         SkyDB.set(SkyDB.S.weather, 'hourly_data', { ts: Date.now(), data: hourlyRows, tzOffset: window.pirateTimezoneOffset || 0 });
         // Outdoor Score is rendered when the TWC daily forecast arrives.
@@ -7266,6 +7749,20 @@
     }
 
     // ——— ANALYTICS (v1.0.4: only shown in Advanced mode) ———
+    function renderAnalyticsWhenReady() {
+        var specsTab = document.getElementById('specs-tab');
+        var section = document.getElementById('analytics-section');
+        var complexity = localStorage.getItem('data_complexity') || 'normal';
+        if (!specsTab || !section || !specsTab.classList.contains('active') ||
+            complexity !== 'specific' || !window.pirateHourlyData ||
+            !window.pirateHourlyData.length) return;
+        // Wait for the tab's layout pass so Chart.js measures a non-zero width
+        // when Specs was opened from an informational route during load.
+        setTimeout(function() {
+            if (specsTab.classList.contains('active')) renderAnalytics();
+        }, 0);
+    }
+
     function renderAnalytics() {
         if (!window.pirateHourlyData || !window.pirateHourlyData.length) return;
         if (typeof Chart === 'undefined') return;
@@ -9323,7 +9820,7 @@
              var customTiming = expires
                  ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_fmtAlertTime(expires)) + '</div>'
                 : '';
-            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="https://docs.google.com/document/d/1uSvah8t8pW645z3-hVeIS_gpRgKtfyEhboxTdEXjCNw/edit?usp=sharing" target="_blank" rel="noopener noreferrer" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
+            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
             var fullDetails = '<div id="full-' + customHazardId + '" class="alert-full-text">' + detailRows + summaryHtml + actionHtml + '</div>';
             var card = document.createElement('div');
             card.className = 'alert-card custom-skymonitor-hazard';
@@ -9863,12 +10360,21 @@
     async function submitUserReport() {
         const type = selectedReportType;
         if (!type) { alert('Please select a report type.'); return; }
+        if (submitUserReport._inFlight) return;
+        submitUserReport._inFlight = true;
         const notes = document.getElementById('report-notes').value.trim();
         const btn = document.querySelector('#reporting-tab button[onclick="submitUserReport()"]');
         const status = document.getElementById('report-status');
-        if (!_turnstileToken) {
-            invalidateTurnstile();
-            showTurnstileGate();
+        const reportTurnstileToken = await getTurnstileTokenForReport().catch(function(error) {
+            if (status) {
+                status.style.display = 'block';
+                status.textContent = 'Verification could not be renewed. Please try again.';
+                status.style.color = 'var(--warning)';
+            }
+            return null;
+        });
+        if (!reportTurnstileToken) {
+            submitUserReport._inFlight = false;
             return;
         }
         if (btn) { btn.textContent = '\u23F3 Submitting...'; btn.disabled = true; }
@@ -9877,26 +10383,24 @@
             const res = await fetch(REPORTS_WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: reportLat != null ? reportLat : parseFloat(lat), lon: reportLon != null ? reportLon : parseFloat(lon), type: type, notes: notes, time: new Date().toISOString(), turnstileToken: _turnstileToken })
+                body: JSON.stringify({ lat: reportLat != null ? reportLat : parseFloat(lat), lon: reportLon != null ? reportLon : parseFloat(lon), type: type, notes: notes, time: new Date().toISOString(), turnstileToken: reportTurnstileToken })
             });
             if (res.ok) {
                 clearReportCategory();
                 document.getElementById('report-notes').value = '';
                 invalidateTurnstile();
-                if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
                 if (status) { status.textContent = '\u2713 Report submitted! Thank you.'; status.style.color = 'var(--success)'; setTimeout(function() { status.style.display = 'none'; }, 4000); }
                 setTimeout(loadReportingMapData, 1500);
             } else {
                 invalidateTurnstile();
-                if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
                 if (status) { status.textContent = 'Report failed. Please try again.'; status.style.color = 'var(--danger)'; }
             }
         } catch(e) {
             invalidateTurnstile();
-            if (_turnstileWidgetId !== null && typeof turnstile !== 'undefined') turnstile.reset(_turnstileWidgetId);
             if (status) { status.textContent = _isOffline ? 'You cannot send reports when offline.' : 'Report failed. Please try again.'; status.style.color = 'var(--warning)'; }
         }
         if (btn) { btn.textContent = 'SUBMIT REPORT'; btn.disabled = false; }
+        submitUserReport._inFlight = false;
     }
 
     // ——— NEARBY USER REPORTS (home tab, BETA) ———
@@ -11119,11 +11623,13 @@
         }).catch(function() {});
     }
 
-    setInterval(function() { loadAll(); syncPushLocation(); }, 60000);
+    if (!window.SKYMONITOR_INFO_PAGE) {
+        setInterval(function() { loadAll(); syncPushLocation(); }, 60000);
 
-    // Live-update nearby user reports independently — shorter interval so the
-    // home widget and threat level stay current without waiting for a full 60s refresh
-    setInterval(function() { fetchNearbyReportsForHome(); }, 30000);
+        // Live-update nearby user reports independently — shorter interval so the
+        // home widget and threat level stay current without waiting for a full 60s refresh
+        setInterval(function() { fetchNearbyReportsForHome(); }, 30000);
+    }
 
     // ——— Notification deep-link: handle #severe / #severe-risks on load ———
     // When a user taps a push notification, sw.js opens/navigates to a URL like
@@ -11132,15 +11638,17 @@
     (function() {
         var hash = window.location.hash;
         if (!hash) return;
-        if (hash === '#severe' || hash === '#severe-risks') {
+        if (hash === '#home' || hash === '#severe' || hash === '#specs' || hash === '#reporting') {
+            var requestedTab = hash.slice(1);
+            var requestedNav = document.getElementById('nav-' + requestedTab);
+            if (requestedNav) switchTab(requestedTab, requestedNav);
+        } else if (hash === '#severe-risks') {
             var navEl = document.getElementById('nav-severe');
             if (navEl) switchTab('severe', navEl);
-            if (hash === '#severe-risks') {
-                setTimeout(function() {
-                    var el = document.getElementById('active-risks-box');
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 400);
-            }
+            setTimeout(function() {
+                var el = document.getElementById('active-risks-box');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 400);
         }
         // Clear the fragment so refreshing doesn't re-trigger the jump
         history.replaceState(null, '', window.location.pathname);
@@ -11468,8 +11976,40 @@
         if (reportingMap) reportingMap.invalidateSize();
     });
 
+    function initInfoPage() {
+        var privacyPage = document.getElementById('privacy-page');
+        var alertsPage = document.getElementById('custom-alerts-page');
+        if (!privacyPage || !alertsPage) return;
+
+        privacyPage.classList.toggle('is-visible', window.SKYMONITOR_INFO_KIND === 'privacy');
+        alertsPage.classList.toggle('is-visible', window.SKYMONITOR_INFO_KIND === 'custom-alerts');
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(function(item) {
+            item.classList.remove('active');
+        });
+
+        // Informational pages intentionally ignore warning and golden-hour
+        // colors, but follow the main site's underlying day/night state.
+        var atmosphere = {};
+        try {
+            atmosphere = JSON.parse(localStorage.getItem('skymonitor_daylight_state') || '{}');
+        } catch (e) {}
+        var hasDayState = typeof atmosphere.isDay === 'boolean';
+        var infoIsDay = hasDayState ? atmosphere.isDay : false;
+        var savedPhase = Number(atmosphere.moonPhase);
+        moonPhaseVal = isFinite(savedPhase) ? normalizeMoonPhase(savedPhase) : computeMoonPhase(new Date());
+        isNightAtStation = !infoIsDay;
+        document.documentElement.classList.toggle('info-day', infoIsDay);
+        document.documentElement.classList.toggle('info-night', !infoIsDay);
+        startSkyFX('');
+    }
+
     window.addEventListener('DOMContentLoaded', function() {
-        const savedMode = localStorage.getItem('input_mode') || 'live';
+        var pendingMode = null;
+        try {
+            var pendingLocation = JSON.parse(sessionStorage.getItem('skymonitor_pending_location') || 'null');
+            if (pendingLocation && pendingLocation.mode) pendingMode = pendingLocation.mode === 'city' ? 'city' : 'coord';
+        } catch (e) {}
+        const savedMode = pendingMode || localStorage.getItem('input_mode') || 'live';
         // Restore live tracking silently on startup — also re-syncs location to push subscription via window.onload
         setInputView(savedMode);
         const savedComplexity = localStorage.getItem('data_complexity') || 'normal';
@@ -11497,6 +12037,8 @@
         const savedWindMode = localStorage.getItem('wind_dir_mode') || 'compass';
         document.getElementById('opt-wind-compass')?.classList.toggle('active', savedWindMode === 'compass');
         document.getElementById('opt-wind-text')?.classList.toggle('active', savedWindMode === 'text');
+        if (window.SKYMONITOR_INFO_PAGE) initInfoPage();
+        else renderAnalyticsWhenReady();
     });
 
     window.onload = function() {
@@ -11509,12 +12051,18 @@
             ls.classList.add('hidden');
             setTimeout(function() { ls.style.display = 'none'; }, 550);
         };
+        if (window.SKYMONITOR_INFO_PAGE) {
+            window._dismissLaunch();
+            return;
+        }
         setTimeout(window._dismissLaunch, 4000);
-        loadAll().then(function() {
+        var handoffHandled = consumeInfoLocationHandoff();
+        if (!handoffHandled) loadAll().then(function() {
             syncPushLocation();
             window._dismissLaunch();
             checkForGitHubRelease();
         });
+        else window._dismissLaunch();
     };
 </script>
 
