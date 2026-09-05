@@ -4466,9 +4466,23 @@
         var ero2 = _eroLevel(window.wpcERODay2);
         var ero3 = _eroLevel(window.wpcERODay3);
 
-        // Active flood alert floors
-        var evts = (window.activeAlertEvents || []).map(function(e) { return e.toLowerCase(); });
-        var hasFFW  = window.activeFFE || evts.some(function(e) { return e.includes('flash flood warning'); });
+        // Active flood alert floors. The NWS active-alert endpoint can include
+        // products that are published now but begin later (for example, a
+        // Flood Watch starting tomorrow morning). Only let an alert influence
+        // Flood Outlook while its onset has arrived and its expiration has not.
+        var alertNowMs = Date.now();
+        var isCurrentAlert = function(eventName) {
+            var onsetMs = Number((window.activeAlertOnsets || {})[eventName] || 0);
+            var expireMs = Number((window.activeAlertExpires || {})[eventName] || 0);
+            return (!onsetMs || onsetMs <= alertNowMs) &&
+                (!expireMs || expireMs > alertNowMs);
+        };
+        var currentAlertNames = (window.activeAlertEvents || []).filter(isCurrentAlert);
+        var evts = currentAlertNames.map(function(e) { return e.toLowerCase(); });
+        var hasFFW  = evts.some(function(e) { return e.includes('flash flood warning'); });
+        var hasFFE  = !!window.activeFFE && hasFFW;
+        var hasConsiderableFlood = hasFFW &&
+            (window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood);
         var hasWarn = !hasFFW && evts.some(function(e) { return e.includes('flood warning'); });
         var hasWatch = !hasFFW && !hasWarn && evts.some(function(e) { return e.includes('flood watch') || e.includes('flood advisory'); });
 
@@ -4553,7 +4567,8 @@
             ],
             tier: tier,
             driverLabel: _driverLabel,
-            hasFFW: hasFFW, hasWarn: hasWarn, hasWatch: hasWatch,
+            hasFFW: hasFFW, hasFFE: hasFFE, hasWarn: hasWarn, hasWatch: hasWatch,
+            hasConsiderableFlood: hasConsiderableFlood,
             eroNames: ERO_NAME, eroBg: ERO_BG, eroFg: ERO_FG
         };
     }
@@ -8719,6 +8734,10 @@
         }
         modal.style.display = 'flex';
 
+        // Re-evaluate onset/expiry timestamps when the modal opens so a
+        // scheduled watch cannot remain labeled "in effect" after the clock
+        // moves across its start time (or after it expires).
+        computeFloodOutlook();
         var d = window._floodOutlookData;
         if (!d) {
             document.getElementById('flood-modal-inner').innerHTML =
@@ -8741,10 +8760,10 @@
 
         // Active alert banner
         var alertHtml = '';
-        if (window.activeFFE) {
+        if (d.hasFFE) {
             alertHtml = '<div style="background:#b71c1c;border:2px solid #fff;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-weight:900;font-size:0.82em;letter-spacing:0.5px;text-transform:uppercase;">\uD83D\uDEA8 Flash Flood Emergency \u2014 Life-threatening flooding occurring. Move to higher ground NOW.</div>';
         } else if (d.hasFFW) {
-            var ffwLabel = (window.alertHasConsiderableFlood || window.alertHasCatastrophicFlood) ? 'Flash Flood Warning (Considerable/Catastrophic)' : 'Flash Flood Warning in effect';
+            var ffwLabel = d.hasConsiderableFlood ? 'Flash Flood Warning (Considerable/Catastrophic)' : 'Flash Flood Warning in effect';
             alertHtml = '<div style="background:rgba(0,188,212,0.15);border:1px solid #00bcd4;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-weight:700;font-size:0.82em;">\u26A0\uFE0F ' + ffwLabel + '</div>';
         } else if (d.hasWarn) {
             alertHtml = '<div style="background:rgba(255,152,0,0.12);border:1px solid #ff9800;border-radius:10px;padding:9px 13px;margin-bottom:14px;font-weight:700;font-size:0.82em;">\uD83D\uDCA7 Flood Warning in effect</div>';
