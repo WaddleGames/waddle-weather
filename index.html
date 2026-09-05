@@ -1526,6 +1526,9 @@
     var _turnstileSilentWidgetId = null;
     var _turnstileSilentRequestActive = false;
     var _turnstileSilentWaiters = [];
+    var _turnstileReturnTab = 'home';
+    var _turnstileReturnScrollX = 0;
+    var _turnstileReturnScrollY = 0;
 
     // Weather provider credentials live in the Cloudflare Worker, never in this file.
     // Replace this URL with the deployed worker URL during integration.
@@ -2510,6 +2513,17 @@
         var statusEl = document.getElementById('turnstile-status');
         if (!gate) return;
 
+        // Keep the page and scroll position that opened the gate. The modal
+        // locks body scrolling, so capture this before applying that lock.
+        if (gate.style.display !== 'flex') {
+            var activeTab = document.querySelector('.tab-content.active');
+            if (activeTab && activeTab.id && activeTab.id.slice(-4) === '-tab') {
+                _turnstileReturnTab = activeTab.id.slice(0, -4);
+            }
+            _turnstileReturnScrollX = window.scrollX || 0;
+            _turnstileReturnScrollY = window.scrollY || 0;
+        }
+
         if (statusEl) {
             statusEl.textContent = '';
             statusEl.style.color = '#888';
@@ -2563,9 +2577,22 @@
         if (gate) gate.style.display = 'none';
         setModalOpen(false);
         if (goHome) {
-            // X pressed — send user back to home, don't let them in
-            var homeNav = document.getElementById('nav-home');
-            if (homeNav) window.switchTab('home', homeNav);
+            // X pressed — return to the tab that opened the gate. That tab
+            // remains active while the modal is open, but restore it here as
+            // well in case another navigation changed it meanwhile.
+            var currentTab = document.querySelector('.tab-content.active');
+            var returnTab = _turnstileReturnTab || 'home';
+            if (!currentTab || currentTab.id !== returnTab + '-tab') {
+                var returnNav = document.getElementById('nav-' + returnTab);
+                if (returnNav) window.switchTab(returnTab, returnNav);
+            }
+            requestAnimationFrame(function() {
+                window.scrollTo({
+                    left: _turnstileReturnScrollX,
+                    top: _turnstileReturnScrollY,
+                    behavior: 'instant'
+                });
+            });
         } else {
             // Verified — re-trigger the reporting tab navigation now that the flag is set
             var repNav = document.getElementById('nav-reporting');
