@@ -1933,14 +1933,22 @@
                 var city = (suburb && primaryCity) ? suburb + ', ' + primaryCity : (suburb || primaryCity || 'Current Location');
                 var livePanel = document.getElementById('coords-panel');
                 if (livePanel && localStorage.getItem('input_mode') === 'live') {
+                    try { localStorage.setItem('live_location_name', city); } catch (e) {}
                     livePanel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">📍 ' + escapeHtml(city) + '</span>';
                 }
             }).catch(function() {});
     }
 
-    function navigateFromInfoPage(mode, value) {
+    function navigateFromInfoPage(mode, value, extra) {
         var pending = { mode: mode };
         if (value) pending.value = value;
+        if (extra && typeof extra === 'object') {
+            Object.keys(extra).forEach(function(key) {
+                if (extra[key] !== undefined && extra[key] !== null && extra[key] !== '') {
+                    pending[key] = extra[key];
+                }
+            });
+        }
         try {
             sessionStorage.setItem('skymonitor_pending_location', JSON.stringify(pending));
         } catch (e) {}
@@ -1964,7 +1972,18 @@
                 if (e.key === 'Enter') manualUpdateLocation();
             });
         } else if (mode === 'live') {
-            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px;">&#128205; LIVE LOCATION</span><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+            var liveName = localStorage.getItem('live_location_name') || '';
+            var savedLat = parseFloat(localStorage.getItem('waddle_lat'));
+            var savedLon = parseFloat(localStorage.getItem('waddle_lon'));
+            var liveLabel = liveName
+                ? '&#128205; ' + escapeHtml(liveName)
+                : (isFinite(savedLat) && isFinite(savedLon)
+                    ? '&#128205; Finding saved location...'
+                    : '&#128205; LIVE LOCATION');
+            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">' + liveLabel + '</span><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+            if (!liveName && isFinite(savedLat) && isFinite(savedLon)) {
+                _updateLivePanelCity(savedLat, savedLon);
+            }
         } else {
             panel.innerHTML = '<div class="city-mode-container"><input type="text" id="cityInput" placeholder="Enter City, Zip, Address..." value="' + escapeHtml(localStorage.getItem('waddle_city') || '') + '"><button class="btn-action" onclick="runCitySearch()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button></div>';
             var cityInput = document.getElementById('cityInput');
@@ -2095,6 +2114,14 @@
                 lon = parseFloat(parseFloat(r.lon).toFixed(4));
                 var shortName = r.display_name.split(',')[0].trim();
                 if (cityEl) cityEl.value = shortName;
+                if (window.SKYMONITOR_INFO_PAGE) {
+                    navigateFromInfoPage('city', shortName, {
+                        lat: lat,
+                        lon: lon,
+                        city: shortName
+                    });
+                    return;
+                }
                 localStorage.setItem('waddle_city', shortName);
                 dd.style.display = 'none';
                 manualUpdateLocation();
@@ -2107,7 +2134,24 @@
         const query = cityEl ? cityEl.value.trim() : '';
         if (!query) return;
         if (window.SKYMONITOR_INFO_PAGE) {
-            navigateFromInfoPage('city', query);
+            // Resolve the city before leaving the informational route. The
+            // main page can then start its weather load immediately instead
+            // of depending on a second asynchronous search after navigation.
+            try {
+                var infoResults = await _osmGeocodeFetch('search', { q: query, limit: 1 });
+                var infoResult = infoResults && infoResults[0];
+                if (!infoResult) throw new Error('No city result');
+                var infoLat = parseFloat(parseFloat(infoResult.lat).toFixed(4));
+                var infoLon = parseFloat(parseFloat(infoResult.lon).toFixed(4));
+                var infoCity = infoResult.display_name.split(',')[0].trim();
+                navigateFromInfoPage('city', query, {
+                    lat: infoLat,
+                    lon: infoLon,
+                    city: infoCity
+                });
+            } catch (e) {
+                alert('No results found. Ensure you have not misspelled anything.');
+            }
             return;
         }
         if (_isOffline) { alert('You cannot search while offline.'); return; }
@@ -2620,8 +2664,11 @@
         if (window.SKYMONITOR_INFO_PAGE) {
             var coordInput = document.getElementById('coordInput');
             var coords = coordInput ? coordInput.value.trim() : '';
-            if (!coords) return;
-            navigateFromInfoPage('coord', coords);
+            if (coords) {
+                navigateFromInfoPage('coord', coords);
+            } else if (isFinite(lat) && isFinite(lon)) {
+                navigateFromInfoPage('coord', lat + ', ' + lon);
+            }
             return;
         }
         window._locFromGPS = false;
@@ -2717,7 +2764,15 @@
             setInputView('city');
             var cityInput = document.getElementById('cityInput');
             if (cityInput) cityInput.value = pending.value || '';
-            if (pending.value) runCitySearch();
+            if (isFinite(Number(pending.lat)) && isFinite(Number(pending.lon))) {
+                lat = parseFloat(pending.lat);
+                lon = parseFloat(pending.lon);
+                if (pending.city) localStorage.setItem('waddle_city', pending.city);
+                saveLoc();
+                loadAll();
+            } else if (pending.value) {
+                runCitySearch();
+            }
         } else if (pending.mode === 'coord') {
             localStorage.setItem('input_mode', 'coord');
             setInputView('coord');
