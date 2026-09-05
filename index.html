@@ -13,6 +13,37 @@
             window.SKYMONITOR_INFO_PAGE = infoPage;
             window.SKYMONITOR_INFO_KIND = path === '/privacy' ? 'privacy' :
                 (path === '/about-custom-alerts' ? 'custom-alerts' : '');
+            var infoPaths = { '/privacy': true, '/about-custom-alerts': true };
+            var mainPath = '/';
+
+            // A normal link from the main page to an informational page, or a
+            // browser-back navigation from one of those pages, is still an
+            // in-app handoff. Arm the one-shot flag before the destination
+            // document is requested so the main page never paints its splash
+            // screen during the return trip.
+            function armSkipLaunch() {
+                try { sessionStorage.setItem('skymonitor_skip_launch_once', 'true'); } catch (e) {}
+            }
+            try {
+                if (infoPage) {
+                    var ref = document.referrer ? new URL(document.referrer, window.location.href) : null;
+                    var refPath = ref && ref.origin === window.location.origin
+                        ? (ref.pathname.replace(/\/+$/, '') || '/')
+                        : '';
+                    if (refPath === mainPath) armSkipLaunch();
+                }
+                document.addEventListener('click', function (event) {
+                    var link = event.target && event.target.closest
+                        ? event.target.closest('a[href]')
+                        : null;
+                    if (!link || link.target === '_blank' || event.defaultPrevented) return;
+                    var destination = new URL(link.href, window.location.href);
+                    var destinationPath = destination.pathname.replace(/\/+$/, '') || '/';
+                    if (destination.origin === window.location.origin && infoPaths[destinationPath]) {
+                        armSkipLaunch();
+                    }
+                }, true);
+            } catch (e) {}
             if (infoPage) {
                 document.documentElement.classList.add('info-route');
                 document.title = path === '/privacy'
@@ -3851,8 +3882,8 @@
         // weather warnings still use the safety overrides below.
         if (stormRisk) {
             if (chance < 50) score = Math.max(score, 64);
-            else if (chance < 70) score = Math.min(score, 56);
-            else score = Math.min(score, 40);
+            else if (chance < 70) score = Math.max(score, 56);
+            else score = Math.max(score, 40);
         }
         score = Math.max(0, Math.min(100, Math.round(score)));
 
