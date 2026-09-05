@@ -2838,7 +2838,11 @@
         window.wuData = null; window.wuNeighborData = [];
         var _wuStEl = document.getElementById('wuStation');
         if (_wuStEl) _wuStEl.style.display = 'none';
-        loadAll();
+        // A manual location submission is an explicit refresh, even when the
+        // geocoder resolves to the same coordinates as the request already in
+        // flight. Do not let loadAll's same-key dedupe leave the UI reset while
+        // it waits on that older promise.
+        loadAll(true);
         if (document.getElementById('reporting-tab')?.classList.contains('active')) {
             initReportingMap();
             loadReportingMapData();
@@ -3434,14 +3438,25 @@
     // fetchNWSChain is the actual QC — qcStatus is only a soft tie-breaker for neighbor ranking.
     // Neighbors are filtered to ≤5 miles so isolated primaries get no neighbors and fall back
     // to the PirateWeather backstop rather than comparing against climatologically unrelated stations.
+    function _weatherFetch(url, options, timeoutMs) {
+        var request = fetch(url, options);
+        if (!timeoutMs) return request;
+        var timeout = new Promise(function(_, reject) {
+            setTimeout(function() {
+                reject(new Error('Weather request timed out after ' + timeoutMs + 'ms'));
+            }, timeoutMs);
+        });
+        return Promise.race([request, timeout]);
+    }
+
     async function fetchWUMulti(latP, lonP, signal) {
         // Weather.com credentials and the station fan-out now stay in the Worker.
         // This is awaited before the authoritative current-observation pass
         // renders, so the home card cannot flash a provisional source.
         try {
-            const r = await fetch(WEATHER_WORKER_URL + '/api/weather/pws?lat=' +
+            const r = await _weatherFetch(WEATHER_WORKER_URL + '/api/weather/pws?lat=' +
                 encodeURIComponent(latP) + '&lon=' + encodeURIComponent(lonP),
-                signal ? { signal: signal } : undefined);
+                signal ? { signal: signal } : undefined, 12000);
             if (!r.ok) return [];
             const stations = await r.json();
             return Array.isArray(stations) ? stations : [];
@@ -5129,10 +5144,10 @@
         if (!locationChanged && now - _lastPirateFetch < 300000 && !_isOffline) return; // throttle to 5 min (bypass when offline so coming back online clears the flag)
         window._pirateLoadFailed = false;
         try {
-            const resP = await fetch(WEATHER_WORKER_URL + '/api/weather/fast?lat=' +
+            const resP = await _weatherFetch(WEATHER_WORKER_URL + '/api/weather/fast?lat=' +
                 encodeURIComponent(requestLat) + '&lon=' + encodeURIComponent(requestLon), {
                     signal: requestSignal
-                });
+                }, 12000);
             if (!resP.ok) throw new Error('Pirate ' + resP.status);
             const fastPayload = await resP.json();
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
@@ -5779,7 +5794,7 @@
             + '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,uv_index,precipitation,weather_code'
             + '&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,precipitation_probability,uv_index,weather_code,precipitation'
             + '&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days=3';
-        const res = await fetch(url, requestSignal ? { signal: requestSignal } : undefined);
+        const res = await _weatherFetch(url, requestSignal ? { signal: requestSignal } : undefined, 12000);
         if (!res.ok) throw new Error('Open-Meteo ' + res.status);
         const d = await res.json();
         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
@@ -6433,8 +6448,8 @@
         requestLon = requestLon == null ? lon : requestLon;
         var requestSignal = window._weatherRequestController ? window._weatherRequestController.signal : undefined;
         try {
-            const pointsRes = await fetch('https://api.weather.gov/points/' + requestLat + ',' + requestLon,
-                requestSignal ? { signal: requestSignal } : undefined);
+            const pointsRes = await _weatherFetch('https://api.weather.gov/points/' + requestLat + ',' + requestLon,
+                requestSignal ? { signal: requestSignal } : undefined, 15000);
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             if (!pointsRes.ok) { window.isOutsideUS = true; applyInternationalMode(); return; }
             window.isOutsideUS = false; applyUSMode();
@@ -6461,13 +6476,13 @@
             // the current conditions behind "LOADING LOCATION...".
             (async function() {
                 try {
-                    const hwoRes = await fetch('https://api.weather.gov/products/types/HWO/locations/' + wfo,
-                        requestSignal ? { signal: requestSignal } : undefined);
+                    const hwoRes = await _weatherFetch('https://api.weather.gov/products/types/HWO/locations/' + wfo,
+                        requestSignal ? { signal: requestSignal } : undefined, 15000);
                     const hwoList = await hwoRes.json();
                     if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                     if (hwoList['@graph'] && hwoList['@graph'].length > 0) {
-                        const hwoDataRes = await fetch(hwoList['@graph'][0]['@id'],
-                            requestSignal ? { signal: requestSignal } : undefined);
+                        const hwoDataRes = await _weatherFetch(hwoList['@graph'][0]['@id'],
+                            requestSignal ? { signal: requestSignal } : undefined, 15000);
                         const hwoData = await hwoDataRes.json();
                         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
                         const text = (hwoData.productText || '').trim();
@@ -6477,8 +6492,8 @@
                 } catch(e) { document.getElementById('hwo-section').style.display = 'none'; }
             })();
 
-            const stationsRes = await fetch(p.properties.observationStations,
-                requestSignal ? { signal: requestSignal } : undefined);
+            const stationsRes = await _weatherFetch(p.properties.observationStations,
+                requestSignal ? { signal: requestSignal } : undefined, 15000);
             const stations = await stationsRes.json();
             if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
             const primaryStation = stations.features[0];
@@ -6496,8 +6511,8 @@
             const _elevCacheKey = requestLat.toFixed(4) + ',' + requestLon.toFixed(4);
             if (window.userLocElevFt == null || window._userLocElevKey !== _elevCacheKey) {
                 try {
-                    const _eRes = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + requestLat + '&longitude=' + requestLon,
-                        requestSignal ? { signal: requestSignal } : undefined);
+                    const _eRes = await _weatherFetch('https://api.open-meteo.com/v1/elevation?latitude=' + requestLat + '&longitude=' + requestLon,
+                        requestSignal ? { signal: requestSignal } : undefined, 12000);
                     if (_eRes.ok) {
                         const _eData = await _eRes.json();
                         if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
@@ -6539,8 +6554,8 @@
             let nwsObsWindDir = null;
             var _obsEndpointFailed = false;
             try {
-                const obsRes = await fetch(primaryStation.id + '/observations/latest',
-                    requestSignal ? { signal: requestSignal } : undefined);
+                const obsRes = await _weatherFetch(primaryStation.id + '/observations/latest',
+                    requestSignal ? { signal: requestSignal } : undefined, 15000);
                 if (!obsRes.ok) _obsEndpointFailed = true;
                 const obs = obsRes.ok ? await obsRes.json() : null;
                 if (loadGeneration != null && loadGeneration !== weatherLoadGeneration) return;
@@ -11524,7 +11539,9 @@
                         // the same promise and therefore one network request.
                         getWeatherEnrichment().catch(function() {});
                     }
-                    await _locationClassificationPromise;
+                    // Location classification is best-effort enrichment. It
+                    // must not hold the primary weather chain hostage if the
+                    // geocoder is slow or never resolves on a mobile network.
                     if (window._pirateLoadFailed) loadFailed = true;
                     if (loadGeneration !== weatherLoadGeneration) { _markHomeDataReady(); return; }
 
@@ -11656,9 +11673,9 @@
     // Prevent a slow refresh from overlapping the next 60-second refresh.
     // A location change gets a new generation and is allowed to supersede
     // the previous request; stale responses are ignored by the existing guards.
-    async function loadAll() {
+    async function loadAll(force) {
         const key = lat + ',' + lon;
-        if (_loadAllPromise && _loadAllKey === key) return _loadAllPromise;
+        if (!force && _loadAllPromise && _loadAllKey === key) return _loadAllPromise;
         // A new location gets the original first-load placeholder behavior.
         // Refreshes for a location that has already loaded keep its current
         // values visible while the new response is fetched.
