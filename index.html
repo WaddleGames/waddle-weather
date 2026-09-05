@@ -19,6 +19,15 @@
                     ? 'Privacy Policy · SkyMonitor'
                     : 'About Custom Alerts · SkyMonitor';
             }
+            // Returning from an informational page is a normal in-app
+            // navigation, not a cold start. Hide the launch splash before the
+            // body is painted so it never flashes during the handoff.
+            try {
+                if (!infoPage && sessionStorage.getItem('skymonitor_skip_launch_once') === 'true') {
+                    sessionStorage.removeItem('skymonitor_skip_launch_once');
+                    document.documentElement.classList.add('skip-launch');
+                }
+            } catch (e) {}
         })();
     </script>
     <!-- Redirect visitors from the legacy GitHub Pages URL to the canonical site. -->
@@ -90,6 +99,7 @@
             --info-page-background: linear-gradient(180deg, #07131d 0%, #000000 100%);
         }
         html.info-route #launch-screen,
+        html.skip-launch #launch-screen,
         html.info-route #rainCanvas,
         html.info-route #ptr-indicator,
         html.info-route #sync-indicator,
@@ -1951,6 +1961,7 @@
         }
         try {
             sessionStorage.setItem('skymonitor_pending_location', JSON.stringify(pending));
+            sessionStorage.setItem('skymonitor_skip_launch_once', 'true');
         } catch (e) {}
         window.location.href = '/';
     }
@@ -1980,16 +1991,56 @@
                 : (isFinite(savedLat) && isFinite(savedLon)
                     ? '&#128205; Finding saved location...'
                     : '&#128205; LIVE LOCATION');
-            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">' + liveLabel + '</span><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button>';
+            // Match the live-mode header on the main site: GPS is available
+            // through the settings/input-mode control, not inside this bar.
+            panel.innerHTML = '<span style="color:#4fc3f7; font-size:0.85em; font-weight:700; letter-spacing:1px; cursor:pointer;" onclick="setInputView(\'city\')">' + liveLabel + '</span>';
             if (!liveName && isFinite(savedLat) && isFinite(savedLon)) {
                 _updateLivePanelCity(savedLat, savedLon);
             }
         } else {
             panel.innerHTML = '<div class="city-mode-container"><input type="text" id="cityInput" placeholder="Enter City, Zip, Address..." value="' + escapeHtml(localStorage.getItem('waddle_city') || '') + '"><button class="btn-action" onclick="runCitySearch()">SYNC</button><button class="btn-action btn-gps" onclick="getLocation()">&#128205; GPS</button></div>';
             var cityInput = document.getElementById('cityInput');
-            if (cityInput) cityInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') runCitySearch();
-            });
+            // Keep the informational route's city field behavior identical to
+            // the main app, including debounced Photon autocomplete results.
+            if (!document.getElementById('city-ac-dropdown')) {
+                var infoDropdown = document.createElement('div');
+                infoDropdown.id = 'city-ac-dropdown';
+                infoDropdown.className = 'city-ac-dropdown';
+                document.body.appendChild(infoDropdown);
+            }
+            if (cityInput) {
+                var infoAcTimer = null;
+                var fetchInfoSuggestions = function(q) {
+                    clearTimeout(infoAcTimer);
+                    infoAcTimer = setTimeout(function() {
+                        _osmGeocodeFetch('search', { q: q, limit: 5 })
+                            .then(function(data) { _renderCityAC(data); })
+                            .catch(function() {});
+                    }, 350);
+                };
+                cityInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') runCitySearch();
+                });
+                cityInput.addEventListener('blur', function() {
+                    setTimeout(function() {
+                        var dropdown = document.getElementById('city-ac-dropdown');
+                        if (dropdown) dropdown.style.display = 'none';
+                    }, 200);
+                });
+                cityInput.addEventListener('focus', function() {
+                    var q = (cityInput.value || '').trim();
+                    if (q.length >= 2) fetchInfoSuggestions(q);
+                });
+                cityInput.addEventListener('input', function() {
+                    var q = (cityInput.value || '').trim();
+                    var dropdown = document.getElementById('city-ac-dropdown');
+                    if (!q || q.length < 2) {
+                        if (dropdown) dropdown.style.display = 'none';
+                        return;
+                    }
+                    fetchInfoSuggestions(q);
+                });
+            }
         }
     }
 
