@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found · SkyMonitor</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131d;
+      --panel: rgba(255, 255, 255, 0.07);
+      --text: #f5fbff;
+      --muted: #b5c4cf;
+      --accent: #4fc3f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text);
+      background: linear-gradient(180deg, var(--bg), #112233);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      text-align: center;
+    }
+    main {
+      width: min(100%, 560px);
+      padding: 42px 28px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 7vw, 3.4rem); }
+    p { margin: 0 0 26px; color: var(--muted); line-height: 1.6; }
+    a {
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 999px;
+      color: #031018;
+      background: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    a:hover { filter: brightness(1.08); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>404</h1>
+    <p>That page drifted out of range. The SkyMonitor dashboard is still right here.</p>
+    <a href="/">Return to SkyMonitor</a>
+  </main>
+</body>
+</html>
