@@ -5964,21 +5964,12 @@
     }
 
     function _estimateCurrentPrecipChance() {
-        var dp = window.twcForecastData?.daypart?.[0];
-        var chance = null;
-        if (dp && Array.isArray(dp.precipChance)) {
-            var part = window._polarState === 'night' ? 1 : 0;
-            chance = Number(dp.precipChance[part]);
-            if (!isFinite(chance)) chance = Number(dp.precipChance.find(function(v) { return v != null; }));
-        }
-        if (!isFinite(chance)) chance = 0;
-        // An active observation is stronger evidence than a forecast PoP. The
-        // condition itself comes from the authoritative current observation;
-        // no PirateWeather precipitation value is used here.
-        if (/rain|drizzle|shower|thunder|snow|sleet|hail/.test(String(currentCondition || '').toLowerCase())) {
-            return 100;
-        }
-        return Math.max(0, Math.min(100, Math.round(chance)));
+        // "Now" is an observation, not a forecast slot. Show no percentage
+        // when the current observation is dry; when precipitation is actually
+        // being observed, show certainty rather than TWC's daily forecast PoP.
+        return /rain|drizzle|shower|thunder|storm|snow|sleet|hail|wintry mix|freezing/.test(
+            String(currentCondition || '').toLowerCase()
+        ) ? 100 : 0;
     }
 
     function _currentTWCOutlookIconHtml() {
