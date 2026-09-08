@@ -43,6 +43,8 @@
     var pendingRoots = [];
     var translationEpoch = 0;
     var pendingTranslations = Object.create(null);
+    var translationAbortController = null;
+    var transactionRunning = false;
     var originalText = new WeakMap();
     var translatedText = new WeakMap();
     var translatedLanguage = new WeakMap();
@@ -87,12 +89,15 @@
         return 'en';
     }
 
+    var VOLATILE_SELECTOR = '#sync-indicator, #sync-time-display, #station-clock, #threat-updated, #spc-countdown, #turnstile-status, #report-status, #custom-sky-alerts-status, #storm-status-tag, [data-sky-i18n-skip]';
+
     function shouldSkipElement(element) {
         if (!element || !element.tagName) return true;
         var tag = element.tagName.toLowerCase();
         if (/^(script|style|noscript|template|textarea|select|option|code|pre)$/.test(tag)) return true;
-        if (/^(sync-indicator|sync-time-display|threat-updated|spc-countdown|turnstile-status|report-status|custom-sky-alerts-status|storm-status-tag)$/.test(element.id || '')) return true;
-        if (element.closest && element.closest('[data-sky-i18n-skip],input,[contenteditable="true"],.leaflet-container,#map,#reporting-map')) return true;
+        if (element.matches && element.matches(VOLATILE_SELECTOR)) return true;
+        if (element.closest && element.closest(VOLATILE_SELECTOR)) return true;
+        if (element.closest && element.closest('input,[contenteditable="true"],.leaflet-container,#map,#reporting-map')) return true;
         return false;
     }
 
@@ -155,7 +160,7 @@
         return language + '|' + text;
     }
 
-    async function translateText(text, language) {
+    async function translateText(text, language, signal) {
         if (!text || language === 'en') return text;
         var key = cacheKey(language, text);
         if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key];
@@ -166,7 +171,7 @@
                 var url = TRANSLATION_ENDPOINT +
                     '?client=gtx&sl=auto&tl=' + encodeURIComponent(language) +
                     '&dt=t&q=' + encodeURIComponent(text);
-                var response = await fetch(url);
+                var response = await fetch(url, signal ? { signal: signal } : undefined);
                 if (!response.ok) return text;
                 var data = await response.json();
                 var translated = data && data[0]
@@ -185,13 +190,13 @@
         return request;
     }
 
-    async function resolveTranslations(items, language, sourceFor) {
+    async function resolveTranslations(items, language, sourceFor, signal) {
         var cursor = 0;
         var results = new Array(items.length);
         async function worker() {
             while (cursor < items.length) {
                 var index = cursor++;
-                results[index] = await translateText(sourceFor(items[index]), language);
+                results[index] = await translateText(sourceFor(items[index]), language, signal);
             }
         }
         var workers = [];
@@ -225,38 +230,95 @@
         }
     }
 
+    function isVisibleElement(element) {
+        if (!element || !element.isConnected) return false;
+        if (element.hidden) return false;
+        if (element.offsetWidth || element.offsetHeight || element.getClientRects().length) return true;
+        return false;
+    }
+
+    function queueRoot(root) {
+        if (!root || !root.isConnected || root === document.body) return;
+        if (root.closest && root.closest(VOLATILE_SELECTOR)) return;
+        if (pendingRoots.indexOf(root) === -1) pendingRoots.push(root);
+    }
+
     function scheduleDynamicTranslation() {
-        if (pendingTimer || currentLanguage === 'en') return;
+        if (pendingTimer || currentLanguage === 'en' || isApplying || transactionRunning || !pendingRoots.length) return;
         pendingTimer = setTimeout(function () {
             pendingTimer = null;
             var roots = pendingRoots.splice(0);
             applyLanguage(currentLanguage, true, translationEpoch, roots);
-        }, 250);
+        }, 150);
     }
 
     function observe() {
         if (observer || !document.body || !window.MutationObserver) return;
         observer = new MutationObserver(function (mutations) {
-            if (isApplying || currentLanguage === 'en') return;
+            if (currentLanguage === 'en') return;
             mutations.forEach(function (mutation) {
-                if (mutation.type !== 'childList' || !mutation.addedNodes || !mutation.addedNodes.length) return;
-                for (var i = 0; i < mutation.addedNodes.length; i++) {
-                    var added = mutation.addedNodes[i];
-                    var root = added.nodeType === 1 ? added : added.parentElement;
-                    if (root && pendingRoots.indexOf(root) === -1) pendingRoots.push(root);
+                if (mutation.type === 'childList' && mutation.addedNodes && mutation.addedNodes.length) {
+                    for (var i = 0; i < mutation.addedNodes.length; i++) {
+                        var added = mutation.addedNodes[i];
+                        queueRoot(added.nodeType === 1 ? added : added.parentElement);
+                    }
+                } else if (mutation.type === 'attributes' && mutation.target && isVisibleElement(mutation.target)) {
+                    // Modal contents are often created while hidden, then shown
+                    // by a class/style change without any new child nodes.
+                    queueRoot(mutation.target);
                 }
             });
-            if (pendingRoots.length) scheduleDynamicTranslation();
+            if (pendingRoots.length && !isApplying) scheduleDynamicTranslation();
         });
-        // Only observe newly-created DOM. Constant text updates such as the
-        // sync clock and UPDATING indicator must not enter the translation
-        // queue on every refresh.
-        observer.observe(document.body, { childList: true, subtree: true });
+        // Keep observing during the initial translation transaction so modal
+        // content created in that window cannot be missed. Character data and
+        // volatile text updates are intentionally not observed.
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+        });
+    }
+
+    async function resolveAndApply(nodes, attributes, language, token, signal) {
+        if (!nodes.length && !attributes.length) return true;
+        var nodeTranslations = await resolveTranslations(nodes, language, function (node) {
+            return originalText.get(node) || node.nodeValue;
+        }, signal);
+        var attributeTranslations = await resolveTranslations(attributes, language, function (item) {
+            return item.value;
+        }, signal);
+        if (token !== undefined && token !== translationEpoch) return false;
+        isApplying = true;
+        try {
+            nodes.forEach(function (node, index) {
+                if (!node || !node.isConnected) return;
+                node.nodeValue = nodeTranslations[index];
+                translatedText.set(node, nodeTranslations[index]);
+                translatedLanguage.set(node, language);
+            });
+            attributes.forEach(function (item, index) {
+                if (!item.element || !item.element.isConnected) return;
+                item.element.setAttribute(item.attribute, attributeTranslations[index]);
+                var translatedForElement = translatedAttributes.get(item.element) || {};
+                translatedForElement[item.attribute] = attributeTranslations[index];
+                translatedForElement._language = language;
+                translatedAttributes.set(item.element, translatedForElement);
+            });
+        } finally {
+            isApplying = false;
+        }
+        saveCache();
+        return true;
     }
 
     async function applyLanguage(language, dynamicOnly, token, roots) {
         if (!supported(language)) language = 'en';
         if (token !== undefined && token !== translationEpoch) return;
+        if (transactionRunning) return;
+        transactionRunning = true;
+        try {
         currentLanguage = language;
         document.documentElement.lang = language;
         document.documentElement.dir = RTL_LANGUAGES[language] ? 'rtl' : 'ltr';
@@ -271,7 +333,7 @@
         var nodes = [];
         var attributes = [];
         var seenNodes = new WeakSet();
-        var seenElements = new WeakSet();
+        var seenAttributes = new WeakMap();
         scanRoots.forEach(function (root) {
             if (!root || !root.isConnected) return;
             collectTextNodes(root, dynamicOnly).forEach(function (node) {
@@ -281,41 +343,34 @@
                 }
             });
             collectAttributes(root, dynamicOnly).forEach(function (item) {
-                if (!seenElements.has(item.element)) {
-                    seenElements.add(item.element);
-                    attributes.push(item);
-                }
+                var elementAttributes = seenAttributes.get(item.element) || {};
+                if (elementAttributes[item.attribute]) return;
+                elementAttributes[item.attribute] = true;
+                seenAttributes.set(item.element, elementAttributes);
+                attributes.push(item);
             });
         });
         if (dynamicOnly && !nodes.length && !attributes.length) return;
 
-        // Resolve the entire batch first, then apply it in one DOM transaction.
-        // This prevents the page from visibly bouncing between English and the
-        // selected language while individual requests finish.
-        var nodeTranslations = await resolveTranslations(nodes, language, function (node) {
-            return originalText.get(node) || node.nodeValue;
+        // Translate visible content first so the page starts changing quickly;
+        // hidden modal/info content follows without an English bounce.
+        var visibleNodes = [], hiddenNodes = [];
+        var visibleAttributes = [], hiddenAttributes = [];
+        nodes.forEach(function (node) {
+            (isVisibleElement(node.parentElement) ? visibleNodes : hiddenNodes).push(node);
         });
-        var attributeTranslations = await resolveTranslations(attributes, language, function (item) {
-            return item.value;
+        attributes.forEach(function (item) {
+            (isVisibleElement(item.element) ? visibleAttributes : hiddenAttributes).push(item);
         });
-        if (token !== undefined && token !== translationEpoch) return;
-        isApplying = true;
-        nodes.forEach(function (node, index) {
-            if (!node || !node.isConnected) return;
-            node.nodeValue = nodeTranslations[index];
-            translatedText.set(node, nodeTranslations[index]);
-            translatedLanguage.set(node, language);
-        });
-        attributes.forEach(function (item, index) {
-            if (!item.element || !item.element.isConnected) return;
-            item.element.setAttribute(item.attribute, attributeTranslations[index]);
-            var translatedForElement = translatedAttributes.get(item.element) || {};
-            translatedForElement[item.attribute] = attributeTranslations[index];
-            translatedForElement._language = language;
-            translatedAttributes.set(item.element, translatedForElement);
-        });
-        isApplying = false;
-        saveCache();
+        var signal = translationAbortController ? translationAbortController.signal : undefined;
+        if (!await resolveAndApply(visibleNodes, visibleAttributes, language, token, signal)) return;
+        if (!await resolveAndApply(hiddenNodes, hiddenAttributes, language, token, signal)) return;
+        } finally {
+            transactionRunning = false;
+            if ((token === undefined || token === translationEpoch) && pendingRoots.length && currentLanguage !== 'en') {
+                scheduleDynamicTranslation();
+            }
+        }
     }
 
     function syncSelect() {
@@ -329,15 +384,14 @@
         var resolved = resolveLanguage(currentSelection);
         syncSelect();
         var token = ++translationEpoch;
+        if (translationAbortController) translationAbortController.abort();
+        translationAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
         if (pendingTimer) {
             clearTimeout(pendingTimer);
             pendingTimer = null;
         }
         pendingRoots = [];
-        if (observer) {
-            observer.disconnect();
-            observer = null;
-        }
+        observe();
         var select = document.getElementById('ui-language-select');
         if (select) select.disabled = true;
         applyLanguage(resolved, false, token).then(function () {
@@ -358,6 +412,8 @@
         if (!(supported(currentSelection) || currentSelection === 'auto')) currentSelection = 'auto';
         syncSelect();
         var token = ++translationEpoch;
+        translationAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        observe();
         applyLanguage(resolveLanguage(currentSelection), false, token).then(function () {
             if (token === translationEpoch) observe();
         });
