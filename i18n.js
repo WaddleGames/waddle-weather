@@ -12,7 +12,7 @@
     var STORAGE_KEY = 'skymonitor_ui_language';
     var CACHE_KEY = 'skymonitor_i18n_cache_v1';
     var CACHE_LIMIT = 1500;
-    var TRANSLATION_ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
+    var TRANSLATION_ENDPOINT = '/api/translate';
     var RTL_LANGUAGES = { ar: true, he: true };
     var LANGUAGES = [
         { code: 'en', label: 'English' },
