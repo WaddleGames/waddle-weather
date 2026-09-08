@@ -182,7 +182,7 @@
 
         // Keep each upstream request below the endpoint's URL limit while
         // translating many labels in one request instead of one request per DOM node.
-        var delimiter = '\n<<<SKYMONITOR_BREAK>>>\n';
+        var delimiter = '___SKYMONITOR_BREAK___';
         var chunks = [];
         var currentChunk = [];
         var currentLength = 0;
@@ -209,7 +209,7 @@
                 var response = await fetch(url, signal ? { signal: signal } : undefined);
                 if (!response.ok) continue;
                 var translated = parseTranslationResponse(await response.json());
-                var parts = translated.split('<<<SKYMONITOR_BREAK>>>');
+                var parts = translated.split('___SKYMONITOR_BREAK___');
                 if (chunk.length === 1 && translated) parts = [translated];
                 if (parts.length !== chunk.length) continue;
                 parts.forEach(function (part, index) {
