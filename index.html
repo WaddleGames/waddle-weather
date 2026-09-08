@@ -82,6 +82,7 @@
         })();
     </script>
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/1779/1779927.png">
+    <script src="/i18n.js" defer></script>
 
     <!-- PWA -->
     <meta name="theme-color" content="#07131d">
@@ -520,6 +521,11 @@
         }
         .settings-row { margin-bottom: 20px; }
         .settings-label { font-size: 0.7em; color: var(--primary); text-transform: uppercase; margin-bottom: 8px; display: block; font-weight: 900; }
+        html[dir="rtl"] body { direction: rtl; }
+        html[dir="rtl"] .leaflet-control,
+        html[dir="rtl"] .leaflet-popup-content-wrapper { direction: ltr; }
+        html[dir="rtl"] input,
+        html[dir="rtl"] textarea { text-align: right; }
         .btn-group { display: flex; gap: 4px; background: rgba(0,0,0,0.35); padding: 4px; border-radius: 8px; }
         .btn-opt { flex: 1; padding: 7px 10px; border: none; background: transparent; color: #6b7280; font-size: 0.7em; font-weight: 700; cursor: pointer; border-radius: 6px; transition: color 0.2s; }
         .btn-opt.active { background: var(--primary); color: #07131d; }
@@ -934,11 +940,34 @@
                 <button id="opt-swipe-off" class="btn-opt" onclick="setSwipeSetting(false)">OFF</button>
             </div>
         </div>
+        <div class="settings-row">
+            <span class="settings-label">Interface Language</span>
+            <select id="ui-language-select" onchange="SkyMonitorI18n.setLanguage(this.value)" aria-label="Interface language" style="width:100%; padding:8px 10px; border:1px solid #334455; border-radius:7px; background:#102638; color:#dce8ef; font-size:0.78em;">
+                <option value="auto">Automatic</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português (Brasil)</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="it">Italiano</option>
+                <option value="nl">Nederlands</option>
+                <option value="pl">Polski</option>
+                <option value="tr">Türkçe</option>
+                <option value="ar">العربية</option>
+                <option value="he">עברית</option>
+                <option value="hi">हिन्दी</option>
+                <option value="zh-CN">简体中文</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="ru">Русский</option>
+            </select>
+        </div>
         <div class="settings-row" style="margin-bottom:0;">
             <span class="settings-label">Global Alerts Language</span>
             <div class="btn-group">
                 <button id="opt-lang-default" class="btn-opt active" onclick="setAlertsLanguage('default')">DEFAULT</button>
                 <button id="opt-lang-en" class="btn-opt" onclick="setAlertsLanguage('en')">ENGLISH</button>
+                <button id="opt-lang-app" class="btn-opt" onclick="setAlertsLanguage('app')">APP LANGUAGE</button>
             </div>
         </div>
     </div>
@@ -2434,6 +2463,7 @@
         var alertLang = localStorage.getItem('alerts_language') || 'default';
         document.getElementById('opt-lang-default')?.classList.toggle('active', alertLang === 'default');
         document.getElementById('opt-lang-en')?.classList.toggle('active', alertLang === 'en');
+        document.getElementById('opt-lang-app')?.classList.toggle('active', alertLang === 'app');
         modal.style.display = 'flex';
     }
 
@@ -2488,6 +2518,7 @@
         localStorage.setItem('alerts_language', val);
         document.getElementById('opt-lang-default')?.classList.toggle('active', val === 'default');
         document.getElementById('opt-lang-en')?.classList.toggle('active', val === 'en');
+        document.getElementById('opt-lang-app')?.classList.toggle('active', val === 'app');
         window.alertTranslationCache = {};
         fetchAlerts();
     }
@@ -3592,17 +3623,21 @@
         banner.style.display = 'block'; banner.style.background = _bannerColor;
         banner.innerText = '\u26A0\uFE0F ' + alerts.length + ' ACTIVE ALERT' + (alerts.length > 1 ? 'S' : '');
         stack.innerHTML = '';
-        const _doTranslate = localStorage.getItem('alerts_language') === 'en';
+        const _alertTargetLanguage = window.SkyMonitorI18n
+            ? window.SkyMonitorI18n.getAlertLanguage()
+            : (localStorage.getItem('alerts_language') || 'default');
+        const _doTranslate = _alertTargetLanguage !== 'default';
         for (const alert of alerts) {
             const _rawTitle = alert.title || 'Weather Alert';
             let title = _rawTitle;
             if (_doTranslate) {
-                if (window.alertTranslationCache[_rawTitle]) title = window.alertTranslationCache[_rawTitle];
+                const _titleCacheKey = 'title:' + _alertTargetLanguage + ':' + _rawTitle;
+                if (window.alertTranslationCache[_titleCacheKey]) title = window.alertTranslationCache[_titleCacheKey];
                 else {
                     try {
-                        const tr = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(_rawTitle));
+                        const tr = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(_alertTargetLanguage) + '&dt=t&q=' + encodeURIComponent(_rawTitle));
                         const td = await tr.json();
-                        if (td?.[0]?.[0]?.[0]) { window.alertTranslationCache[_rawTitle] = td[0][0][0]; title = td[0][0][0]; }
+                        if (td?.[0]?.[0]?.[0]) { window.alertTranslationCache[_titleCacheKey] = td[0][0][0]; title = td[0][0][0]; }
                     } catch(e) {}
                 }
             }
@@ -3623,12 +3658,12 @@
                      : '');
             let desc = alert.description || '';
             if (desc && _doTranslate) {
-                const cacheKey = 'desc:' + desc.slice(0, 80);
+                const cacheKey = 'desc:' + _alertTargetLanguage + ':' + desc.slice(0, 80);
                 if (window.alertTranslationCache[cacheKey]) {
                     desc = window.alertTranslationCache[cacheKey];
                 } else {
                     try {
-                        const tr2 = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' + encodeURIComponent(desc));
+                        const tr2 = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + encodeURIComponent(_alertTargetLanguage) + '&dt=t&q=' + encodeURIComponent(desc));
                         const td2 = await tr2.json();
                         if (td2?.[0]) {
                             const translated = td2[0].map(function(s) { return s?.[0] || ''; }).join('');
