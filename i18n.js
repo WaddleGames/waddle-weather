@@ -227,6 +227,10 @@
         return results;
     }
 
+    async function translateText(text, language, signal) {
+        return (await translateBatch([text], language, signal))[0];
+    }
+
     async function resolveTranslations(items, language, sourceFor, signal) {
         var unique = [];
         var positions = Object.create(null);
