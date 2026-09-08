@@ -967,20 +967,20 @@
             <p>In SkyMonitor, you have a lot of choices you can make as a user. If you don’t want to share your location with us, you can always deny access when the location request shows up. You do not have to use notifications or the live reporting section, and there are also more customization settings available in the settings window as well.</p>
 
             <h3>Contact</h3>
-            <p>You can email me at: skymonitorofficial@gmail.com, or if you have an issue report to make, you can visit the following link: <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml</a></p>
+            <p>You can email me at: <a href="mailto:contact@skymonitor.app">contact@skymonitor.app</a>, or if you have an issue report to make, you can visit the following link: <a href="https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">https://github.com/chicagoeas/sky-monitor/issues/new?template=bug_report.yml</a></p>
 
             <p>Thank you so much for using SkyMonitor. I really hope you enjoy using it, and I am always open to feedback or suggestions if you have any.</p>
             <p class="last-updated">Last updated: September 4th, 2026</p>
         </article>
 
         <article id="custom-alerts-page" class="info-page">
-            <h2>About Custom SkyMonitor alerts</h2>
+            <h2>About SkyMonitor custom alerts</h2>
 
-            <h3>What are custom SkyMonitor alerts?</h3>
-            <p>Custom SkyMonitor alerts are NWS-style alerts in the following categories: Severe Thunderstorm Warning, Tornado Warning, Flash Flood Warning, Special Weather Statement, and Mesoscale Discussion, issued by trusted SkyMonitor users. Once issued, you can view them directly in the “LIVE REPORTING MAP” section of SkyMonitor as long as you have them enabled.</p>
+            <h3>What are SkyMonitor custom alerts?</h3>
+            <p>SkyMonitor custom alerts are NWS-style alerts in the following categories: Severe Thunderstorm Warning, Tornado Warning, Flash Flood Warning, Special Weather Statement, and Mesoscale Discussion, issued by trusted SkyMonitor users. Once issued, you can view them directly in the “LIVE REPORTING MAP” section of SkyMonitor as long as you have them enabled.</p>
 
             <h3>Can I trust SkyMonitor custom alerts?</h3>
-            <p>You should NEVER completely trust a SkyMonitor custom alert. They are not issued by meteorologists or experts. However, they are useful for tracking specific storms and what they are capable of producing, even if there is too low a probability for the NWS to rely on. For example, a storm might have a probable chance of producing a tornado; however, the NWS thinks that chance is too low or even misses the chance entirely, which can happen, although rarely, and therefore a custom SkyMonitor alert could let you know of the possible danger. There are also situations where SkyMonitor custom alerts can come a few minutes or even multiple minutes BEFORE the NWS issues one; for example, a custom SkyMonitor Severe Thunderstorm Warning could come slightly before the NWS’s actual Severe Thunderstorm Warning.</p>
+            <p>You should NEVER completely trust a SkyMonitor custom alert. They are not issued by meteorologists or experts. However, they are useful for tracking specific storms and what they are capable of producing, even if there is too low a probability for the NWS to rely on. For example, a storm might have a probable chance of producing a tornado; however, the NWS thinks that chance is too low or even misses the chance entirely, which can happen, although rarely, and therefore a SkyMonitor custom alert could let you know of the possible danger. There are also situations where SkyMonitor custom alerts can come a few minutes or even multiple minutes BEFORE the NWS issues one; for example, a SkyMonitor custom Severe Thunderstorm Warning could come slightly before the NWS’s actual Severe Thunderstorm Warning.</p>
 
             <h3>Is there a quality-checking system behind the issuance of SkyMonitor custom alerts?</h3>
             <p>If any of the alerts issued by our trusted users are deemed inaccurate or even misleading, that person may lose their privilege to issue custom alerts. You can report specific custom alerts by clicking the 📣 button at the top right of the custom alert box. You will be forwarded to a Google Form where the Alert ID you are reporting will be automatically filled in, and from there you can explain why you are reporting the alert, for example, if it was inaccurate or misleading, and if we find that to be true, we will take action to remove the alert and possibly even take action against the person who issued the alert, though that would be rare.</p>
@@ -1014,7 +1014,7 @@
             <button onclick="closeUserReportInfoModal()" style="background:none; border:none; color:#445566; cursor:pointer; font-size:1.2em;">&#10005;</button>
         </div>
         <p style="font-size:0.82em; line-height:1.65; color:#ccd6dd; margin:0;">
-            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
+            When this is enabled, nearby live user reports and SkyMonitor custom alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about SkyMonitor custom alerts" title="Learn about SkyMonitor custom alerts">?</a> will be taken into account with Threat Level, and for custom alerts, will also make it clear when a custom alert is issued for your exact location.
         </p>
         <p style="font-size:0.78em; line-height:1.6; color:#ff9100; margin:14px 0 0 0; font-weight:700;">
             DISCLAIMER: SkyMonitor reports and custom alerts are not officially supported, so mistakes can be made. Be sure to report custom alerts using the report button if you think they are inaccurate or misleading.
@@ -1449,7 +1449,7 @@
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:4px 0 10px;"></div>
                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                     <span style="font-size:0.82em; color:#ccc;">Show custom SkyMonitor alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></span>
+                     <span style="font-size:0.82em; color:#ccc;">Show SkyMonitor custom alerts <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about SkyMonitor custom alerts" title="Learn about SkyMonitor custom alerts">?</a></span>
                      <label class="ios-toggle"><input type="checkbox" id="custom-sky-alerts-toggle-cb" onchange="onCustomSkyAlertsChange()"><span class="ios-toggle-track"></span></label>
                  </div>
                   <div id="custom-sky-alerts-status" style="display:none; font-size:0.68em; color:#718496; margin:-3px 0 10px;"></div>
@@ -1591,7 +1591,7 @@
     const TWC_API_KEY = null;     // legacy compatibility; do not put a key here
     // CloudFlare worker URL for weather reporting (v1.0.4)
     const REPORTS_WORKER_URL = 'https://skymonitor-reports.skymonitor-account.workers.dev';
-    // Cloudflare Worker URL for active custom SkyMonitor alerts
+    // Cloudflare Worker URL for active SkyMonitor custom alerts
     const CUSTOM_SKY_ALERTS_WORKER_URL = 'https://skymonitor-api.skymonitor-account.workers.dev/';
     // Google Form prefilled Alert ID field (entry.598068649)
     const CUSTOM_SKY_ALERT_REPORT_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfgRzOSJSsbV6faOodFd7H6ET6-6PysP51yvMNJSxuz96RGBQ/viewform?usp=pp_url&entry.598068649=';
@@ -9960,7 +9960,7 @@
              var customTiming = expires
                  ? '<div style="display:inline-block;font-size:0.72em;color:rgba(255,255,255,0.88);background:rgba(0,0,0,0.22);border-radius:4px;padding:2px 7px;margin-top:4px;">Expires ' + escapeHtml(_fmtAlertTime(expires)) + '</div>'
                 : '';
-            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about custom SkyMonitor alerts" title="Learn about custom SkyMonitor alerts">?</a></div>';
+            var sourceLine = '<div style="font-size:0.72em;line-height:1.45;margin-top:3px;color:rgba(255,255,255,0.88);">SkyMonitor Custom Alert <a class="custom-alerts-help" href="/about-custom-alerts" aria-label="Learn about SkyMonitor custom alerts" title="Learn about SkyMonitor custom alerts">?</a></div>';
             var fullDetails = '<div id="full-' + customHazardId + '" class="alert-full-text">' + detailRows + summaryHtml + actionHtml + '</div>';
             var card = document.createElement('div');
             card.className = 'alert-card custom-skymonitor-hazard';
@@ -10372,7 +10372,7 @@
             }
         } catch(e) {}
 
-        // Active custom SkyMonitor alert polygons from the Cloudflare Worker
+        // Active SkyMonitor custom alert polygons from the Cloudflare Worker
         await loadCustomSkyAlerts();
 
         await loadMapReports();
