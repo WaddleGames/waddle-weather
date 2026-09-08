@@ -160,7 +160,7 @@
         return language + '|' + text;
     }
 
-    async function translateText(text    function parseTranslationResponse(data) {
+    function parseTranslationResponse(data) {
         return data && data[0]
             ? data[0].map(function (segment) { return segment && segment[0] ? segment[0] : ''; }).join('')
             : '';
