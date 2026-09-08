@@ -2,7 +2,7 @@
 // Bump CACHE_VERSION whenever you deploy a breaking change.
 // All three sub-caches share the same version prefix so a single bump clears
 // everything consistently.
-const CACHE_VERSION = 'skymonitor-v1.1.7.5';
+const CACHE_VERSION = 'skymonitor-v1.1.7.6';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;   // CDN libs — cache-first
 const IMAGE_CACHE   = `${CACHE_VERSION}-images`;   // small icons — cache-on-use
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;  // HTML + same-origin — network-first
@@ -27,6 +27,7 @@ const TAG_PATHS = {
 // The main HTML (./index.html) is intentionally NOT here; it uses network-first
 // so GitHub Pages updates always reach users immediately.
 const STATIC_URLS = [
+    'https://skymonitor.app/i18n.js',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
