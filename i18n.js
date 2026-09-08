@@ -12,7 +12,7 @@
     var STORAGE_KEY = 'skymonitor_ui_language';
     var CACHE_KEY = 'skymonitor_i18n_cache_v1';
     var CACHE_LIMIT = 1500;
-    var TRANSLATION_ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
+    var TRANSLATION_ENDPOINT = '/api/translate';
     var RTL_LANGUAGES = { ar: true, he: true };
     var LANGUAGES = [
         { code: 'en', label: 'English' },
@@ -160,50 +160,88 @@
         return language + '|' + text;
     }
 
-    async function translateText(text, language, signal) {
-        if (!text || language === 'en') return text;
-        var key = cacheKey(language, text);
-        if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key];
-        if (pendingTranslations[key]) return pendingTranslations[key];
+    async function translateText(text    function parseTranslationResponse(data) {
+        return data && data[0]
+            ? data[0].map(function (segment) { return segment && segment[0] ? segment[0] : ''; }).join('')
+            : '';
+    }
 
-        var request = (async function () {
+    async function translateBatch(texts, language, signal) {
+        var results = texts.slice();
+        var missing = [];
+        texts.forEach(function (text, index) {
+            if (!text || language === 'en') return;
+            var key = cacheKey(language, text);
+            if (Object.prototype.hasOwnProperty.call(cache, key)) {
+                results[index] = cache[key];
+            } else {
+                missing.push({ text: text, index: index });
+            }
+        });
+        if (!missing.length) return results;
+
+        // Keep each upstream request below the endpoint's URL limit while
+        // translating many labels in one request instead of one request per DOM node.
+        var delimiter = '\n<<<SKYMONITOR_BREAK>>>\n';
+        var chunks = [];
+        var currentChunk = [];
+        var currentLength = 0;
+        missing.forEach(function (item) {
+            var nextLength = currentLength + item.text.length +
+                (currentChunk.length ? delimiter.length : 0);
+            if (currentChunk.length && nextLength > 4200) {
+                chunks.push(currentChunk);
+                currentChunk = [];
+                currentLength = 0;
+            }
+            currentChunk.push(item);
+            currentLength += item.text.length + (currentChunk.length > 1 ? delimiter.length : 0);
+        });
+        if (currentChunk.length) chunks.push(currentChunk);
+
+        for (var chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+            var chunk = chunks[chunkIndex];
+            var text = chunk.map(function (item) { return item.text; }).join(delimiter);
             try {
                 var url = TRANSLATION_ENDPOINT +
                     '?client=gtx&sl=auto&tl=' + encodeURIComponent(language) +
                     '&dt=t&q=' + encodeURIComponent(text);
                 var response = await fetch(url, signal ? { signal: signal } : undefined);
-                if (!response.ok) return text;
-                var data = await response.json();
-                var translated = data && data[0]
-                    ? data[0].map(function (segment) { return segment && segment[0] ? segment[0] : ''; }).join('')
-                    : '';
-                if (!translated) return text;
-                cache[key] = translated;
-                return translated;
+                if (!response.ok) continue;
+                var translated = parseTranslationResponse(await response.json());
+                var parts = translated.split('<<<SKYMONITOR_BREAK>>>');
+                if (chunk.length === 1 && translated) parts = [translated];
+                if (parts.length !== chunk.length) continue;
+                parts.forEach(function (part, index) {
+                    var value = part.replace(/^\s+|\s+$/g, '');
+                    if (!value) return;
+                    var source = chunk[index];
+                    var key = cacheKey(language, source.text);
+                    cache[key] = value;
+                    results[source.index] = value;
+                });
             } catch (e) {
-                return text;
-            } finally {
-                delete pendingTranslations[key];
+                // Keep the original English text for this batch if it fails.
             }
-        })();
-        pendingTranslations[key] = request;
-        return request;
+        }
+        return results;
     }
 
     async function resolveTranslations(items, language, sourceFor, signal) {
-        var cursor = 0;
-        var results = new Array(items.length);
-        async function worker() {
-            while (cursor < items.length) {
-                var index = cursor++;
-                results[index] = await translateText(sourceFor(items[index]), language, signal);
+        var unique = [];
+        var positions = Object.create(null);
+        var itemKeys = new Array(items.length);
+        items.forEach(function (item, index) {
+            var text = sourceFor(item);
+            var key = language + '\u0000' + text;
+            itemKeys[index] = key;
+            if (!Object.prototype.hasOwnProperty.call(positions, key)) {
+                positions[key] = unique.length;
+                unique.push(text);
             }
-        }
-        var workers = [];
-        var workerCount = Math.min(8, Math.max(1, items.length));
-        for (var i = 0; i < workerCount; i++) workers.push(worker());
-        await Promise.all(workers);
-        return results;
+        });
+        var translated = await translateBatch(unique, language, signal);
+        return itemKeys.map(function (key) { return translated[positions[key]]; });
     }
 
     function restoreEnglish(root) {
