@@ -230,7 +230,7 @@
                 await requestChunk(chunks[index]);
             }
         }
-        var workerCount = Math.min(4, chunks.length);
+        var workerCount = Math.min(2, chunks.length);
         var workers = [];
         for (var workerIndex = 0; workerIndex < workerCount; workerIndex++) workers.push(worker());
         await Promise.all(workers);
@@ -354,16 +354,23 @@
         try {
             nodes.forEach(function (node, index) {
                 if (!node || !node.isConnected) return;
-                node.nodeValue = nodeTranslations[index];
-                translatedText.set(node, nodeTranslations[index]);
-                translatedLanguage.set(node, language);
+                var source = originalText.get(node) || node.nodeValue;
+                var translated = nodeTranslations[index];
+                node.nodeValue = translated;
+                translatedText.set(node, translated);
+                // Do not mark an English fallback as successfully translated;
+                // a later mutation or language retry should try the provider again.
+                if (translated !== source) translatedLanguage.set(node, language);
+                else translatedLanguage.delete(node);
             });
             attributes.forEach(function (item, index) {
                 if (!item.element || !item.element.isConnected) return;
-                item.element.setAttribute(item.attribute, attributeTranslations[index]);
+                var source = item.value;
+                var translated = attributeTranslations[index];
+                item.element.setAttribute(item.attribute, translated);
                 var translatedForElement = translatedAttributes.get(item.element) || {};
-                translatedForElement[item.attribute] = attributeTranslations[index];
-                translatedForElement._language = language;
+                translatedForElement[item.attribute] = translated;
+                translatedForElement._language = translated !== source ? language : '';
                 translatedAttributes.set(item.element, translatedForElement);
             });
         } finally {
