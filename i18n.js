@@ -280,7 +280,13 @@
     }
 
     function queueRoot(root) {
-        if (!root || !root.isConnected || root === document.body) return;
+        if (!root || !root.isConnected) return;
+        // Dynamic panels are frequently rebuilt with innerHTML. Scan the body
+        // so sibling nodes created in the same render cannot be missed.
+        if (root === document.body) {
+            pendingRoots = [document.body];
+            return;
+        }
         if (root.closest && root.closest(VOLATILE_SELECTOR)) return;
         if (pendingRoots.indexOf(root) === -1) pendingRoots.push(root);
     }
@@ -298,18 +304,17 @@
         if (observer || !document.body || !window.MutationObserver) return;
         observer = new MutationObserver(function (mutations) {
             if (currentLanguage === 'en') return;
+            var needsBodyScan = false;
             mutations.forEach(function (mutation) {
                 if (mutation.type === 'childList' && mutation.addedNodes && mutation.addedNodes.length) {
-                    for (var i = 0; i < mutation.addedNodes.length; i++) {
-                        var added = mutation.addedNodes[i];
-                        queueRoot(added.nodeType === 1 ? added : added.parentElement);
-                    }
+                    needsBodyScan = true;
                 } else if (mutation.type === 'attributes' && mutation.target && isVisibleElement(mutation.target)) {
                     // Modal contents are often created while hidden, then shown
                     // by a class/style change without any new child nodes.
-                    queueRoot(mutation.target);
+                    needsBodyScan = true;
                 }
             });
+            if (needsBodyScan) queueRoot(document.body);
             if (pendingRoots.length && !isApplying) scheduleDynamicTranslation();
         });
         // Keep observing during the initial translation transaction so modal
