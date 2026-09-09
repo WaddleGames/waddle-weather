@@ -319,10 +319,19 @@
                 if (mutation.type === 'childList' && mutation.addedNodes && mutation.addedNodes.length) {
                     needsBodyScan = true;
                 } else if (mutation.type === 'characterData') {
-                    // Ignore text writes made by this translator; react to text
-                    // that the weather app fills or replaces after initial load.
-                    if (!translatedText.has(mutation.target) ||
-                        mutation.target.nodeValue !== translatedText.get(mutation.target)) {
+                    var changedNode = mutation.target;
+                    if (!translatedText.has(changedNode) ||
+                        changedNode.nodeValue !== translatedText.get(changedNode)) {
+                        var replacementSource = changedNode.nodeValue;
+                        var previousTranslation = translatedText.get(changedNode);
+                        if (previousTranslation && shouldTranslateText(replacementSource, changedNode.parentElement)) {
+                            // Keep the old translated value on screen while the
+                            // new source text is translated; never flash English.
+                            originalText.set(changedNode, replacementSource);
+                            translatedText.delete(changedNode);
+                            translatedLanguage.delete(changedNode);
+                            changedNode.nodeValue = previousTranslation;
+                        }
                         needsBodyScan = true;
                     }
                 } else if (mutation.type === 'attributes' && mutation.target && isVisibleElement(mutation.target)) {
@@ -440,6 +449,22 @@
         }
     }
 
+    function translateRoot(root) {
+        if (currentLanguage === 'en') return Promise.resolve();
+        var target = root && root.isConnected ? root : document.body;
+        queueRoot(target);
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            pendingTimer = null;
+        }
+        if (transactionRunning || isApplying) {
+            scheduleDynamicTranslation();
+            return Promise.resolve();
+        }
+        var roots = pendingRoots.splice(0);
+        return applyLanguage(currentLanguage, true, translationEpoch, roots);
+    }
+
     function syncSelect() {
         var select = document.getElementById('ui-language-select');
         if (select) select.value = currentSelection;
@@ -495,6 +520,7 @@
             return selected === 'app' ? currentLanguage : selected;
         },
         translateText: translateText,
+        translateRoot: translateRoot,
         setLanguage: setLanguage
     };
 
