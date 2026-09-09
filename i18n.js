@@ -89,7 +89,7 @@
         return 'en';
     }
 
-    var VOLATILE_SELECTOR = '#sync-indicator, #sync-time-display, #station-clock, #threat-updated, #spc-countdown, #turnstile-status, #report-status, #custom-sky-alerts-status, #storm-status-tag, [data-sky-i18n-skip]';
+    var VOLATILE_SELECTOR = '[data-sky-i18n-skip]';
 
     function shouldSkipElement(element) {
         if (!element || !element.tagName) return true;
@@ -180,8 +180,8 @@
         });
         if (!missing.length) return results;
 
-        // Keep each upstream request below the endpoint's URL limit while
-        // translating many labels in one request instead of one request per DOM node.
+        // Keep relay URLs short enough for every edge while sending several
+        // independent batches in parallel instead of serially waiting on each one.
         var delimiter = '___SKYMONITOR_BREAK___';
         var chunks = [];
         var currentChunk = [];
@@ -189,7 +189,7 @@
         missing.forEach(function (item) {
             var nextLength = currentLength + item.text.length +
                 (currentChunk.length ? delimiter.length : 0);
-            if (currentChunk.length && nextLength > 4200) {
+            if (currentChunk.length && nextLength > 1800) {
                 chunks.push(currentChunk);
                 currentChunk = [];
                 currentLength = 0;
@@ -199,31 +199,41 @@
         });
         if (currentChunk.length) chunks.push(currentChunk);
 
-        for (var chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-            var chunk = chunks[chunkIndex];
+        async function requestChunk(chunk) {
             var text = chunk.map(function (item) { return item.text; }).join(delimiter);
             try {
                 var url = TRANSLATION_ENDPOINT +
                     '?client=gtx&sl=auto&tl=' + encodeURIComponent(language) +
                     '&dt=t&q=' + encodeURIComponent(text);
                 var response = await fetch(url, signal ? { signal: signal } : undefined);
-                if (!response.ok) continue;
+                if (!response.ok) return;
                 var translated = parseTranslationResponse(await response.json());
-                var parts = translated.split('___SKYMONITOR_BREAK___');
+                var parts = translated.split(delimiter);
                 if (chunk.length === 1 && translated) parts = [translated];
-                if (parts.length !== chunk.length) continue;
+                if (parts.length !== chunk.length) return;
                 parts.forEach(function (part, index) {
                     var value = part.replace(/^\s+|\s+$/g, '');
                     if (!value) return;
                     var source = chunk[index];
-                    var key = cacheKey(language, source.text);
-                    cache[key] = value;
+                    cache[cacheKey(language, source.text)] = value;
                     results[source.index] = value;
                 });
             } catch (e) {
-                // Keep the original English text for this batch if it fails.
+                // Keep the source text for only this failed batch.
             }
         }
+
+        var cursor = 0;
+        async function worker() {
+            while (cursor < chunks.length) {
+                var index = cursor++;
+                await requestChunk(chunks[index]);
+            }
+        }
+        var workerCount = Math.min(4, chunks.length);
+        var workers = [];
+        for (var workerIndex = 0; workerIndex < workerCount; workerIndex++) workers.push(worker());
+        await Promise.all(workers);
         return results;
     }
 
@@ -308,21 +318,24 @@
             mutations.forEach(function (mutation) {
                 if (mutation.type === 'childList' && mutation.addedNodes && mutation.addedNodes.length) {
                     needsBodyScan = true;
+                } else if (mutation.type === 'characterData') {
+                    // Ignore text writes made by this translator; react to text
+                    // that the weather app fills or replaces after initial load.
+                    if (!translatedText.has(mutation.target) ||
+                        mutation.target.nodeValue !== translatedText.get(mutation.target)) {
+                        needsBodyScan = true;
+                    }
                 } else if (mutation.type === 'attributes' && mutation.target && isVisibleElement(mutation.target)) {
-                    // Modal contents are often created while hidden, then shown
-                    // by a class/style change without any new child nodes.
                     needsBodyScan = true;
                 }
             });
             if (needsBodyScan) queueRoot(document.body);
             if (pendingRoots.length && !isApplying) scheduleDynamicTranslation();
         });
-        // Keep observing during the initial translation transaction so modal
-        // content created in that window cannot be missed. Character data and
-        // volatile text updates are intentionally not observed.
         observer.observe(document.body, {
             childList: true,
             subtree: true,
+            characterData: true,
             attributes: true,
             attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
         });
