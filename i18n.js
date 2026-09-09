@@ -307,7 +307,7 @@
             pendingTimer = null;
             var roots = pendingRoots.splice(0);
             applyLanguage(currentLanguage, true, translationEpoch, roots);
-        }, 150);
+        }, 0);
     }
 
     function observe() {
