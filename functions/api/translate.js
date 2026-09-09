@@ -4,6 +4,7 @@ const JSON_HEADERS = {
 };
 
 const TRANSLATION_PROVIDERS = [
+    { host: 'https://lingva.ml', path: '/api/v1/auto', kind: 'lingva' },
     { host: 'https://clients5.google.com', path: '/translate_a/t', kind: 'chrome' },
     { host: 'https://translate.googleapis.com', path: '/translate_a/single', kind: 'single' },
     { host: 'https://translate.google.com', path: '/translate_a/single', kind: 'single' }
@@ -17,13 +18,16 @@ function json(body, status) {
 }
 
 function providerUrl(provider, language, text) {
+    if (provider.kind === 'lingva') {
+        return provider.host + provider.path + '/' + encodeURIComponent(language) + '/' + encodeURIComponent(text);
+    }
     const upstream = new URL(provider.host + provider.path);
     upstream.searchParams.set('client', provider.kind === 'chrome' ? 'dict-chrome-ex' : 'gtx');
     upstream.searchParams.set('sl', 'auto');
     upstream.searchParams.set('tl', language);
     if (provider.kind === 'single') upstream.searchParams.set('dt', 't');
     upstream.searchParams.set('q', text);
-    return upstream;
+    return upstream.toString();
 }
 
 export async function onRequestGet({ request }) {
@@ -38,7 +42,7 @@ export async function onRequestGet({ request }) {
     let lastStatus = 502;
     for (const provider of TRANSLATION_PROVIDERS) {
         try {
-            const response = await fetch(providerUrl(provider, language, text).toString(), {
+            const response = await fetch(providerUrl(provider, language, text), {
                 headers: {
                     'Accept': 'application/json, text/plain, */*',
                     'Accept-Language': 'en-US,en;q=0.9',
@@ -48,15 +52,19 @@ export async function onRequestGet({ request }) {
             lastStatus = response.status;
             if (!response.ok) continue;
             const body = await response.text();
+            const data = JSON.parse(body);
+            if (provider.kind === 'lingva') {
+                if (!data || !data.translation) continue;
+                return json([[[data.translation]]], 200);
+            }
             if (provider.kind === 'chrome') {
-                const data = JSON.parse(body);
                 const translated = data && data[0] && data[0][0];
                 if (!translated) continue;
                 return json([[[translated]]], 200);
             }
             return new Response(body, { status: 200, headers: JSON_HEADERS });
         } catch (error) {
-            // Try the next Google translation endpoint.
+            // Try the next provider if the current relay is unavailable.
         }
     }
 
